@@ -8,10 +8,23 @@ HL = "https://api.hyperliquid.xyz/info"
 # Minimum seconds between requests to one host, set from testing on 4 Nov 2026:
 # Reddit returned 429 at 8s and worked at 60s; GDELT returned 429 even at 15s, so it gets a wide gap.
 HOST_GAP = {
-    "cdn.cboe.com": 20, "www.reddit.com": 60, "api.gdeltproject.org": 60, "news.google.com": 5,
+    "t.me": 4, "cdn.cboe.com": 20, "www.reddit.com": 60, "api.gdeltproject.org": 60, "news.google.com": 5,
     "api.stlouisfed.org": 1, "api.hyperliquid.xyz": 0.5,
 }
 DEFAULT_GAP = 2
+
+
+# Public channels checked 4 Nov 2026: active, with a post on or near that date. Size alone doesn't prove a channel is
+# official, and lookalikes exist (whale_bot_alerts, walter_bloomberg), so each is a third-party source until checked.
+# Liquidation channels poll fastest because a panic can push posts off the 20-post page; backfill can recover them.
+TELEGRAM = {
+    "BinanceLiquidations": 5 * MIN, "HyperliquidLiquidations": 5 * MIN,
+    "whale_alert_io": 15 * MIN, "whalebotalerts": 30 * MIN, "lookonchainchannel": 30 * MIN,
+    "cryptoquant_official": 30 * MIN, "glassnode": 30 * MIN,
+    "WatcherGuru": 15 * MIN, "wublockchainenglish": 15 * MIN, "cointelegraph": 30 * MIN, "unfolded": 30 * MIN, "bitcoin": 30 * MIN,
+    "walterbloomberg": 15 * MIN, "financialjuice": 15 * MIN, "TheKobeissiLetter": 30 * MIN,
+    "binance_announcements": 30 * MIN, "bybit_announcements": 30 * MIN, "OKXAnnouncements": 30 * MIN, "hyperliquid_announcements": 30 * MIN,
+}
 
 
 @dataclass(frozen=True)
@@ -19,7 +32,7 @@ class Job:
     name: str
     url: str  # may hold {ENV_VAR} placeholders, expanded only at request time and never logged
     every: int
-    kind: str = "json"  # json | xml | csv
+    kind: str = "json"  # json | xml | csv | tg
     body: tuple = ()  # sorted (key, value) pairs of a JSON POST body
     needs: tuple = ()  # env vars required; the job is skipped without them
 
@@ -77,6 +90,8 @@ def social_jobs():
     for t in ("bitcoin", "crypto", "stocks"):
         j.append(Job(f"soc_mastodon_{t}", f"https://mastodon.social/api/v1/timelines/tag/{t}?limit=40", HOUR))
     j.append(Job("soc_4chan_biz", "https://a.4cdn.org/biz/catalog.json", HOUR))
+    for c, every in TELEGRAM.items():
+        j.append(Job(f"soc_tg_{c.lower()}", f"https://t.me/s/{c}", every, "tg"))
     return j
 
 
