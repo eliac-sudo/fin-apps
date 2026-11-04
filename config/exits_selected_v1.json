@@ -1,0 +1,22 @@
+{
+  "crypto": {
+    "panic": "hold",
+    "squeeze": "hold"
+  },
+  "equities": {
+    "panic": "hold",
+    "squeeze": "hold"
+  },
+  "bonds": {
+    "panic": "hold",
+    "squeeze": "stop_half_time"
+  },
+  "commodities": {
+    "panic": "hold",
+    "squeeze": "target_3R"
+  },
+  "fx": {
+    "panic": "thirds_then_trail",
+    "squeeze": "hold"
+  }
+}

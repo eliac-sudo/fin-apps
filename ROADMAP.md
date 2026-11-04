@@ -159,7 +159,7 @@ Doesn't work: Cboe total put/call file stops at 2019-10-04, Yahoo options return
 
 | Phase | Deliverable | Gate |
 |---|---|---|
-| **A1. Exit lab** | Simulate exit rules (fixed target, scale-out in thirds, ATR trailing, time stop) on historical dip entries, after fees, funding and slippage | H3 pre-registered, using the calibration period to choose rules |
+| **A1. Exit lab (calibration done, see `docs/A1_USCITE.md`)** | Simulate exit rules (fixed target, scale-out in thirds, ATR trailing, time stop) on historical dip entries, after fees, funding and slippage | H3 pre-registered, using the calibration period to choose rules |
 | **A2. Your fills** | `bzd fills` runs **locally**: your address stays in `.env` and I never need to see it. Replays your real trades against the rules | A rule beats your actual exits, or your exits turn out not to be the problem. Depends on trade count |
 | **A3. Exit plan** | Written rules, plus a position-size, stop and target calculator. You place brackets by hand | Used on every trade and journaled |
 
@@ -187,7 +187,7 @@ A1 doesn't need your address. A2 waits until you choose to run it.
 
 ## Order
 
-Next is **A1**, then **B2**, **A3**, and **B3** onwards. The frozen setups are in `config/setups_v1.json`. A2 can slot in whenever you decide to run it.
+Next is **B2**, then **A3**, and **B3** onwards. The frozen setups are in `config/setups_v1.json`. A2 can slot in whenever you decide to run it.
 
 ## Deferred
 

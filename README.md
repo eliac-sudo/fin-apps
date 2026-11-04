@@ -34,9 +34,14 @@ python -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m bzd.history get        # all markets; finished series are skipped
 .venv/bin/python -m bzd.history coverage   # dates, gaps and quality per series
 .venv/bin/python -m bzd.setups events      # setup events and counts; computes no forward returns
+.venv/bin/python -m bzd.exits run          # exit rules, calibration period only
 python3 -m bzd.telegram backfill           # liquidation and whale channels; resumable
 python3 -m bzd.telegram status
 ```
+
+## Codespace
+
+`.devcontainer/devcontainer.json` installs Claude Code and the Python packages on creation, and starts the recorder and backfill with `scripts/start-services.sh` on every start. They stop whenever the Codespace pauses, and those gaps can't be filled for data with no history. Claude runs as root, without GitHub credentials. Run `gl` in a normal VS Code terminal to let the running session push: it copies that terminal's token to a file only root can read. `gl off` deletes it. Run `gl` again if the token expires or after a rebuild.
 
 ## Moving to another machine
 

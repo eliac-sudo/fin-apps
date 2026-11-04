@@ -5,7 +5,7 @@
 
 Each saved message keeps its id, so it can be checked by hand at https://t.me/<channel>/<id>.
 """
-import gzip, html, json, os, re, signal, sys, time, urllib.error, urllib.request
+import fcntl, gzip, html, json, os, re, signal, sys, time, urllib.error, urllib.request
 from pathlib import Path
 
 from .recorder import BASE, UA
@@ -107,6 +107,13 @@ def backfill(root, channel, stop, get=get_page, gap=GAP, log=print):
 def main(argv):
     root = Path(os.environ.get("BZD_DATA", BASE / "data")) / "telegram"
     if argv and argv[0] == "backfill":
+        root.mkdir(parents=True, exist_ok=True)
+        lock = open(root / "backfill.lock", "w")
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            print("another backfill is already running", flush=True)
+            return 1
         flag = {"stop": False}
         for s in (signal.SIGINT, signal.SIGTERM):
             signal.signal(s, lambda *_: flag.update(stop=True))

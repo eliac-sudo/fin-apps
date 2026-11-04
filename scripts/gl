@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Let the Claude session running as root push to GitHub, without restarting it.
+#   gl       copy this terminal's GitHub token to a file only root can read
+#   gl off   delete it
+# The token is passed through a pipe, so it never appears in the process list.
+REPO=/workspaces/fin-apps
+CRED=/root/.config/bzd/git-credentials
+KEY=credential.https://github.com.helper
+
+revoke() {
+  sudo rm -f "$CRED"
+  sudo git config --file /root/.gitconfig --unset-all "$KEY" 2>/dev/null
+  return 0
+}
+
+if [ "$1" = "off" ]; then
+  revoke
+  echo "gl: authorization removed."
+  exit 0
+fi
+if [ -z "$GITHUB_TOKEN" ]; then
+  echo "gl: GitHub token not found. Open a new VS Code terminal and run gl there." >&2
+  exit 1
+fi
+printf 'https://x-access-token:%s@github.com\n' "$GITHUB_TOKEN" |
+  sudo sh -c "umask 077; mkdir -p $(dirname "$CRED"); cat > $CRED"
+sudo git config --file /root/.gitconfig --replace-all "$KEY" "store --file=$CRED"
+if sudo env HOME=/root GIT_TERMINAL_PROMPT=0 git -C "$REPO" push --dry-run origin HEAD >/dev/null 2>&1; then
+  echo "gl: OK, Claude can push now. Run 'gl off' to remove the authorization."
+else
+  revoke
+  echo "gl: GitHub refused this token, so nothing was kept." >&2
+  exit 1
+fi
