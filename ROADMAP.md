@@ -6,7 +6,7 @@ Not financial advice. Leveraged short-term trading can lose the whole position m
 
 ## What the event counts show
 
-Reproduce with `python -m bzd.history get`, then `python -m bzd.events`. The counter computes **no forward returns**, so the test sample is still unseen.
+Reproduce with `python -m bzd.history get`, then `python -m bzd.setups events`. The detector computes **no forward returns**, so the test sample is still unseen. Counts below predate the frozen v1 config, whose current counts are in `docs/PREREGISTRAZIONE_v1.md`.
 
 Scope: 9 crypto assets on 4h bars, and 21 futures and FX markets on daily bars. A cluster is a group of events close in time, roughly one market episode (1 day apart for crypto, 3 days otherwise). Calibration/test split: 2024 for crypto, 2015 for the rest, which have far longer history.
 
@@ -171,7 +171,7 @@ A1 doesn't need your address. A2 waits until you choose to run it.
 |---|---|---|
 | **B1a. Recorder (running)** | Start archiving what has no free history: option chains, liquidations, social, L2 books, Hyperliquid candles. Raw responses with timestamps and hashes | Runs unattended with gap alerts. **Every day of delay is data lost for good** |
 | **B1b. Historical store (done, except quality items above)** | Download and clean all backtestable data for every market class, with publication dates and futures rolls handled | Coverage report per source and market, plus event counts per class |
-| **B1c. Detector** | No-lookahead features and setups: panic, squeeze, **overheating** (trim or tighten stops, not short), with option conditions and per-market substitutes | Definitions and thresholds frozen on data to 2023, pre-registered |
+| **B1c. Detector (frozen v1, liquidations excluded)** | No-lookahead features and setups: panic, squeeze, **overheating** (trim or tighten stops, not short), with option conditions and per-market substitutes | Definitions and thresholds frozen on data to 2023, pre-registered |
 | **B2. Experimental alerts** | Terminal or Telegram alert with score, data and links, **labelled unvalidated**. Every signal paper-logged | Runs reliably. You get signals from here, before the tests finish |
 | **B3. Event study** | P1, Q1 and overheating tests against random entries on the same asset, plus stop and target results in R, with clustered errors | Each setup supported, not supported or inconclusive; label updated |
 | **B4. Sentiment** | Reddit first, because it can be backtested, then news tone, attention and forward-only sources. LLM labels validated on 100 of your labels | Kappa ≥ 0.6. Backtest whether sentiment adds anything beyond the price, leverage and funding score |
@@ -187,7 +187,7 @@ A1 doesn't need your address. A2 waits until you choose to run it.
 
 ## Order
 
-Next is **B1c**, then **A1**, **B2**, **A3**, and **B3** onwards. A1 needs B1c's entries and the store built in B1b. A2 can slot in whenever you decide to run it.
+Next is **A1**, then **B2**, **A3**, and **B3** onwards. The frozen setups are in `config/setups_v1.json`. A2 can slot in whenever you decide to run it.
 
 ## Deferred
 

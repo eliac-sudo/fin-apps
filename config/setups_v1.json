@@ -1,0 +1,327 @@
+{
+  "version": 1,
+  "selectivity_rule": {
+    "min_share": 0.05,
+    "max_share": 0.6,
+    "note": "A condition is scored only if it fires on this share of price triggers in the calibration period. One threshold adjustment was allowed, then this rule decides. No forward returns were used."
+  },
+  "confirm_bars": {
+    "panic": 1,
+    "squeeze": 0,
+    "overheating": 0
+  },
+  "classes": {
+    "crypto": {
+      "bar": "4h",
+      "z_window": 180,
+      "cooldown_days": 1,
+      "merge_days": 1,
+      "calibration_end": "2023-12-31",
+      "panic": {
+        "z": -3,
+        "conds": {
+          "oi_flush": {
+            "q": 0.1
+          },
+          "funding_nonpositive": {},
+          "volume_spike_fading": {
+            "z": 3
+          }
+        }
+      },
+      "squeeze": {
+        "z": 2,
+        "conds": {
+          "shorts_building": {},
+          "funding_mostly_negative": {
+            "min_negative_of_9": 6
+          },
+          "volume_high": {
+            "z": 2
+          }
+        }
+      },
+      "overheating": {
+        "z_long": 2,
+        "conds": {
+          "funding_high": {
+            "q": 0.9
+          },
+          "oi_rising": {},
+          "volume_high": {
+            "z": 2
+          }
+        }
+      }
+    },
+    "equities": {
+      "bar": "1d",
+      "z_window": 60,
+      "cooldown_days": 3,
+      "merge_days": 3,
+      "calibration_end": "2014-12-31",
+      "panic": {
+        "z": -3,
+        "conds": {
+          "spec_low": {
+            "q": 0.25
+          },
+          "vol_index_high": {
+            "q": 0.9
+          },
+          "volume_spike_fading": {
+            "z": 2
+          }
+        }
+      },
+      "squeeze": {
+        "z": 2,
+        "conds": {
+          "spec_low": {
+            "q": 0.1
+          },
+          "vol_index_drop": {
+            "pct": -0.1
+          },
+          "volume_high": {
+            "z": 1
+          }
+        }
+      },
+      "overheating": {
+        "z_long": 2,
+        "conds": {
+          "spec_high": {
+            "q": 0.75
+          },
+          "vol_index_low": {
+            "q": 0.1
+          },
+          "volume_high": {
+            "z": 0.5
+          }
+        }
+      }
+    },
+    "bonds": {
+      "bar": "1d",
+      "z_window": 60,
+      "cooldown_days": 3,
+      "merge_days": 3,
+      "calibration_end": "2014-12-31",
+      "panic": {
+        "z": -3,
+        "conds": {
+          "spec_low": {
+            "q": 0.25
+          },
+          "vol_index_high": {
+            "q": 0.9
+          },
+          "volume_spike_fading": {
+            "z": 1.5
+          }
+        }
+      },
+      "squeeze": {
+        "z": 2,
+        "conds": {
+          "spec_low": {
+            "q": 0.1
+          },
+          "vol_index_drop": {
+            "pct": -0.03
+          },
+          "volume_high": {
+            "z": 1
+          }
+        }
+      },
+      "overheating": {
+        "z_long": 2,
+        "conds": {
+          "spec_high": {
+            "q": 0.9
+          },
+          "vol_index_low": {
+            "q": 0.5
+          },
+          "volume_high": {
+            "z": 0.5
+          }
+        }
+      }
+    },
+    "commodities": {
+      "bar": "1d",
+      "z_window": 60,
+      "cooldown_days": 3,
+      "merge_days": 3,
+      "calibration_end": "2014-12-31",
+      "panic": {
+        "z": -3,
+        "conds": {
+          "spec_low": {
+            "q": 0.25
+          },
+          "vol_index_high": {
+            "q": 0.9
+          },
+          "volume_spike_fading": {
+            "z": 2
+          }
+        }
+      },
+      "squeeze": {
+        "z": 2,
+        "conds": {
+          "spec_low": {
+            "q": 0.1
+          },
+          "vol_index_drop": {
+            "pct": -0.03
+          },
+          "volume_high": {
+            "z": 1
+          }
+        }
+      },
+      "overheating": {
+        "z_long": 2,
+        "conds": {
+          "spec_high": {
+            "q": 0.9
+          },
+          "vol_index_low": {
+            "q": 0.25
+          },
+          "volume_high": {
+            "z": 1
+          }
+        }
+      }
+    },
+    "fx": {
+      "bar": "1d",
+      "z_window": 60,
+      "cooldown_days": 3,
+      "merge_days": 3,
+      "calibration_end": "2014-12-31",
+      "panic": {
+        "z": -3,
+        "conds": {
+          "spec_low": {
+            "q": 0.25
+          },
+          "vol_index_high": {
+            "q": 0.9
+          }
+        }
+      },
+      "squeeze": {
+        "z": 2,
+        "conds": {
+          "spec_low": {
+            "q": 0.1
+          },
+          "vol_index_drop": {
+            "pct": -0.03
+          }
+        }
+      },
+      "overheating": {
+        "z_long": 2,
+        "conds": {
+          "spec_high": {
+            "q": 0.9
+          },
+          "vol_index_low": {
+            "q": 0.25
+          }
+        }
+      }
+    }
+  },
+  "scored": {
+    "crypto": {
+      "panic": [
+        "oi_flush",
+        "funding_nonpositive",
+        "volume_spike_fading"
+      ],
+      "squeeze": [
+        "shorts_building",
+        "funding_mostly_negative",
+        "volume_high"
+      ],
+      "overheating": [
+        "funding_high",
+        "volume_high"
+      ]
+    },
+    "equities": {
+      "panic": [
+        "spec_low",
+        "vol_index_high",
+        "volume_spike_fading"
+      ],
+      "squeeze": [
+        "spec_low",
+        "vol_index_drop",
+        "volume_high"
+      ],
+      "overheating": [
+        "spec_high",
+        "vol_index_low",
+        "volume_high"
+      ]
+    },
+    "bonds": {
+      "panic": [
+        "spec_low",
+        "vol_index_high"
+      ],
+      "squeeze": [
+        "spec_low",
+        "vol_index_drop",
+        "volume_high"
+      ],
+      "overheating": [
+        "spec_high",
+        "vol_index_low",
+        "volume_high"
+      ]
+    },
+    "commodities": {
+      "panic": [
+        "spec_low",
+        "vol_index_high",
+        "volume_spike_fading"
+      ],
+      "squeeze": [
+        "spec_low",
+        "vol_index_drop",
+        "volume_high"
+      ],
+      "overheating": [
+        "spec_high",
+        "vol_index_low",
+        "volume_high"
+      ]
+    },
+    "fx": {
+      "panic": [
+        "spec_low",
+        "vol_index_high"
+      ],
+      "squeeze": [
+        "spec_low",
+        "vol_index_drop"
+      ],
+      "overheating": [
+        "spec_high",
+        "vol_index_low"
+      ]
+    }
+  }
+}

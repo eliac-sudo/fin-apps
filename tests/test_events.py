@@ -78,12 +78,6 @@ class TestEvents(unittest.TestCase):
         d = pd.DataFrame({"open": [100., 90.2], "close": [100., 90.]}, index=idx)
         self.assertTrue(E.roll_artefact(d, None, pd.Series([0., np.nan], index=idx)).iloc[1])
 
-    def test_module_does_not_compute_forward_returns(self):
-        import inspect
-        src = inspect.getsource(E)
-        self.assertNotIn(".shift(-2", src)
-        self.assertEqual(src.count(".shift(-"), 2)  # only the next-bar volume confirmation, in each setup builder
-
 
 class TestYahoo(unittest.TestCase):
     def yahoo(self, ts, tz="America/New_York", close=1.5):

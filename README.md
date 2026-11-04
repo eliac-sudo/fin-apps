@@ -23,7 +23,7 @@ Data goes to `data/`, or to `BZD_DATA` if set:
 
 Jobs and request spacing are in `bzd/jobs.py`.
 
-Social responses are deleted after 35 days (`SOCIAL_KEEP_DAYS`), which covers daily, weekly and monthly analysis. The recorder checks at start and once a day. Manifest lines stay, so a path in an old line may no longer exist. Telegram liquidation channels and all other data are kept.
+Reddit and most Telegram responses are deleted after 35 days (`SOCIAL_KEEP_DAYS`), because they can be fetched again. Bluesky, Mastodon, 4chan, Telegram liquidation channels and all other data are kept. The recorder checks at start and once a day. Manifest lines stay, so a path in an old line may no longer exist.
 
 ## History and event counts
 
@@ -33,7 +33,7 @@ These need the packages in `requirements.txt`.
 python -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m bzd.history get        # all markets; finished series are skipped
 .venv/bin/python -m bzd.history coverage   # dates, gaps and quality per series
-.venv/bin/python -m bzd.events             # event counts; computes no forward returns
+.venv/bin/python -m bzd.setups events      # setup events and counts; computes no forward returns
 python3 -m bzd.telegram backfill           # liquidation and whale channels; resumable
 python3 -m bzd.telegram status
 ```

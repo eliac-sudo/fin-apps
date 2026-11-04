@@ -23,7 +23,7 @@ si reimplementano dopo: i riferimenti qui sotto sono solo storici; (5) **tutti i
    direzioni, ma comprare il rimbalzo non è risultato profittevole e seguire l'inerzia non batte il caso (Caporale-Plastun, JES 2019).
    Il momentum giornaliero è forte (Liu-Tsyvinski, RFS 2021): nel brevissimo il panico tende a proseguire, non a rimbalzare.
    Sui regimi di funding negativo (squeeze) i dati favorevoli sono di un broker (K33), su orizzonti 30–360 giorni e pochi regimi.
-3. **Potenza.** Conteggio reale (`python -m bzd.events`, nessun rendimento futuro calcolato): panico cripto con almeno 1 condizione oltre al prezzo = **188 cluster indipendenti**;
+3. **Potenza.** Conteggio reale (`python -m bzd.setups events`, nessun rendimento futuro calcolato): panico cripto con almeno 1 condizione oltre al prezzo = **188 cluster indipendenti**;
    con tutte le condizioni quasi nessun caso, in ogni mercato: la checklist completa non è utilizzabile come filtro. Con 79 cluster di test la potenza è ~59% a d = 0,30:
    gli effetti piccoli resteranno probabilmente «non informativi». Dettagli in `ROADMAP.md`.
 4. **Niente X.** Sentiment solo da fonti gratuite: Reddit (con storia via Arctic Shift, quindi valutabile nei backtest), notizie, Bluesky, Telegram pubblico e altre.
@@ -185,7 +185,7 @@ Il registro serve a U1: misurare se lo strumento migliora davvero le tue decisio
 - La tua premessa («bravo sui dip») resta da misurare (U0). Non è consulenza finanziaria.
 
 ## 9. Da fare (ordine)
-Vedi `ROADMAP.md`.
+Vedi `ROADMAP.md`. Setup congelati: `config/setups_v1.json` e `docs/PREREGISTRAZIONE_v1.md`.
 
 
 

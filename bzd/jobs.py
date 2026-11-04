@@ -82,6 +82,10 @@ def candle_jobs():
     return out
 
 
+def refetchable(name):
+    return name.startswith("soc_reddit_") or (name.startswith("soc_tg_") and "liquidations" not in name)
+
+
 def social_jobs():
     j = []
     for s in ("CryptoCurrency", "Bitcoin", "ethtrader", "wallstreetbets", "stocks", "investing", "Gold", "Forex", "Commodities", "bonds"):
@@ -94,8 +98,9 @@ def social_jobs():
     j.append(Job("soc_4chan_biz", "https://a.4cdn.org/biz/catalog.json", HOUR))
     for c, every in TELEGRAM.items():
         j.append(Job(f"soc_tg_{c.lower()}", f"https://t.me/s/{c}", every, "tg"))
-    # Liquidation channels are market data with no free history, so they are kept
-    return [x if "liquidations" in x.name else replace(x, keep=SOCIAL_KEEP_DAYS) for x in j]
+    # Only sources that can be fetched again are limited: Reddit via Arctic Shift, Telegram by paging back.
+    # Bluesky, Mastodon and 4chan have no other free history here, and liquidation channels are market data.
+    return [replace(x, keep=SOCIAL_KEEP_DAYS) if refetchable(x.name) else x for x in j]
 
 
 def news_jobs():

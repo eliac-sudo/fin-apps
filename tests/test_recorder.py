@@ -110,10 +110,12 @@ class T(unittest.TestCase):
         self.arc.state["soc_b"] = {"path": "raw/soc_b/2026-01-01/000000Z.json.gz"}
         self.assertEqual(self.arc.prune([J.Job("soc_b", "http://x", 60, keep=35)], now), 0)
 
-    def test_social_is_limited_but_liquidation_channels_are_not(self):
+    def test_only_social_sources_that_can_be_refetched_are_limited(self):
         jobs = {j.name: j for j in J.social_jobs()}
-        self.assertEqual(jobs["soc_bluesky_bitcoin"].keep, J.SOCIAL_KEEP_DAYS)
-        self.assertEqual(jobs["soc_tg_binanceliquidations"].keep, 0)
+        for name in ("soc_reddit_bitcoin_new", "soc_tg_watcherguru"):
+            self.assertEqual(jobs[name].keep, J.SOCIAL_KEEP_DAYS, name)
+        for name in ("soc_bluesky_bitcoin", "soc_mastodon_bitcoin", "soc_4chan_biz", "soc_tg_binanceliquidations"):
+            self.assertEqual(jobs[name].keep, 0, name)
 
     def test_status_flags_jobs_that_never_ran(self):
         with contextlib.redirect_stdout(io.StringIO()):
