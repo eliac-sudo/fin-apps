@@ -130,6 +130,21 @@ def build_alert(cls, market, setup, trigger, price_df, conds, config, bar, now):
     }
 
 
+def test_verdict(cls, setup):
+    """What the one pre-registered test said about this class and setup."""
+    p = BASE / "config" / "validation_v1.json"
+    if not p.exists():
+        return "⚠️ NON VALIDATO: il test finale non è ancora stato fatto."
+    t = json.loads(p.read_text())["tests"].get(f"{cls}/{setup}")
+    if not t:
+        return "⚠️ NON VALIDATO: questo setup non è nel test."
+    if t["outcome"] == "supportata":
+        return f"✅ Test superato di poco: {100 * t['mean']:+.2f}% su ingressi casuali, media di {t['clusters']} episodi. Effetto piccolo, non regge alla soglia più severa, e può essere un falso positivo."
+    if t["outcome"] == "non supportata":
+        return f"❌ Test NON superato: nessun vantaggio dimostrato su ingressi casuali ({t['clusters']} episodi)."
+    return f"❓ Test non informativo: troppi pochi episodi per dirlo ({t['clusters']})."
+
+
 def calibration_note(cls, setup):
     """What the exit lab found for this class and setup, in the calibration period only."""
     p = H.root() / "exits_v1_calibration.csv"
@@ -188,7 +203,8 @@ def format_group(alerts, review=None):
     if review:
         lines.append(format_review(review))
         lines.append("")
-    lines.append("⚠️ NON VALIDATO: i test finali non sono ancora stati fatti. Stop e obiettivo sono indicativi. Non è consulenza finanziaria.")
+    lines.append(test_verdict(a0["class"], setup))
+    lines.append("Stop e obiettivo sono indicativi. Non è consulenza finanziaria.")
     return "\n".join(lines)
 
 
@@ -312,9 +328,10 @@ def digest_due(st, now):
 
 
 def queue_digest(st, now, log=print):
+    from .options_report import build_report
     from .thermo import build_digest
     try:
-        st["pending"] += split_message(build_digest(now)[0])
+        st["pending"] += split_message(build_digest(now)[0]) + split_message(build_report(now))
         st["last_digest"] = now.strftime("%Y-%m-%d")
     except Exception as e:
         log(f"thermometer failed, will retry: {type(e).__name__}: {e}")

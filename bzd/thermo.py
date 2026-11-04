@@ -3,11 +3,11 @@
     python -m bzd.thermo           print it
     python -m bzd.thermo --send    also send it to Telegram
 
+Options have their own message in options_report. mood() and attention() remain as baselines for the agents.
 Heat is the plain average of percentiles against strictly earlier data, equally weighted. No LLM and no cost.
 """
-import gzip, html, json, os, re, sys
+import html, re, sys
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -19,6 +19,9 @@ from .history import CRYPTO, MARKETS, safe
 from .recorder import BASE, load_env
 from .setups import VOL_INDEX, load_crypto, load_vol_index
 
+LABELS = {"ES=F": "S&amp;P 500", "NQ=F": "Nasdaq", "RTY=F": "Russell", "ZT=F": "2 anni", "ZF=F": "5 anni", "ZN=F": "10 anni", "ZB=F": "30 anni", "CL=F": "Petrolio", "NG=F": "Gas",
+          "GC=F": "Oro", "SI=F": "Argento", "HG=F": "Rame", "ZC=F": "Mais", "ZW=F": "Grano", "ZS=F": "Soia", "EURUSD=X": "EUR/USD", "USDJPY=X": "USD/JPY", "GBPUSD=X": "GBP/USD",
+          "AUDUSD=X": "AUD/USD", "USDCHF=X": "USD/CHF", "USDCAD=X": "USD/CAD"}
 BANDS = ((80, "🔥 molto caldo"), (60, "🌡 caldo"), (40, "😐 neutro"), (20, "🧊 freddo"), (0, "🥶 molto freddo"))
 FEAR = r"\b(panic|fear|crash|capitulat|liquidat|collapse|plunge|meltdown|bloodbath|recession|sell-?off|tumbl|rekt|paura|crollo)\w*"
 GREED = r"\b(moon|euphori|\bath\b|all-time high|fomo|parabolic|skyrocket|soar|surge|rally|lambo|bullrun|bull run|euforia)\w*"
@@ -111,54 +114,20 @@ def fear_greed():
     return None if d is None else {"value": int(d.value.iloc[-1]), "date": d.date.iloc[-1]}
 
 
-def fmt_money(x):
-    a = abs(x)
-    s = f"{a / 1e9:.1f} mld" if a >= 1e9 else f"{a / 1e6:.0f} mln"
-    return ("+" if x >= 0 else "−") + s + " $"
-
-
-def options_block(now):
-    lines = []
-    oldest = None
-    for name in I.OPTION_SOURCES:
-        try:
-            m = I.latest_options(name)
-        except Exception:
-            m = None
-        if m:
-            t = T.parse_time(m["snapshot"])
-            oldest = max(oldest or 0, (now - t).total_seconds() / 3600)
-            parts = [f"IV 30g {m['iv_30d']:.0%}" if m["iv_30d"] else None, f"skew {m['skew_25d'] * 100:+.1f} pt" if m["skew_25d"] is not None else None,
-                     f"put/call {m['put_call_oi']:.2f}" if m["put_call_oi"] is not None else None, f"GEX {fmt_money(m['gex_call_long'])}", "⚠️ IV breve sopra lunga" if m["term_inverted"] else None]
-            lines.append(f"{name}: " + " · ".join(p for p in parts if p))
-    if lines:
-        lines.append(f"Catene opzioni: dato più vecchio di {oldest:.0f} ore.")
-    return lines
-
-
 def build_digest(now=None):
     now = now or datetime.now(timezone.utc)
     rows = all_readings()
     names = {"crypto": "Cripto", "equities": "Azioni", "bonds": "Bond", "commodities": "Materie prime", "fx": "Forex"}
-    items, _ = T.load_items(now=now, hours=24)
-    out = [f"🌡 <b>Termometro</b> · {now:%d/%m %H:%M} UTC", "Quanto è caldo ogni mercato rispetto al suo passato (0–100). Descrive, non prevede."]
+    out = [f"🌡 <b>Termometro</b> · {now:%d/%m %H:%M} UTC", "Quanto è caldo ogni mercato rispetto al suo passato, da 0 a 100."]
     for cls, label in names.items():
         g = sorted([r for r in rows if r["class"] == cls and r["heat"] is not None], key=lambda r: -r["heat"])
-        if not g:
-            continue
-        m = mood(items, cls, now)
-        avg = float(np.mean([r["heat"] for r in g]))
-        out += ["", f"<b>{label}</b>: {avg:.0f} {band(avg)}", " · ".join(f"{r['market'].replace('=F', '').replace('=X', '')} {r['heat']:.0f}" for r in g[:12])]
-        if m["texts"]:
-            out.append(f"Testi 24h: {m['texts']}, con parole di paura {m['fear']}, di euforia {m['greed']}")
-    fg, att, opts = fear_greed(), attention(), options_block(now)
-    out += ["", "<b>Altri dati</b>"]
+        if g:
+            avg = float(np.mean([r["heat"] for r in g]))
+            out += ["", f"<b>{label}: {avg:.0f}</b> {band(avg)}", " · ".join(f"{LABELS.get(r['market'], r['market'])} {r['heat']:.0f}" for r in g[:9])]
+    fg = fear_greed()
     if fg:
-        out.append(f"Fear &amp; Greed cripto: {fg['value']} ({fg['date']})")
-    if att:
-        out.append("Visite Wikipedia, 7g sull'anno (z): " + " · ".join(f"{k.replace('_', ' ')} {v:+.1f}" for k, v in att.items()))
-    out += opts
-    out += ["", "Medie semplici di percentili, non validate e non sono un segnale. GEX assume dealer lunghi call e corti put. Non è consulenza finanziaria."]
+        out += ["", f"Fear &amp; Greed cripto: {fg['value']}"]
+    out += ["", "Descrive e non prevede: non è testato come segnale e non è consulenza finanziaria."]
     return "\n".join(out), rows
 
 

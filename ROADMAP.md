@@ -142,7 +142,7 @@ The same setups (panic, squeeze, overheating) apply to crypto, equities, commodi
 | Cboe delayed chains | SPY, SPX, GLD, TLT, USO, FXE | **Current snapshot only**: forward recording |
 | Deribit, OKX, Bybit, Binance chains | crypto options | Current snapshot: forward recording |
 
-Doesn't work: Cboe total put/call file stops at 2019-10-04, Yahoo options returned 401. DoltHub's historical option chains timed out, so retest: it could add equity chain history.
+Doesn't work: Cboe total put/call file stops at 2019-10-04, Yahoo options returned 401. DoltHub works when queries filter on date and symbol: it has historical chains and daily IV and realized volatility per underlying.
 
 **Option signals to build**: IV level and jump, term structure inversion (front IV above back IV, a panic marker), 25-delta skew, put/call, and GEX with both sign conventions. Only the first can be backtested widely today. Skew has SKEW for US equities and Deribit trades for BTC. GEX and put/call by underlying stay forward-only unless a chain history source turns up.
 
@@ -173,7 +173,7 @@ A1 doesn't need your address. A2 waits until you choose to run it.
 | **B1b. Historical store (done, except quality items above)** | Download and clean all backtestable data for every market class, with publication dates and futures rolls handled | Coverage report per source and market, plus event counts per class |
 | **B1c. Detector (frozen v1, liquidations excluded)** | No-lookahead features and setups: panic, squeeze, **overheating** (trim or tighten stops, not short), with option conditions and per-market substitutes | Definitions and thresholds frozen on data to 2023, pre-registered |
 | **B2. Experimental alerts (running, Telegram pending the bot)** | Terminal or Telegram alert with score, data and links, **labelled unvalidated**. Every signal paper-logged | Runs reliably. You get signals from here, before the tests finish |
-| **B3. Event study** | P1, Q1 and overheating tests against random entries on the same asset, plus stop and target results in R, with clustered errors | Each setup supported, not supported or inconclusive; label updated |
+| **B3. Event study (run once, see `docs/B3_RISULTATI.md`)** | P1, Q1 and overheating tests against random entries on the same asset, plus stop and target results in R, with clustered errors | Each setup supported, not supported or inconclusive; label updated |
 | **B4. Sentiment** | Reddit first, because it can be backtested, then news tone, attention and forward-only sources. LLM labels validated on 100 of your labels | Kappa ≥ 0.6. Backtest whether sentiment adds anything beyond the price, leverage and funding score |
 | **B5. Setup card** | Past similar cases with honest intervals, pro and con case, sources with evidence IDs | Every number traces to an evidence ID. Intervals use clusters, not raw cases |
 
@@ -196,7 +196,7 @@ Raw alerts stay off Telegram until the agents review them. The flow: the detecto
 
 ## Order
 
-Telegram alerts and the daily thermometer are on, with paid agent reviews off (`BZD_AGENTS`). Next are **B3**, then the 100 labels, **A3** and a read-only app. The frozen setups are in `config/setups_v1.json`. A2 can slot in whenever you decide to run it.
+B3 has run once: of 15 tests only crypto panic passed, narrowly (`docs/B3_RISULTATI.md`). Telegram alerts, the thermometer and a separate options message are on, with paid agent reviews off (`BZD_AGENTS`). Any new setup needs a v2 pre-registration and fresh data. Next are the 100 labels, **A3** and a read-only app. The frozen setups are in `config/setups_v1.json`. A2 can slot in whenever you decide to run it.
 
 ## Deferred
 

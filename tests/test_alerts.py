@@ -70,7 +70,8 @@ class TestMessages(unittest.TestCase):
     def test_message_is_labelled_and_shows_levels(self):
         with mock.patch.object(A, "calibration_note", return_value=None):
             t = A.format_group([alert()])
-        self.assertIn("NON VALIDATO", t)
+        self.assertIn("Test", t)
+        self.assertIn("non è consulenza".replace("non è", "Non è"), t)
         self.assertIn("PANICO", t)
         self.assertIn("stop 95.0000", t)
         self.assertIn("dato non ancora noto", t)
@@ -145,6 +146,15 @@ class TestFreshness2(unittest.TestCase):
             A.send_text('<b>x</b> &amp; <a href="u">y</a>')
         self.assertEqual(calls[1]["text"], "x & y")
         self.assertNotIn("parse_mode", calls[1])
+
+
+class TestVerdict(unittest.TestCase):
+    def test_each_outcome_reads_differently(self):
+        crypto = A.test_verdict("crypto", "panic")
+        self.assertIn("falso positivo", crypto)
+        self.assertIn("NON superato", A.test_verdict("crypto", "squeeze"))
+        self.assertIn("non informativo", A.test_verdict("bonds", "panic"))
+        self.assertIn("NON VALIDATO", A.test_verdict("crypto", "other"))
 
 
 class TestDelivery(unittest.TestCase):

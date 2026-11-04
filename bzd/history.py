@@ -29,10 +29,12 @@ MARKETS = {
 # ETFs spot futures roll artefacts, and they are the underlyings of the recorded option chains
 ETF_CHECK = {"ES=F": "SPY", "NQ=F": "QQQ", "RTY=F": "IWM", "ZN=F": "IEF", "ZB=F": "TLT", "GC=F": "GLD", "SI=F": "SLV", "CL=F": "USO"}
 VOL_YAHOO = ["^MOVE"]
-VOL_CBOE = {"VIX": "CLOSE", "VVIX": "VVIX", "SKEW": "SKEW", "OVX": "OVX", "GVZ": "GVZ"}
+VOL_CBOE = {"VIX": "CLOSE", "VIX9D": "CLOSE", "VIX3M": "CLOSE", "VVIX": "VVIX", "SKEW": "SKEW", "OVX": "OVX", "GVZ": "GVZ"}
+IV_SYMBOLS = ["SPY", "QQQ", "IWM", "TLT", "IEF", "GLD", "SLV", "USO", "FXE"]
+DOLTHUB = "https://www.dolthub.com/api/v1alpha1/post-no-preference/options/master?q="
 FRED = ["DFF", "DGS2", "DGS10", "T10Y2Y", "BAMLH0A0HYM2", "DTWEXBGS", "EVZCLS"]
 WIKI = ["Bitcoin", "Cryptocurrency", "Stock_market_crash", "Recession", "Inflation", "Gold_as_an_investment"]
-GAPS = {"cdn.cboe.com": 20, "query1.finance.yahoo.com": 2, "api.stlouisfed.org": 1, "publicreporting.cftc.gov": 1.5}
+GAPS = {"www.dolthub.com": 2, "cdn.cboe.com": 20, "query1.finance.yahoo.com": 2, "api.stlouisfed.org": 1, "publicreporting.cftc.gov": 1.5}
 _last = {}
 
 
@@ -248,6 +250,48 @@ def get_cot(force=False):
         save("cot", n, out.drop_duplicates("report_date"), quiet=force)
 
 
+def dolthub_iv_year(sym, year):
+    """One year of daily implied and realized volatility. Filtered by date and symbol, because wider queries time out."""
+    sql = f"select date,iv_current,hv_current from volatility_history where date>='{year}-01-01' and date<'{year + 1}-01-01' and act_symbol='{sym}' order by date"
+    d = json.loads(get("vol", f"IV_{sym}", int(time.time() * 10), DOLTHUB + urllib.parse.quote(sql)))
+    if d.get("query_execution_status") != "Success":
+        raise RuntimeError(f"dolthub {sym} {year}: {str(d.get('query_execution_message'))[:60]}")
+    return [(r["date"][:10], float(r["iv_current"]) if r.get("iv_current") else None, float(r["hv_current"]) if r.get("hv_current") else None) for r in d.get("rows", [])]
+
+
+def get_iv(force=False, years=None):
+    this_year = datetime.now(timezone.utc).year
+    for sym in IV_SYMBOLS:
+        p = f"IV_{sym}"
+        if done("vol", p) and not force:
+            continue
+        rows, failed = [], 0
+        for y in years or range(2015, this_year + 1):
+            try:
+                rows += dolthub_iv_year(sym, y)
+            except Exception as e:
+                failed += 1
+                print(f"  {e}", flush=True)
+        if not rows:
+            continue
+        new = pd.DataFrame(rows, columns=["date", "iv", "hv"])
+        if done("vol", p):
+            new = merge_tail(pd.read_csv(root() / "vol" / f"{p}.csv.gz"), new, "date")
+        save("vol", p, new, quiet=force)
+        if failed:
+            print(f"  {sym}: {failed} years missing", flush=True)
+
+
+def refresh_dvol():
+    tag, end = int(time.time()), int(time.time() * 1000)
+    for c in ("BTC", "ETH"):
+        n = f"{c}_dvol_1d"
+        x = json.loads(get("live", n, tag, f"https://www.deribit.com/api/v2/public/get_volatility_index_data?currency={c}&start_timestamp={end - 40 * 86400000}&end_timestamp={end}&resolution=1D"))["result"]["data"]
+        d = pd.DataFrame(x, columns="t open high low close".split())
+        d["t"] = to_utc(d.t).astype(str)
+        save("crypto", n, merge_tail(pd.read_csv(root() / "crypto" / f"{n}.csv.gz"), d, "t"), quiet=True)
+
+
 def get_macro(force=False):
     key = os.environ.get("FRED_API_KEY")
     if not key:
@@ -326,11 +370,16 @@ def refresh_daily(with_cot=False):
         save("tradfi", n, merge_tail(old, d[[c for c in old.columns if c in d]], "date"), quiet=True)
     get_vol(force=True)
     get_macro_fng_and_attention()
+    refresh_dvol()
+    try:
+        get_iv(force=True, years=[datetime.now(timezone.utc).year])
+    except Exception as e:  # a third-party archive being down must not stop the rest
+        print(f"  implied volatility not refreshed: {e}", flush=True)
     if with_cot:
         get_cot(force=True)
 
 
-GROUPS = {"crypto": get_crypto, "tradfi": get_tradfi, "vol": get_vol, "cot": get_cot, "macro": get_macro, "attention": get_attention}
+GROUPS = {"crypto": get_crypto, "tradfi": get_tradfi, "vol": get_vol, "iv": get_iv, "cot": get_cot, "macro": get_macro, "attention": get_attention}
 
 
 def quality(df):

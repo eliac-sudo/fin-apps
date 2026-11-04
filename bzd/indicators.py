@@ -125,7 +125,7 @@ def parse_deribit(data):
     return rows, spot, 1
 
 
-OPTION_SOURCES = {"SPY": ("opt_cboe_spy", parse_cboe), "GLD": ("opt_cboe_gld", parse_cboe), "TLT": ("opt_cboe_tlt", parse_cboe), "USO": ("opt_cboe_uso", parse_cboe),
+OPTION_SOURCES = {"SPY": ("opt_cboe_spy", parse_cboe), "GLD": ("opt_cboe_gld", parse_cboe), "TLT": ("opt_cboe_tlt", parse_cboe), "USO": ("opt_cboe_uso", parse_cboe), "FXE": ("opt_cboe_fxe", parse_cboe),
                   "BTC": ("opt_deribit_btc", parse_deribit), "ETH": ("opt_deribit_eth", parse_deribit)}
 
 

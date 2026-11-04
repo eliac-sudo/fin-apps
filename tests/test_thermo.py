@@ -106,9 +106,41 @@ class TestThermo(unittest.TestCase):
                  {"time": "2026-11-03T22:00:00+00:00", "text": "cake recipe"}, {"time": "2026-10-01T00:00:00+00:00", "text": "bitcoin crash"}]
         self.assertEqual(Th.mood(items, "crypto", NOW), {"texts": 2, "fear": 1, "greed": 1})
 
-    def test_money_format(self):
-        self.assertEqual(Th.fmt_money(2.5e9), "+2.5 mld $")
-        self.assertEqual(Th.fmt_money(-3e6), "−3 mln $")
+    def test_digest_has_no_options_and_stays_short(self):
+        from unittest import mock
+        rows = [{"market": "BTC", "class": "crypto", "heat": 90.0}, {"market": "ES=F", "class": "equities", "heat": 30.0}]
+        with mock.patch.object(Th, "all_readings", return_value=rows), mock.patch.object(Th, "fear_greed", return_value={"value": 34, "date": "x"}):
+            t, _ = Th.build_digest(NOW)
+        self.assertNotIn("GEX", t)
+        self.assertNotIn("IV", t)
+        self.assertIn("S&amp;P 500 30", t)
+        self.assertLess(len(t), 600)
+
+
+class TestOptionsReport(unittest.TestCase):
+    def test_levels(self):
+        from bzd import options_report as O
+        self.assertEqual((O.level(5), O.level(50), O.level(95)), ("molto bassa", "media", "molto alta"))
+
+    def test_report_has_no_gex_and_says_what_it_is(self):
+        from unittest import mock
+        from bzd import options_report as O
+        block = {"label": "VIX", "value": 20.8, "pct": 71.0, "date": NOW}
+        chain = {"skew_25d": .048, "iv_7d": .13, "iv_30d": .14, "term_inverted": False, "gex_call_long": 1e9}
+        with mock.patch.object(O, "level_line", return_value=block), mock.patch.object(O, "iv_line", return_value=None), mock.patch.object(O.I, "latest_options", return_value=chain), mock.patch.object(O, "index_series", return_value=None):
+            t = O.build_report(NOW)
+        self.assertIn("<b>alta</b>", t)
+        self.assertIn("put più care", t)
+        self.assertIn("Più tesa", t)
+        self.assertNotIn("GEX", t)
+        self.assertIn("non è testato", t)
+
+    def test_term_flags_near_term_fear(self):
+        from unittest import mock
+        from bzd import options_report as O
+        a, b = series([25.0]), series([20.0])
+        with mock.patch.object(O, "index_series", side_effect=[a, b]):
+            self.assertIn("paura immediata", O.term_line({"short": "VIX9D", "long": "VIX3M"}, None))
 
 
 if __name__ == "__main__":

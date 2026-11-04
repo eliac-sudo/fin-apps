@@ -2,6 +2,8 @@
 
 Riproduzione: `python -m bzd.exits run`. Regole e criterio di scelta sono stati fissati nel commit `b99af4a`, prima di calcolare qualsiasi rendimento. I prezzi vengono tagliati alla fine della calibrazione, quindi il periodo di test resta chiuso. Tabella completa: `data/hist/exits_v1_calibration.csv`. Non è consulenza finanziaria.
 
+> **Aggiornamento dopo B3:** nel periodo di test le uscite selezionate non hanno superato il confronto con «tieni» (`docs/B3_RISULTATI.md`). Nel panico cripto, stop + 3R ha ridotto molto le perdite grandi (peggior 10% −1,11R contro −3,88R), ma ha anche reso meno: −0,02R contro +0,31R per episodio. Quindi la frase qui sotto, «quasi senza costo medio», vale solo per la calibrazione.
+
 ## Risultati principali (cripto, panico: 576 eventi)
 
 | Regola | R medio per evento | R medio per episodio | Peggior 10% | Oltre −3R | Profitto restituito |
