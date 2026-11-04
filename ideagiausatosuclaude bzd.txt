@@ -1,0 +1,29 @@
+app che opera su hyperliquid con i futures
+
+prima buildiamo gli agenti poi facciamo un app ccon interfaccia
+
+esploriamo i framework anaitici- psicologii piu impo nel capo fin-eco e li implementiamo negli agenti
+controlliamo ccome altri dev hanno sviluppato queste ideee e questi agenti 
+
+
+
+1) agente  raccoglie dati da fonti finaziari ufficiali siti gratis e on chain datas
+ 
+
+2) agente che verifica e calcola i dati quantitative
+ tutti gli indicatori fin piu impo+ indicatori analisi tecnica piu famosi e usati da istuzionali+ analisi opizioni (gex etc)
+
+3) uno che raccoglie dati da x(twitter) e social e da feed ufficaili reutes etc
+ 
+4) agente che anlizza il sentiment dei social e dalle news fear or greed(o entusiasmo)
+
+5) agente che supervisiona la coerenza e prepara un report
+
+tutti gli agenti devono verificare e citare le fonti e devo poterle verifcare anche io potenzialmente
+
+
+l idea alla fine e avere un Sistema automattzato di raccolta e presentazione dati per poi genereare segnali semplici buy ze dip
+o sell the top che poi colleghiamo ad hyperliquid al collegamento con hyperliquidi pensiamo dopo prima voglio agenti top che lavorano
+bene poi verifichiamo come implementare un sistem,a di trading. il punto e che penso di essere molto bravo a comprare il dip ma poi top faccio fatica
+vorrei genrearre qualcosa chje possa leeggere sentiment e dati in tempo reale e darmi un ideaa di quanto sia calda la situazione per eseguire
+[poi trade automatizzati che mi impediscano di greedare
