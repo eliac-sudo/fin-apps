@@ -45,7 +45,7 @@ python3 -m bzd.telegram status
 
 ## Alerts
 
-`python -m bzd.alerts` runs the frozen setups on fresh data and logs every alert to `data/alerts/log.jsonl`. Sending is off until the agents review alerts: with `BZD_ALERTS_TELEGRAM=on` in `.env`, every trigger also goes to Telegram, with what the B3 test said about it and the options context for that market. Strong price moves (`bzd/moves.py`) go out too, within about 15 minutes, and are logged to `data/alerts/moves.jsonl`: they are large against the market's own volatility, on the Hyperliquid snapshots, and aren't tested as a signal. The module never places orders.
+`python -m bzd.alerts` runs the frozen setups on fresh data and logs every alert to `data/alerts/log.jsonl`. Sending is off until the agents review alerts: with `BZD_ALERTS_TELEGRAM=on` in `.env`, every trigger also goes to Telegram as insight: what moved, whether the price is cheap or dear against its own last year, what the B3 test said, and the options context for that market. Entries, stops and targets are logged but not sent: they belong in the app. Strong price moves (`bzd/moves.py`) go out too, within about 15 minutes, and are logged to `data/alerts/moves.jsonl`: they are large against the market's own volatility, on the Hyperliquid snapshots, and aren't tested as a signal. The module never places orders.
 
 `python -m bzd.plan BTC 5000`, or `/piano BTC 5000` to the bot, gives the position size, leverage, stop, target and time exit for a chosen risk (`docs/A3_REGOLE.md`). You place the orders by hand. It reads public prices only, and logs each plan to `data/alerts/plans.jsonl`.
 

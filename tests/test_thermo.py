@@ -151,3 +151,33 @@ class TestOptionsReport(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCheapOrDear(unittest.TestCase):
+    def test_price_position(self):
+        import pandas as pd
+        from bzd import thermo as Z
+        up = pd.Series([float(x) for x in range(1, 101)])
+        p = Z.price_position(up, 100)
+        self.assertEqual(p["label"], "molto caro")
+        self.assertEqual(p["from_high"], 0)
+        down = pd.Series([float(x) for x in range(100, 0, -1)])
+        self.assertEqual(Z.price_position(down, 100)["label"], "molto economico")
+        self.assertIsNone(Z.price_position(up.head(10), 100))
+        self.assertIn("rispetto all'ultimo anno", Z.position_text(p))
+
+    def test_options_cost_compares_implied_with_realized(self):
+        import numpy as np, pandas as pd
+        from unittest import mock
+        from bzd import options_report as R
+        np.random.seed(1)
+        s = pd.Series(100 * np.exp(np.cumsum(np.random.normal(0, .01, 60))))
+        rv = R.realized_vol(s, 252)
+        self.assertAlmostEqual(rv, .16, delta=.08)
+        b = {"underlying": ("tradfi", "X", 252)}
+        with mock.patch.object(R, "index_series", return_value=s):
+            self.assertEqual(R.price_of_options(b, {"iv_30d": rv * 2})["label"], "care")
+            self.assertEqual(R.price_of_options(b, {"iv_30d": rv * .5})["label"], "economiche")
+            self.assertEqual(R.price_of_options(b, {"iv_30d": rv})["label"], "nella norma")
+        self.assertIsNone(R.price_of_options({}, {"iv_30d": .2}))
+        self.assertIsNone(R.price_of_options(b, None))

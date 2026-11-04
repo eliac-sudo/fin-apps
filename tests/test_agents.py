@@ -193,7 +193,7 @@ class TestAlertIntegration(Base):
     def test_rejected_view_never_removes_the_alert(self):
         st = self.state()
         rec = {"status": "ok", "checks": [], "n_texts": 1, "cited": {}, "review": good(lettura="contro", contro=[])}
-        with mock.patch.object(A, "calibration_note", return_value=None):
+        with mock.patch.object(A, "safe_options", return_value=""):
             A.enqueue([alert()], st, True, lambda g: rec)
         self.assertEqual(len(st["pending"]), 1)
         self.assertIn("CONTRO", st["pending"][0])

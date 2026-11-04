@@ -67,28 +67,24 @@ class TestLive(unittest.TestCase):
 
 
 class TestMessages(unittest.TestCase):
-    def test_message_is_labelled_and_shows_levels(self):
-        with mock.patch.object(A, "calibration_note", return_value=None):
-            t = A.format_group([alert()])
-        self.assertIn("Test", t)
-        self.assertIn("non è consulenza".replace("non è", "Non è"), t)
-        self.assertIn("PANICO", t)
-        self.assertIn("stop 95.0000", t)
-        self.assertIn("dato non ancora noto", t)
+    def test_message_gives_insight_and_no_trade_instructions(self):
+        pos = {"pct": 8, "label": "molto economico", "from_high": -40.0, "from_low": 3.0}
+        for setup in ("panic", "squeeze", "overheating"):
+            with mock.patch.object(A, "market_position", return_value=pos):
+                t = A.format_group([alert(setup=setup)])
+            self.assertIn("molto economico", t)
+            self.assertIn("Test", t)
+            self.assertIn("Non è consulenza", t)
+            self.assertIn("Non ancora noto", t)
+            for word in ("95.0000", "115.0000", "stop", "Ingresso", "/piano", "3R", "valuta di ridurla"):
+                self.assertNotIn(word, t.lower() if word == "stop" else t)
 
-    def test_wide_stop_gets_a_warning(self):
-        a = alert(plan={"price": 100., "stop": 80., "target_3r": 160., "risk_pct": .2})
-        self.assertIn("liquidazione", A.format_item(a))
+    def test_position_failure_never_loses_an_alert(self):
+        with mock.patch.object(A, "market_position", side_effect=ValueError):
+            self.assertIn("PANICO", A.format_group([alert()]))
 
-    def test_overheating_says_reduce_not_short_and_gives_no_entry_levels(self):
-        with mock.patch.object(A, "calibration_note", return_value=None):
-            t = A.format_group([alert(setup="overheating", entry_after_bars=1)])
-        self.assertIn("Non è un segnale di short", t)
-        self.assertNotIn("obiettivo 3R", t)
-
-    def test_market_not_on_hyperliquid_is_marked(self):
-        self.assertIn("solo contesto", A.format_item(alert(market="ZC=F", **{"class": "commodities"})))
-        self.assertIn("xyz:GOLD", A.format_item(alert(market="GC=F", **{"class": "commodities"})))
+    def test_plan_is_still_logged_for_paper_tracking(self):
+        self.assertIn("plan", alert())
 
     def test_split_respects_the_limit_and_loses_nothing(self):
         text = "\n".join(f"riga {i} " + "x" * 50 for i in range(300))
@@ -111,7 +107,6 @@ class TestFreshness2(unittest.TestCase):
         self.assertTrue(f["plan_broken"])
         self.assertEqual(f["bars_since_trigger"], 1)
         self.assertAlmostEqual(f["move_since_trigger_pct"], -8.33)
-        self.assertIn("non è più valido", A.format_item(alert(market="CL=F", fresh=f, **{"class": "commodities"})))
 
     def test_crypto_uses_the_hyperliquid_mark(self):
         d = self.frame([100., 96.])
@@ -126,7 +121,6 @@ class TestFreshness2(unittest.TestCase):
             f = A.freshness(d, d.index[1], plan, "CL=F", NOW)
         self.assertFalse(f["plan_broken"])
         self.assertAlmostEqual(f["hl_gap_from_plan_pct"], -6.25)
-        self.assertIn("lontano dal piano", A.format_item(alert(market="CL=F", fresh=f, **{"class": "commodities"})))
 
     def test_digest_is_once_a_day_from_the_set_hour(self):
         early, later = pd.Timestamp("2026-11-05 03:00", tz="UTC"), pd.Timestamp("2026-11-05 09:00", tz="UTC")
@@ -172,7 +166,7 @@ class TestDelivery(unittest.TestCase):
 
     def test_every_alert_is_logged_and_sent_even_with_score_zero(self):
         st = self.empty()
-        with mock.patch.object(A, "calibration_note", return_value=None):
+        with mock.patch.object(A, "safe_options", return_value=""):
             A.enqueue([alert(), alert(key="k2", market="ETH", score=0, unknown=[])], st, True)
         rows = [json.loads(x) for x in (Path(self.tmp.name) / "alerts" / "log.jsonl").read_text().splitlines()]
         self.assertEqual([r["queued_for_telegram"] for r in rows], [True, True])
@@ -180,16 +174,16 @@ class TestDelivery(unittest.TestCase):
         self.assertEqual(st["seen"], ["BTC|panic|t", "k2"])
 
     def test_options_failure_never_loses_an_alert(self):
-        with mock.patch("bzd.options_report.options_note", side_effect=ValueError), mock.patch.object(A, "calibration_note", return_value=None):
+        with mock.patch("bzd.options_report.options_note", side_effect=ValueError):
             self.assertIn("PANICO", A.format_group([alert()]))
 
     def test_alert_carries_options_context(self):
-        with mock.patch("bzd.options_report.options_note", return_value="OPZ-QUI"), mock.patch.object(A, "calibration_note", return_value=None):
+        with mock.patch("bzd.options_report.options_note", return_value="OPZ-QUI"):
             self.assertIn("OPZ-QUI", A.format_group([alert()]))
 
     def test_same_move_on_many_coins_is_one_message(self):
         st = self.empty()
-        with mock.patch.object(A, "calibration_note", return_value=None):
+        with mock.patch.object(A, "safe_options", return_value=""):
             A.enqueue([alert(), alert(key="k2", market="ETH"), alert(key="k3", market="SOL")], st, True)
         self.assertEqual(len(st["pending"]), 1)
 

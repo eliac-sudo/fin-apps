@@ -83,6 +83,34 @@ def all_readings():
     return out
 
 
+PRICE_BANDS = ((80, "molto caro"), (60, "caro"), (40, "nella media"), (20, "economico"), (0, "molto economico"))
+
+
+def price_position(close, year_bars):
+    """Where the price sits in its own last year. This is cheap or dear against its recent past: it says nothing about what the market is worth."""
+    c = close.dropna().tail(year_bars)
+    if len(c) < year_bars // 2:
+        return None
+    last = float(c.iloc[-1])
+    pct = 100 * float((c.iloc[:-1] < last).mean())
+    return {"pct": pct, "label": next(name for lim, name in PRICE_BANDS if pct >= lim), "from_high": 100 * (last / float(c.max()) - 1), "from_low": 100 * (last / float(c.min()) - 1)}
+
+
+def market_position(market):
+    """Price position of a market from stored daily closes, or None."""
+    if market in CRYPTO:
+        d, bars = read("crypto", f"{market}_candles_1d"), 365
+    else:
+        d, bars = read("tradfi", safe(market)), 252
+    if d is None:
+        return None
+    return price_position(daily(d if "date" in d else d.assign(date=d.t.str[:10])).close, bars)
+
+
+def position_text(p):
+    return f"{p['label']} rispetto all'ultimo anno ({p['from_high']:+.0f}% dal massimo, {p['from_low']:+.0f}% dal minimo)"
+
+
 def mood(items, cls, now, hours=24):
     """Baseline mood from word counts, with no LLM. Crude by design: it is what the LLM has to beat."""
     pat = T.topic_pattern(cls, None)
@@ -124,6 +152,9 @@ def build_digest(now=None):
         if g:
             avg = float(np.mean([r["heat"] for r in g]))
             out += ["", f"<b>{label}: {avg:.0f}</b> {band(avg)}", " · ".join(f"{LABELS.get(r['market'], r['market'])} {r['heat']:.0f}" for r in g[:9])]
+    pos = sorted((p["pct"], LABELS.get(m, m)) for m, p in ((m, market_position(m)) for m in [*CRYPTO, *MARKETS]) if p)
+    if pos:
+        out += ["", "<b>Prezzo rispetto all'ultimo anno</b>", "Più economici: " + " · ".join(n for _, n in pos[:5]), "Più cari: " + " · ".join(n for _, n in pos[:-6:-1])]
     fg = fear_greed()
     if fg:
         out += ["", f"Fear &amp; Greed cripto: {fg['value']}"]

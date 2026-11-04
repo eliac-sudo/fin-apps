@@ -110,6 +110,8 @@ def format_moves(moves, now, options=""):
     for m in sorted(moves, key=lambda x: -x["strength"]):
         name = NAMES.get(m["name"], m["name"])
         lines.append(f"{'🔻' if m['down'] else '🔺'} <b>{name}</b> {m['pct']:+.1f}% in {m['window']} · ora {price_text(m['mark'])} (soglia {m['limit_pct']:+.1f}%)")
+        if m.get("position"):
+            lines.append(f"   Prezzo: {m['position']}")
     if options:
         lines += ["", options]
     lines += ["", "Prezzi Hyperliquid. Dice che il prezzo si muove, non dove andrà: non è testato come segnale e non è consulenza finanziaria."]

@@ -23,6 +23,7 @@ from . import history as H
 from .events import first_of_runs, ret_z
 from .recorder import BASE, UA, load_env
 from .setups import all_markets, config_hash, load_config, load_crypto, load_daily
+from .thermo import LABELS as THERMO_LABELS, market_position, position_text
 
 MIN_SCORE_TO_SEND = 0  # every trigger is sent, also price alone: about 7 messages a week over the last 12 months
 MAX_AGE = {"4h": pd.Timedelta(hours=8), "1d": pd.Timedelta(days=4)}  # older triggers are stale, e.g. after a pause
@@ -36,6 +37,9 @@ BAR_DELAY = 120  # seconds after a 4h close, so the exchange has finished the ba
 HL_MARKET = {"ES=F": "xyz:SP500", "NQ=F": "xyz:XYZ100", "CL=F": "xyz:CL", "GC=F": "xyz:GOLD", "SI=F": "xyz:SILVER", "HG=F": "xyz:COPPER",
              "EURUSD=X": "xyz:EUR", "USDJPY=X": "xyz:JPY", "GBPUSD=X": "xyz:GBP", "ZB=F": "xyz:TLT"}
 SETUP_IT = {"panic": "PANICO", "squeeze": "SQUEEZE", "overheating": "SURRISCALDAMENTO"}
+SETUP_MEANS = {"panic": "Calo violento per gli standard di questo mercato.", "squeeze": "Salita forte per gli standard di questo mercato, spesso con chi era short costretto a chiudere.",
+               "overheating": "Salita forte con segnali di eccesso."}
+CLASS_IT = {"crypto": "cripto", "equities": "azioni", "bonds": "bond", "commodities": "materie prime", "fx": "forex"}
 COND_IT = {"oi_flush": "leva ripulita (OI in forte calo)", "funding_nonpositive": "funding ≤ 0", "volume_spike_fading": "picco di volume in calo",
            "shorts_building": "short in aumento", "funding_mostly_negative": "funding quasi sempre negativo", "volume_high": "volume alto",
            "funding_high": "funding alto", "oi_rising": "OI in salita", "spec_low": "speculatori poco esposti", "spec_high": "speculatori molto esposti",
@@ -148,77 +152,49 @@ def test_verdict(cls, setup):
     return f"❓ Test non informativo: troppi pochi episodi per dirlo ({t['clusters']})."
 
 
-def calibration_note(cls, setup):
-    """What the exit lab found for this class and setup, in the calibration period only."""
-    p = H.root() / "exits_v1_calibration.csv"
-    if setup == "overheating" or not p.exists():
-        return None
-    t = pd.read_csv(p)
-    t = t[(t["class"] == cls) & (t.setup == setup)].set_index("rule")
-    if not {"hold", "target_3R"} <= set(t.index):
-        return None
-    return f"Storico di calibrazione ({int(t.loc['hold', 'events'])} eventi): tieni {t.loc['hold', 'mean_R_per_event']:+.2f}R, stop + 3R {t.loc['target_3R', 'mean_R_per_event']:+.2f}R per evento."
-
-
 def fmt_price(x):
     return f"{x:,.2f}" if x >= 100 else f"{x:.4f}" if x >= 1 else f"{x:.6f}"
 
 
 def format_item(a):
-    hl = a["market"] if a["class"] == "crypto" else HL_MARKET.get(a["market"])
-    head = f"• {a['market']}" + (f" → {hl}" if hl and hl != a["market"] else "" if hl else " (non su Hyperliquid, solo contesto)")
-    out = [head + f": punteggio {a['score']}/{a['max_score']}" + (f", z {a['z']:+.1f}" if a["z"] is not None else "")]
-    if a["met"]:
-        out.append("  ✓ " + ", ".join(COND_IT[n] for n in a["met"]))
-    if a["unknown"]:
-        out.append("  ? " + ", ".join(COND_IT[n] for n in a["unknown"]) + " (dato non ancora noto)")
-    p, f = a.get("plan"), a.get("fresh") or {}
-    if p and a["setup"] != "overheating":
-        line = f"  Al trigger {fmt_price(p['price'])} · stop {fmt_price(p['stop'])} (−{p['risk_pct']:.1%}) · obiettivo 3R {fmt_price(p['target_3r'])}"
-        if p["risk_pct"] > .10:
-            line += " ⚠️ stop molto largo: con la leva la liquidazione può arrivare prima"
-        out.append(line)
+    """What moved and whether it's cheap or dear. Entries, stops and targets are logged, and shown only where you ask for them."""
+    name = THERMO_LABELS.get(a["market"], a["market"])
+    out = [f"• <b>{name}</b>" + (f": movimento {a['z']:+.1f} volte il normale" if a["z"] is not None else "")]
+    pos = safe_position(a["market"])
+    if pos:
+        out.append(f"  Prezzo: {position_text(pos)}")
+    f = a.get("fresh") or {}
     if f.get("bars_since_trigger"):
-        out.append(f"  Ora {fmt_price(f['latest_close'])} ({f['move_since_trigger_pct']:+.1f}% dal trigger, {f['bars_since_trigger']} barre fa)")
-    if f.get("hl_mark"):
-        out.append(f"  Hyperliquid ora {fmt_price(f['hl_mark'])} ({f['hl_gap_from_plan_pct']:+.1f}% dal prezzo del piano)")
-    if f.get("plan_broken") and a["setup"] != "overheating":
-        out.append("  ❌ Già sotto lo stop: il piano non è più valido")
-    elif f.get("target_hit") and a["setup"] != "overheating":
-        out.append("  ✅ Già oltre l'obiettivo: troppo tardi per questo piano")
-    elif a["setup"] != "overheating" and abs(f.get("hl_gap_from_plan_pct") or 0) > 3:
-        out.append("  ⚠️ Prezzo lontano dal piano: ricontrolla i livelli prima di agire")
+        out.append(f"  Da allora: {f['move_since_trigger_pct']:+.1f}%")
+    if a["met"]:
+        out.append("  Conferme: " + ", ".join(COND_IT[n] for n in a["met"]))
+    if a["unknown"]:
+        out.append("  Non ancora noto: " + ", ".join(COND_IT[n] for n in a["unknown"]))
     return "\n".join(out)
-
-
-def plan_name(a):
-    """The name /piano takes, or nothing if the market isn't on Hyperliquid."""
-    return a["market"] if a["class"] == "crypto" else "xyz:" + HL_MARKET[a["market"]].removeprefix("xyz:") if a["market"] in HL_MARKET else None
 
 
 def format_group(alerts, review=None):
     """One message per class and setup, so a market-wide move doesn't send nine."""
     a0 = alerts[0]
-    setup, wait = a0["setup"], a0["entry_after_bars"]
-    action = {"overheating": "Se hai una posizione: valuta di ridurla o stringere lo stop. Non è un segnale di short.",
-              "panic": f"Ingresso dello studio: non prima dell'apertura di {wait} barre dopo il trigger, per la conferma del volume.",
-              "squeeze": "Ingresso dello studio: apertura della barra successiva."}[setup]
-    lines = [f"🧪 <b>{SETUP_IT[setup]}</b> · {a0['class']} · barre {a0['bar']}", f"Trigger {a0['trigger'][:16].replace('T', ' ')} UTC", ""]
-    lines += [format_item(a) for a in alerts] + ["", action]
-    note = calibration_note(a0["class"], setup)
-    if note:
-        lines.append(note)
+    setup = a0["setup"]
+    lines = [f"🧪 <b>{SETUP_IT[setup]}</b> · {CLASS_IT.get(a0['class'], a0['class'])}", SETUP_MEANS[setup], f"Trigger {a0['trigger'][:16].replace('T', ' ')} UTC", ""]
+    lines += [format_item(a) for a in alerts] + [""]
     if review:
-        lines.append(format_review(review))
-        lines.append("")
+        lines += [format_review(review), ""]
     lines.append(test_verdict(a0["class"], setup))
     options = safe_options([(a["class"], a["market"]) for a in alerts])
     if options:
         lines += ["", options, ""]
-    if setup != "overheating" and plan_name(a0):
-        lines.append(f"Quanto comprare: /piano {plan_name(a0)} CAPITALE")
-    lines.append("Stop e obiettivo sono indicativi. Non è consulenza finanziaria.")
+    lines.append("Economico e caro sono rispetto al passato di quel mercato, non a quanto vale. Non è consulenza finanziaria.")
     return "\n".join(lines)
+
+
+def safe_position(market):
+    """Context only: if it fails, the alert still goes out."""
+    try:
+        return market_position(market)
+    except Exception:
+        return None
 
 
 def safe_options(markets):
@@ -235,6 +211,9 @@ def check_moves(st, telegram_on, now=None, root=None, sigma=M.market_sigma):
     now = now or datetime.now(timezone.utc)
     markets = {**{c: c for c in CRYPTO_HL}, **{v: k for k, v in HL_MARKET.items()}}
     moves = M.apply_cooldown(M.find_moves(markets, st, now, root, sigma), st, now)
+    for m in moves:
+        pos = safe_position(m["market"])
+        m["position"] = position_text(pos) if pos else None
     if moves:
         alert_dir().mkdir(parents=True, exist_ok=True)
         with open(alert_dir() / "moves.jsonl", "a") as f:
