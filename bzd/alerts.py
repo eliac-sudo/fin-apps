@@ -17,13 +17,14 @@ import re
 import pandas as pd
 
 from . import exits as X
+from . import moves as M
 from .agents import format_review, review_alerts
 from . import history as H
 from .events import first_of_runs, ret_z
 from .recorder import BASE, UA, load_env
 from .setups import all_markets, config_hash, load_config, load_crypto, load_daily
 
-MIN_SCORE_TO_SEND = 1  # about 5 alerts a week in the last 12 months; lower scores are logged, not sent
+MIN_SCORE_TO_SEND = 0  # every trigger is sent, also price alone: about 7 messages a week over the last 12 months
 MAX_AGE = {"4h": pd.Timedelta(hours=8), "1d": pd.Timedelta(days=4)}  # older triggers are stale, e.g. after a pause
 TELEGRAM_LIMIT = 3900
 DAILY_EVERY, COT_EVERY = 6 * 3600, 24 * 3600
@@ -204,8 +205,35 @@ def format_group(alerts, review=None):
         lines.append(format_review(review))
         lines.append("")
     lines.append(test_verdict(a0["class"], setup))
+    options = safe_options([(a["class"], a["market"]) for a in alerts])
+    if options:
+        lines += ["", options, ""]
     lines.append("Stop e obiettivo sono indicativi. Non è consulenza finanziaria.")
     return "\n".join(lines)
+
+
+def safe_options(markets):
+    """Options are context: if they fail, the alert still goes out."""
+    from .options_report import options_note
+    try:
+        return options_note(markets)
+    except Exception:
+        return ""
+
+
+def check_moves(st, telegram_on, now=None, root=None, sigma=M.market_sigma):
+    """Strong moves on the Hyperliquid markets we follow. All are logged, and sent as one message when the bot is on."""
+    now = now or datetime.now(timezone.utc)
+    markets = {**{c: c for c in CRYPTO_HL}, **{v: k for k, v in HL_MARKET.items()}}
+    moves = M.apply_cooldown(M.find_moves(markets, st, now, root, sigma), st, now)
+    if moves:
+        alert_dir().mkdir(parents=True, exist_ok=True)
+        with open(alert_dir() / "moves.jsonl", "a") as f:
+            for m in moves:
+                f.write(json.dumps(m, ensure_ascii=False) + "\n")
+        if telegram_on:
+            st["pending"] += split_message(M.format_moves(moves, now, safe_options([(m["class"], m["market"]) for m in moves])))
+    return moves
 
 
 def split_message(text, limit=TELEGRAM_LIMIT):
@@ -285,8 +313,12 @@ def detect(config, st, now):
 
 
 def worth_sending(a):
-    """A condition that isn't known yet could still be met, so it can't be what keeps an alert from being sent."""
     return a["score"] + len(a["unknown"]) >= MIN_SCORE_TO_SEND
+
+
+def worth_reviewing(a):
+    """Paid reviews stay on triggers with some confirmation. A condition not known yet could still be met, so it counts."""
+    return a["score"] + len(a["unknown"]) >= 1
 
 
 def enqueue(found, st, telegram_on, review=None):
@@ -300,11 +332,12 @@ def enqueue(found, st, telegram_on, review=None):
         if worth_sending(a):
             groups.setdefault((a["class"], a["setup"], a["trigger"]), []).append(a)
     for k, g in groups.items():
-        if review:
-            reviews[k] = review(g)
+        paid = [a for a in g if worth_reviewing(a)]
+        if review and paid:
+            reviews[k] = review(paid)
     with open(alert_dir() / "log.jsonl", "a") as f:
         for a in found:
-            rec = reviews.get((a["class"], a["setup"], a["trigger"])) if worth_sending(a) else None
+            rec = reviews.get((a["class"], a["setup"], a["trigger"])) if worth_reviewing(a) else None
             f.write(json.dumps({**a, "queued_for_telegram": telegram_on and worth_sending(a), "review_status": rec["status"] if rec else None,
                                 "review_stance": rec["review"]["lettura"] if rec and rec.get("review") else None}, ensure_ascii=False) + "\n")
             st["seen"].append(a["key"])
@@ -359,6 +392,12 @@ def cycle(st, log=print, refresh=True):
         new = len(found)
         enqueue(found, st, sending_enabled(), review_alerts)
         log(f"{datetime.now(timezone.utc):%Y-%m-%d %H:%M} checked: {new} new alerts")
+    try:
+        moved = check_moves(st, sending_enabled())
+        if moved:
+            log(f"{datetime.now(timezone.utc):%Y-%m-%d %H:%M} strong moves: {len(moved)}")
+    except Exception as e:
+        log(f"move check failed, will retry: {type(e).__name__}: {e}")
     if sending_enabled():
         now = datetime.now(timezone.utc)
         if digest_due(st, now):

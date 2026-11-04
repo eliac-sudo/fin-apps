@@ -170,19 +170,22 @@ class TestDelivery(unittest.TestCase):
     def empty(self):
         return {"seen": [], "pending": [], "last_crypto": 0, "last_daily": 0, "last_cot": 0}
 
-    def test_every_alert_is_logged_but_low_scores_are_not_sent(self):
+    def test_every_alert_is_logged_and_sent_even_with_score_zero(self):
         st = self.empty()
         with mock.patch.object(A, "calibration_note", return_value=None):
             A.enqueue([alert(), alert(key="k2", market="ETH", score=0, unknown=[])], st, True)
         rows = [json.loads(x) for x in (Path(self.tmp.name) / "alerts" / "log.jsonl").read_text().splitlines()]
-        self.assertEqual([r["queued_for_telegram"] for r in rows], [True, False])
-        self.assertEqual(len(st["pending"]), 1)
-        self.assertNotIn("ETH", st["pending"][0])
+        self.assertEqual([r["queued_for_telegram"] for r in rows], [True, True])
+        self.assertIn("ETH", st["pending"][0])
         self.assertEqual(st["seen"], ["BTC|panic|t", "k2"])
 
-    def test_unknown_condition_can_keep_an_alert_alive(self):
-        self.assertTrue(A.worth_sending(alert(score=0)))
-        self.assertFalse(A.worth_sending(alert(score=0, unknown=[])))
+    def test_options_failure_never_loses_an_alert(self):
+        with mock.patch("bzd.options_report.options_note", side_effect=ValueError), mock.patch.object(A, "calibration_note", return_value=None):
+            self.assertIn("PANICO", A.format_group([alert()]))
+
+    def test_alert_carries_options_context(self):
+        with mock.patch("bzd.options_report.options_note", return_value="OPZ-QUI"), mock.patch.object(A, "calibration_note", return_value=None):
+            self.assertIn("OPZ-QUI", A.format_group([alert()]))
 
     def test_same_move_on_many_coins_is_one_message(self):
         st = self.empty()

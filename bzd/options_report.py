@@ -82,28 +82,58 @@ def skew_line(block, chain):
     return "Protezione dai ribassi: " + " · ".join(parts) if parts else None
 
 
+MARKET_BLOCK = {"crypto": "Bitcoin", "ETH": "Ethereum", "equities": "Azioni USA", "bonds": "Bond USA", "GC=F": "Oro", "CL=F": "Petrolio", "EURUSD=X": "Euro/dollaro"}
+
+
+def block_lines(b):
+    """The lines for one market, and its percentile if there is one."""
+    lines, pct = [], None
+    try:
+        chain = I.latest_options(b["chain"]) if b.get("chain") else None
+    except Exception:
+        chain = None
+    lv, iv = level_line(b), iv_line(b["iv"]) if b.get("iv") else None
+    if lv:
+        lines.append(f"Volatilità attesa: <b>{level(lv['pct'])}</b> ({lv['label']} {lv['value']:.1f}, {lv['pct']:.0f}° percentile)")
+        pct = lv["pct"]
+    elif iv:
+        lines.append(f"Volatilità attesa: <b>{level(iv['pct'])}</b> (IV {iv['iv']:.0%}, {iv['pct']:.0f}° percentile)")
+        pct = iv["pct"]
+    if iv and iv.get("hv"):
+        gap = "sopra" if iv["iv"] > iv["hv"] else "sotto"
+        lines.append(f"Attesa contro realizzata: {gap} (IV {iv['iv']:.0%}, realizzata {iv['hv']:.0%}, dato del {iv['date']:%d/%m})")
+    for extra in (term_line(b, chain), skew_line(b, chain)):
+        if extra:
+            lines.append(extra)
+    return lines, pct
+
+
+def options_note(markets):
+    """The options context for an alert: `markets` is a list of (class, market). Empty if there's no data, so it can never hold an alert back."""
+    names = []
+    for cls, market in markets:
+        name = MARKET_BLOCK.get(market) or MARKET_BLOCK.get(cls)
+        if name and name not in names:
+            names.append(name)
+    out = []
+    for b in BLOCKS:
+        if b["name"] in names:
+            try:
+                lines = block_lines(b)[0]
+            except Exception:
+                lines = []
+            if lines:
+                out += [f"<b>{b['name']}</b>"] + [f"• {x}" for x in lines]
+    return "\n".join(["📊 Opzioni (contesto, non testato come segnale)"] + out) if out else ""
+
+
 def build_report(now=None):
     now = now or datetime.now(timezone.utc)
     out, ranks = [], []
     for b in BLOCKS:
-        lines = []
-        try:
-            chain = I.latest_options(b["chain"]) if b.get("chain") else None
-        except Exception:
-            chain = None
-        lv, iv = level_line(b), iv_line(b["iv"]) if b.get("iv") else None
-        if lv:
-            lines.append(f"Volatilità attesa: <b>{level(lv['pct'])}</b> ({lv['label']} {lv['value']:.1f}, {lv['pct']:.0f}° percentile)")
-            ranks.append((lv["pct"], b["name"]))
-        elif iv:
-            lines.append(f"Volatilità attesa: <b>{level(iv['pct'])}</b> (IV {iv['iv']:.0%}, {iv['pct']:.0f}° percentile)")
-            ranks.append((iv["pct"], b["name"]))
-        if iv and iv.get("hv"):
-            gap = "sopra" if iv["iv"] > iv["hv"] else "sotto"
-            lines.append(f"Attesa contro realizzata: {gap} (IV {iv['iv']:.0%}, realizzata {iv['hv']:.0%}, dato del {iv['date']:%d/%m})")
-        for extra in (term_line(b, chain), skew_line(b, chain)):
-            if extra:
-                lines.append(extra)
+        lines, pct = block_lines(b)
+        if pct is not None:
+            ranks.append((pct, b["name"]))
         if lines:
             out += ["", f"<b>{b['name']}</b>"] + [f"• {x}" for x in lines]
     head = [f"📊 <b>Opzioni</b> · {now:%d/%m %H:%M} UTC", "Quanta paura prezzano le opzioni, rispetto al passato di ogni mercato."]

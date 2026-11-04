@@ -45,7 +45,7 @@ python3 -m bzd.telegram status
 
 ## Alerts
 
-`python -m bzd.alerts` runs the frozen setups on fresh data and logs every alert to `data/alerts/log.jsonl`. Sending is off until the agents review alerts: with `BZD_ALERTS_TELEGRAM=on` in `.env`, alerts with score 1 or more also go to Telegram. They are unvalidated until phase B3, and the module never places orders.
+`python -m bzd.alerts` runs the frozen setups on fresh data and logs every alert to `data/alerts/log.jsonl`. Sending is off until the agents review alerts: with `BZD_ALERTS_TELEGRAM=on` in `.env`, every trigger also goes to Telegram, with what the B3 test said about it and the options context for that market. Strong price moves (`bzd/moves.py`) go out too, within about 15 minutes, and are logged to `data/alerts/moves.jsonl`: they are large against the market's own volatility, on the Hyperliquid snapshots, and aren't tested as a signal. The module never places orders.
 
 1. On Telegram, message @BotFather, send `/newbot`, and put the token in `.env` as `TELEGRAM_BOT_TOKEN=`.
 2. Send your new bot any message, then run `.venv/bin/python -m bzd.alerts chatid` and put the number in `.env` as `TELEGRAM_CHAT_ID=`.

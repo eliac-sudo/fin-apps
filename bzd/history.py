@@ -30,7 +30,8 @@ MARKETS = {
 ETF_CHECK = {"ES=F": "SPY", "NQ=F": "QQQ", "RTY=F": "IWM", "ZN=F": "IEF", "ZB=F": "TLT", "GC=F": "GLD", "SI=F": "SLV", "CL=F": "USO"}
 VOL_YAHOO = ["^MOVE"]
 VOL_CBOE = {"VIX": "CLOSE", "VIX9D": "CLOSE", "VIX3M": "CLOSE", "VVIX": "VVIX", "SKEW": "SKEW", "OVX": "OVX", "GVZ": "GVZ"}
-IV_SYMBOLS = ["SPY", "QQQ", "IWM", "TLT", "IEF", "GLD", "SLV", "USO", "FXE"]
+IV_SYMBOLS = ["FXE"]  # the only market in the options message with no volatility index of its own (EVZ stopped in March 2025)
+IV_START = "2019-02"
 DOLTHUB = "https://www.dolthub.com/api/v1alpha1/post-no-preference/options/master?q="
 FRED = ["DFF", "DGS2", "DGS10", "T10Y2Y", "BAMLH0A0HYM2", "DTWEXBGS", "EVZCLS"]
 WIKI = ["Bitcoin", "Cryptocurrency", "Stock_market_crash", "Recession", "Inflation", "Gold_as_an_investment"]
@@ -250,36 +251,42 @@ def get_cot(force=False):
         save("cot", n, out.drop_duplicates("report_date"), quiet=force)
 
 
-def dolthub_iv_year(sym, year):
-    """One year of daily implied and realized volatility. Filtered by date and symbol, because wider queries time out."""
-    sql = f"select date,iv_current,hv_current from volatility_history where date>='{year}-01-01' and date<'{year + 1}-01-01' and act_symbol='{sym}' order by date"
+def dolthub_iv_month(sym, month):
+    """One month of implied and realized volatility. Filtered by date and symbol, because wider queries time out."""
+    y, m = map(int, month.split("-"))
+    end = f"{y + 1}-01-01" if m == 12 else f"{y}-{m + 1:02d}-01"
+    sql = f"select date,iv_current,hv_current from volatility_history where date>='{month}-01' and date<'{end}' and act_symbol='{sym}' order by date"
     d = json.loads(get("vol", f"IV_{sym}", int(time.time() * 10), DOLTHUB + urllib.parse.quote(sql)))
     if d.get("query_execution_status") != "Success":
-        raise RuntimeError(f"dolthub {sym} {year}: {str(d.get('query_execution_message'))[:60]}")
+        raise RuntimeError(f"dolthub {sym} {month}: {str(d.get('query_execution_message'))[:60]}")
     return [(r["date"][:10], float(r["iv_current"]) if r.get("iv_current") else None, float(r["hv_current"]) if r.get("hv_current") else None) for r in d.get("rows", [])]
 
 
-def get_iv(force=False, years=None):
-    this_year = datetime.now(timezone.utc).year
-    for sym in IV_SYMBOLS:
+def iv_months_to_fetch(have, today):
+    """Months not on disk, plus the current one. A failed run resumes here instead of looking finished."""
+    months = [str(p) for p in pd.period_range(IV_START, today.strftime("%Y-%m"), freq="M")]
+    return [m for m in months if m not in have or m == months[-1]]
+
+
+def get_iv(force=False, symbols=None):
+    """Saves after every symbol. Raises at the end if any month failed, so the run can't report success."""
+    missing = 0
+    for sym in symbols or IV_SYMBOLS:
         p = f"IV_{sym}"
-        if done("vol", p) and not force:
-            continue
-        rows, failed = [], 0
-        for y in years or range(2015, this_year + 1):
+        old = pd.read_csv(root() / "vol" / f"{p}.csv.gz") if done("vol", p) else None
+        have = set() if old is None else set(old.date.str[:7])
+        rows = []
+        for month in iv_months_to_fetch(have, datetime.now(timezone.utc)):
             try:
-                rows += dolthub_iv_year(sym, y)
+                rows += dolthub_iv_month(sym, month)
             except Exception as e:
-                failed += 1
+                missing += 1
                 print(f"  {e}", flush=True)
-        if not rows:
-            continue
-        new = pd.DataFrame(rows, columns=["date", "iv", "hv"])
-        if done("vol", p):
-            new = merge_tail(pd.read_csv(root() / "vol" / f"{p}.csv.gz"), new, "date")
-        save("vol", p, new, quiet=force)
-        if failed:
-            print(f"  {sym}: {failed} years missing", flush=True)
+        if rows:
+            new = pd.DataFrame(rows, columns=["date", "iv", "hv"])
+            save("vol", p, new if old is None else merge_tail(old, new, "date"), quiet=force)
+    if missing:
+        raise RuntimeError(f"{missing} months missing: run again to fetch only those")
 
 
 def refresh_dvol():
@@ -372,7 +379,8 @@ def refresh_daily(with_cot=False):
     get_macro_fng_and_attention()
     refresh_dvol()
     try:
-        get_iv(force=True, years=[datetime.now(timezone.utc).year])
+        if done("vol", f"IV_{IV_SYMBOLS[0]}"):  # the first full download is run by hand, not by the daily refresh
+            get_iv(force=True)
     except Exception as e:  # a third-party archive being down must not stop the rest
         print(f"  implied volatility not refreshed: {e}", flush=True)
     if with_cot:

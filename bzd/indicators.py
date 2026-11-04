@@ -90,7 +90,8 @@ def option_metrics(rows, spot, now, multiplier):
     iv7, e7 = atm_iv(7)
     skew = None
     if e30:
-        chain = [x for x in good if x["expiry"] == e30]
+        # An option nobody bids for has a made-up IV: on illiquid chains that alone created a false 12-point skew.
+        chain = [x for x in good if x["expiry"] == e30 and x.get("bid", 1) > 0]
         puts, calls = [x for x in chain if not x["is_call"]], [x for x in chain if x["is_call"]]
         if puts and calls:
             p = min(puts, key=lambda x: abs(x["delta"] + .25))
@@ -110,7 +111,7 @@ def parse_cboe(data):
         if m and (not symbol or m.group(1) == symbol):  # other roots, such as B1SPY, aren't standard contracts on this underlying
             m = re.search(r"(\d{6})([CP])(\d{8})$", o["option"])
             rows.append({"strike": int(m.group(3)) / 1000, "expiry": datetime.strptime(m.group(1), "%y%m%d").replace(hour=20, tzinfo=timezone.utc), "is_call": m.group(2) == "C",
-                         "iv": float(o.get("iv") or 0), "oi": float(o.get("open_interest") or 0), "volume": float(o.get("volume") or 0)})
+                         "iv": float(o.get("iv") or 0), "oi": float(o.get("open_interest") or 0), "volume": float(o.get("volume") or 0), "bid": float(o.get("bid") or 0)})
     return rows, float(d["current_price"]), 100
 
 

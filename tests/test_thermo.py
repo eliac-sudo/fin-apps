@@ -52,6 +52,12 @@ class TestIndicators(unittest.TestCase):
             rows.append({"strike": k, "expiry": e30, "is_call": False, "iv": .3, "oi": 20, "volume": 1})
         return rows
 
+    def test_options_without_a_bid_do_not_count_for_skew(self):
+        rows = [{**r, "bid": 0.0 if not r["is_call"] else 1.0} for r in self.chain()]
+        self.assertIsNone(I.option_metrics(rows, 100, NOW, 100)["skew_25d"])
+        rows = [{**r, "bid": 1.0} for r in self.chain()]
+        self.assertAlmostEqual(I.option_metrics(rows, 100, NOW, 100)["skew_25d"], .10)
+
     def test_metrics_on_a_chain_with_known_skew(self):
         m = I.option_metrics(self.chain(), 100, NOW, 100)
         self.assertAlmostEqual(m["skew_25d"], .10)
