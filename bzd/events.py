@@ -11,7 +11,7 @@ import pandas as pd
 
 from .history import CRYPTO, ETF_CHECK, MARKETS, root, safe
 
-CUT = pd.Timestamp("2024-01-01", tz="UTC")
+CUTS = {"crypto": pd.Timestamp("2024-01-01", tz="UTC"), "daily": pd.Timestamp("2015-01-01", tz="UTC")}
 VOL_INDEX = {"ES=F": "VIX", "NQ=F": "VIX", "RTY=F": "VIX", "ZT=F": "MOVE", "ZF=F": "MOVE", "ZN=F": "MOVE", "ZB=F": "MOVE",
              "CL=F": "OVX", "GC=F": "GVZ", "SI=F": "GVZ", "EURUSD=X": "EVZCLS", "USDJPY=X": "EVZCLS", "GBPUSD=X": "EVZCLS",
              "AUDUSD=X": "EVZCLS", "USDCHF=X": "EVZCLS", "USDCAD=X": "EVZCLS"}
@@ -45,13 +45,16 @@ def align_cot(cot, index):
 def roll_artefact(d, z, etf_z=None):
     """Flag big futures moves that look like contract rolls, not trading.
 
-    Futures trade nearly all day, so a real move shows up inside the session. A move that is nearly all overnight gap
-    is suspect, as is one its ETF didn't share.
+    The ETF decides where it has a value: it holds no expiring contract, so a calm ETF means no real move, and a moving
+    ETF confirms one even if it all happened overnight. Without an ETF, a move that is nearly all gap is suspect,
+    since futures trade nearly all day.
     """
     move = d.close - d.close.shift(1)
     gap_only = (d.close - d.open).abs() < 0.25 * move.abs()
-    calm_etf = (etf_z.abs() < 1) if etf_z is not None else pd.Series(False, index=d.index)
-    return gap_only | calm_etf.reindex(d.index).fillna(False)
+    if etf_z is None:
+        return gap_only
+    e = etf_z.reindex(d.index)
+    return (e.abs() < 1).where(e.notna(), gap_only).astype(bool)
 
 
 def first_of_runs(mask, days):
@@ -98,7 +101,7 @@ def vol_series(name, index):
     return v.reindex(index, method="ffill", tolerance=pd.Timedelta(days=5))
 
 
-def tradfi_setups(sym):
+def tradfi_setups(sym, panic_z=-3):
     d = daily(read("tradfi", safe(sym)))
     is_future = sym.endswith("=F")
     z = ret_z(d.close, 60)
@@ -121,7 +124,7 @@ def tradfi_setups(sym):
     z20 = r20 / (np.log(d.close.where(d.close > 0)).diff().rolling(250).std().shift(1) * np.sqrt(20))
     high60 = d.close >= d.close.rolling(60).max()
 
-    panic = (z <= -3) & ~bad
+    panic = (z <= panic_z) & ~bad
     squeeze = (z >= 2) & tight & ~bad
     hot = high60 & (z20 >= 2)
     vfall = d.volume.shift(-1) < d.volume  # usable only at the next bar's close
@@ -130,7 +133,7 @@ def tradfi_setups(sym):
         "squeeze": (squeeze, [c.spec_net_pct_oi <= c.p10, vi.diff() < 0, vz > 1]),
         "overheating": (hot, [c.spec_net_pct_oi >= c.p90, vi <= vp25, vz > 1]),
     }
-    return conds, {"removed_as_roll": int(((z <= -3) & bad).sum() + ((z >= 2) & tight & bad).sum()), "has_volume": has_volume,
+    return conds, {"removed_as_roll": int(((z <= panic_z) & bad).sum() + ((z >= 2) & tight & bad).sum()), "has_volume": has_volume,
                    "has_cot": cot_df is not None, "has_vol_index": sym in VOL_INDEX, "has_etf_check": etf_df is not None}
 
 
@@ -165,7 +168,7 @@ def crypto_setups(a):
     }
 
 
-def score_table(market_class, setups, cool_days, merge_days):
+def score_table(market_class, setups, cool_days, merge_days, cut):
     """setups: list of dicts setup -> (price mask, [conditions])."""
     rows = []
     for setup in ("panic", "squeeze", "overheating"):
@@ -178,24 +181,26 @@ def score_table(market_class, setups, cool_days, merge_days):
             all_ev = pd.DatetimeIndex(np.concatenate([x.values for x in per_asset]) if per_asset else [], tz="UTC")
             rows.append({"class": market_class, "setup": setup, "min_conditions": n, "asset_events": len(all_ev),
                          "clusters": n_clusters(all_ev, merge_days),
-                         "clusters_to_2023": n_clusters(all_ev[all_ev < CUT], merge_days),
-                         "clusters_from_2024": n_clusters(all_ev[all_ev >= CUT], merge_days)})
+                         "calibration": n_clusters(all_ev[all_ev < cut], merge_days),
+                         "test": n_clusters(all_ev[all_ev >= cut], merge_days)})
     return rows
 
 
 def main():
     rows, notes = [], []
     crypto = [crypto_setups(a) for a in CRYPTO if read("crypto", f"{a}_candles_4h") is not None]
-    rows += score_table("crypto (4h)", crypto, 1, 1)
+    rows += score_table("crypto (4h, split 2024)", crypto, 1, 1, CUTS["crypto"])
     for cls in ("equities", "bonds", "commodities", "fx"):
-        built = []
+        built, loose = [], []
         for sym, (c, _) in MARKETS.items():
             if c != cls or read("tradfi", safe(sym)) is None:
                 continue
             conds, meta = tradfi_setups(sym)
             built.append(conds)
+            loose.append(tradfi_setups(sym, panic_z=-2.5)[0])
             notes.append({"market": sym, "class": cls, **meta})
-        rows += score_table(f"{cls} (daily)", built, 3, 3)
+        rows += score_table(f"{cls} (daily, split 2015)", built, 3, 3, CUTS["daily"])
+        rows += [{**r, "setup": "panic z<=-2.5"} for r in score_table(f"{cls} (daily, split 2015)", loose, 3, 3, CUTS["daily"]) if r["setup"] == "panic"]
     t = pd.DataFrame(rows)
     t.to_csv(root() / "event_counts.csv", index=False)
     pd.DataFrame(notes).to_csv(root() / "event_notes.csv", index=False)

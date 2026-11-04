@@ -175,23 +175,30 @@ def get_crypto():
 
 
 def parse_yahoo(raw):
-    """Return one row per session, dated in the exchange's timezone. Bars with no close are dropped."""
+    """Return one row per session, dated in the exchange's timezone. Bars with no close are dropped.
+
+    `gmtoffset` is only today's offset. Applying it to history moves daylight-saving bars to the previous day,
+    so dates come from the named timezone.
+    """
     r = json.loads(raw)["chart"]["result"][0]
-    q, off = r["indicators"]["quote"][0], r["meta"].get("gmtoffset", 0)
+    q, tz = r["indicators"]["quote"][0], r["meta"]["exchangeTimezoneName"]
     d = pd.DataFrame({"t": r["timestamp"], "open": q["open"], "high": q["high"], "low": q["low"], "close": q["close"], "volume": q.get("volume")})
     if r["indicators"].get("adjclose"):
         d["adjclose"] = r["indicators"]["adjclose"][0]["adjclose"]
-    d["date"] = pd.to_datetime(d.t + off, unit="s").dt.strftime("%Y-%m-%d")
+    d["date"] = pd.to_datetime(d.t, unit="s", utc=True).dt.tz_convert(tz).dt.strftime("%Y-%m-%d")
     return d.dropna(subset=["close"]).drop(columns="t").drop_duplicates("date", keep="last")
 
 
 def get_tradfi():
+    """Clean tables are rebuilt from saved raw responses when those exist, so parsing fixes need no new download."""
     for s in list(MARKETS) + list(ETF_CHECK.values()) + VOL_YAHOO:
         n = safe(s)
         if done("tradfi", n):
             continue
+        saved = root() / "raw" / "tradfi" / n / "00000.gz"
         u = f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(s)}?interval=1d&period1=0&period2={int(time.time())}"
-        d = parse_yahoo(get("tradfi", n, 0, u))
+        raw = gzip.open(saved).read() if saved.exists() else get("tradfi", n, 0, u)
+        d = parse_yahoo(raw)
         d = d[d.date < datetime.now(timezone.utc).strftime("%Y-%m-%d")]  # today's bar may still be open
         save("tradfi", n, d[["date", "open", "high", "low", "close", "volume"] + (["adjclose"] if "adjclose" in d else [])])
 

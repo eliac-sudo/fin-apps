@@ -25,6 +25,19 @@ Jobs and request spacing are in `bzd/jobs.py`.
 
 Social responses are deleted after 35 days (`SOCIAL_KEEP_DAYS`), which covers daily, weekly and monthly analysis. The recorder checks at start and once a day. Manifest lines stay, so a path in an old line may no longer exist. Telegram liquidation channels and all other data are kept.
 
+## History and event counts
+
+These need the packages in `requirements.txt`.
+
+```
+python -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python -m bzd.history get        # all markets; finished series are skipped
+.venv/bin/python -m bzd.history coverage   # dates, gaps and quality per series
+.venv/bin/python -m bzd.events             # event counts; computes no forward returns
+python3 -m bzd.telegram backfill           # liquidation and whale channels; resumable
+python3 -m bzd.telegram status
+```
+
 ## Moving to another machine
 
 Stop the recorder, copy `data/` and `.env`, then start it on the new machine. Run only one recorder per data directory. Add a process manager such as systemd there so it restarts after crashes and reboots.

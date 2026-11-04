@@ -4,27 +4,43 @@ Two tracks run side by side: **A, exits** comes first and **B, signals** runs al
 
 Not financial advice. Leveraged short-term trading can lose the whole position margin.
 
-## What phase 0 has already found
+## What the event counts show
 
-Reproduce with `python fase0_conta_eventi.py <cache_dir>` (needs numpy and pandas). The script counts events only and computes **no forward returns**, so the test sample is still unseen.
+Reproduce with `python -m bzd.history get`, then `python -m bzd.events`. The counter computes **no forward returns**, so the test sample is still unseen.
 
-Scope: 9 assets (BTC, ETH, SOL, BNB, XRP, DOGE, ADA, AVAX, LINK), 4h bars, Binance prices and funding, Bybit OI, from 2019-09 to 2026-11. A cluster is a group of asset events less than 24h apart, roughly one market episode.
+Scope: 9 crypto assets on 4h bars, and 21 futures and FX markets on daily bars. A cluster is a group of events close in time, roughly one market episode (1 day apart for crypto, 3 days otherwise). Calibration/test split: 2024 for crypto, 2015 for the rest, which have far longer history.
 
-| Setup | Conditions met beyond price | Asset events | Clusters | Clusters to 2023 / from 2024 |
-|---|---|---:|---:|---:|
-| Panic | any (price only) | 1031 | 315 | 179 / 136 |
-| Panic | ≥1 | 459 | 191 | 112 / 79 |
-| Panic | ≥2 | 77 | 48 | 27 / 21 |
-| Panic | all 3 | 4 | 3 | too few |
-| Squeeze | ≥2 | 149 | 111 | 57 / 54 |
-| Squeeze | all 3 | 11 | 11 | too few |
+| Market, setup | Conditions beyond price | Clusters | Calibration | Test |
+|---|---:|---:|---:|---:|
+| Crypto panic | any | 305 | 174 | 131 |
+| Crypto panic | ≥1 | 188 | 109 | 79 |
+| Crypto panic | ≥2 | 46 | 26 | 20 |
+| Crypto squeeze | ≥2 | 90 | 50 | 40 |
+| Crypto overheating | ≥2 | 159 | 90 | 69 |
+| Equities panic | any | 82 | 37 | 45 |
+| Equities panic | ≥1 | 49 | 18 | 31 |
+| Bonds panic | any | 84 | 44 | 40 |
+| Commodities panic | any | 214 | 117 | 97 |
+| Commodities panic | ≥1 | 78 | 39 | 39 |
+| FX panic | any | 178 | 92 | 86 |
+| FX panic | ≥1 | 84 | 40 | 44 |
 
-- **Strict checklists are almost empty.** Only 3 panic clusters meet all the conditions that have history, so a 7-point score can't be backed by past cases.
-- **Use at most a 0–3 score, plus price.** It should be a filter, not a long conjunction.
-- **Squeeze ≥1 is not selective.** It matches nearly every squeeze candidate, because "volume rising" is usually true. That condition needs tightening.
-- **Calibrate to the end of 2023 and test from 2024.** Testing only from 2025 leaves too few clusters.
-- **Power is still limited.** Treating clusters as independent, 79 clusters give about 60% power at d = 0.30 and about 26% at d = 0.20. Small edges will probably stay inconclusive.
-- **These counts depend on my first-pass definitions.** OI history also starts later than prices (2020-07 to 2021-09, depending on the asset). Definitions get frozen in phase B1.
+Full table: `data/hist/event_counts.csv`, including a looser panic trigger at z ≤ −2.5.
+
+- **Strict checklists are almost empty in every market.** Outside crypto, panic with all 3 conditions never occurs and ≥2 gives 2–7 clusters. Use conditions as a 0–3 score that ranks events, and don't require them.
+- **Some conditions aren't selective.** Crypto squeeze and overheating barely drop from "any" to ≥1 (535 to 489, 195 to 193), so those conditions need tightening in B1c.
+- **Power stays limited.** At d = 0.30: 79 clusters give about 59% and 45 about 33%. At d = 0.50 most of these samples reach high power, so only large effects will be detectable per market.
+- **These depend on first-pass definitions**, which get frozen in B1c.
+
+## Data problems found and handled
+
+- **Yahoo dates (fixed).** Using Yahoo's current timezone offset moved daylight-saving bars back one day, which created lookahead and made the roll filter remove real crashes. After the fix, futures correlate 0.89–0.98 with their ETFs on the same day and about zero with the next day's ETF move, with no weekend bars.
+- **Futures rolls.** Where an ETF exists, it decides whether a move was real. NG, HG, ZC, ZW, ZS, ZT and ZF have no ETF check, so they rely on a weaker gap rule.
+- **Inconsistent bars (open).** Up to 13% of bars in grains, gold, silver and copper have a close outside the day's high-low range, concentrated in some older years (58% of corn bars in 2002). Don't rely on highs and lows in those periods until checked.
+- **Negative oil (handled).** 20 April 2020 can't be logged, so that return is excluded. It is treated as missing, not as a panic.
+- **EVZ ended on 2025-03-11.** FX has no volatility index after that, so FX can score fewer conditions in recent data.
+- **COT history is uneven.** Contract names change over time, and EUR, RTY and AUD have long gaps (EUR includes its ECU predecessor). Availability dates use Tuesday + 6 days to avoid lookahead.
+- **FRED's high-yield spread** returned history only from 2023-11, so it can't be backtested.
 
 ## Free sources, tested 4 Nov 2026
 
@@ -60,7 +76,23 @@ Tested with keyless requests from this environment. A source that responded once
 
 **Not usable**: X API (your decision), X syndication (429), Nitter (410), StockTwits (403 Cloudflare), BitMEX funding (403 from here), Coinalyze (needs a key, though it may be free; not checked).
 
-**Still missing**: free liquidation history. The Binance `liquidationSnapshot` paths I tried returned 404, so history uses a proxy (OI drop + volume + price) while OKX is recorded going forward. Exchange-reported liquidation feeds can also undercount.
+## Liquidations and whale flows: found on Telegram
+
+Public channels can be paged back to their first post, and each message links to its source at `t.me/<channel>/<id>`.
+
+| Channel | Size | Back to | Content |
+|---|---:|---|---|
+| `BinanceLiquidations` | 177K | 2019-05 | Binance futures liquidations, about 400,000 posts |
+| `HyperliquidLiquidations` | 13K | 2024-12 | Hyperliquid liquidations above $50K, including `xyz` markets |
+| `whale_alert_io` | 296K | 2019-04 | Large transfers, mints |
+
+Limits to check once the backfill ends:
+
+- The channels are third-party bots with minimum sizes, which may have changed over time. Totals are a floor, so compare within a period and don't treat them as complete.
+- Outages would look like calm. Check message counts by month, and compare against the recorder's OKX feed and with OI drops.
+- Adding these could change the crypto panic score, so that decision belongs in B1c.
+
+Run `python -m bzd.telegram status` to see progress. Other channels recorded going forward are listed in `bzd/jobs.py`, chosen for size and activity. Size doesn't prove a channel is official, and lookalikes exist.
 
 ## Scope: all markets, with options signals
 
@@ -121,7 +153,7 @@ Doesn't work: Cboe total put/call file stops at 2019-10-04, Yahoo options return
 - **Respect publication dates.** COT is measured on Tuesday and usually published Friday. Using the Tuesday date would leak future data.
 - **Handle futures rolls.** A continuous front-month series can jump at a roll and fake a panic, and session gaps need separate handling.
 - **Plan for multiple testing.** 3 setups × 3 horizons × 5 market classes is 45 tests. Pre-register each class as its own family with one primary horizon, and report the rest as descriptive.
-- **Non-crypto event counts aren't done yet.** Crypto counts above don't transfer.
+- **Report per market class.** Crypto counts don't transfer to other markets.
 
 ## Track A: exits
 
@@ -137,8 +169,8 @@ A1 doesn't need your address. A2 waits until you choose to run it.
 
 | Phase | Deliverable | Gate |
 |---|---|---|
-| **B1a. Recorder** | Start archiving what has no free history: option chains, liquidations, social, L2 books, Hyperliquid candles. Raw responses with timestamps and hashes | Runs unattended with gap alerts. **Every day of delay is data lost for good** |
-| **B1b. Historical store** | Download and clean all backtestable data for every market class, with publication dates and futures rolls handled | Coverage report per source and market, plus event counts per class |
+| **B1a. Recorder (running)** | Start archiving what has no free history: option chains, liquidations, social, L2 books, Hyperliquid candles. Raw responses with timestamps and hashes | Runs unattended with gap alerts. **Every day of delay is data lost for good** |
+| **B1b. Historical store (done, except quality items above)** | Download and clean all backtestable data for every market class, with publication dates and futures rolls handled | Coverage report per source and market, plus event counts per class |
 | **B1c. Detector** | No-lookahead features and setups: panic, squeeze, **overheating** (trim or tighten stops, not short), with option conditions and per-market substitutes | Definitions and thresholds frozen on data to 2023, pre-registered |
 | **B2. Experimental alerts** | Terminal or Telegram alert with score, data and links, **labelled unvalidated**. Every signal paper-logged | Runs reliably. You get signals from here, before the tests finish |
 | **B3. Event study** | P1, Q1 and overheating tests against random entries on the same asset, plus stop and target results in R, with clustered errors | Each setup supported, not supported or inconclusive; label updated |
@@ -155,7 +187,7 @@ A1 doesn't need your address. A2 waits until you choose to run it.
 
 ## Order
 
-Build **B1a first**, because that data can never be recovered later, then **B1b**, because the exit lab needs it. Then **B1c**, **A1**, **B2**, **A3**, and **B3** onwards. A2 can slot in whenever you decide to run it.
+Next is **B1c**, then **A1**, **B2**, **A3**, and **B3** onwards. A1 needs B1c's entries and the store built in B1b. A2 can slot in whenever you decide to run it.
 
 ## Deferred
 

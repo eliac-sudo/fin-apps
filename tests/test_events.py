@@ -1,3 +1,4 @@
+import json
 import unittest
 
 import numpy as np
@@ -67,6 +68,16 @@ class TestEvents(unittest.TestCase):
         self.assertTrue(E.roll_artefact(d, None, pd.Series([0., .2], index=idx)).iloc[1])
         self.assertFalse(E.roll_artefact(d, None, pd.Series([0., -4.], index=idx)).iloc[1])
 
+    def test_moving_etf_confirms_an_overnight_crash(self):
+        idx = days(2)
+        d = pd.DataFrame({"open": [100., 90.2], "close": [100., 90.]}, index=idx)
+        self.assertFalse(E.roll_artefact(d, None, pd.Series([0., -5.], index=idx)).iloc[1])
+
+    def test_gap_rule_applies_on_days_the_etf_has_no_value(self):
+        idx = days(2)
+        d = pd.DataFrame({"open": [100., 90.2], "close": [100., 90.]}, index=idx)
+        self.assertTrue(E.roll_artefact(d, None, pd.Series([0., np.nan], index=idx)).iloc[1])
+
     def test_module_does_not_compute_forward_returns(self):
         import inspect
         src = inspect.getsource(E)
@@ -75,11 +86,21 @@ class TestEvents(unittest.TestCase):
 
 
 class TestYahoo(unittest.TestCase):
-    def test_dates_use_exchange_time_and_drop_empty_bars(self):
-        raw = b'{"chart":{"result":[{"meta":{"gmtoffset":-14400},"timestamp":[1700000000,1700086400,1700172800],"indicators":{"quote":[{"open":[1,1,1],"high":[2,2,2],"low":[1,1,1],"close":[1.5,null,1.6],"volume":[5,5,5]}]}}]}}'
-        d = H.parse_yahoo(raw)
-        self.assertEqual(len(d), 2)
-        self.assertEqual(d.date.iloc[0], "2023-11-14")
+    def yahoo(self, ts, tz="America/New_York", close=1.5):
+        return json.dumps({"chart": {"result": [{"meta": {"gmtoffset": -18000, "exchangeTimezoneName": tz}, "timestamp": [ts],
+                "indicators": {"quote": [{"open": [1], "high": [2], "low": [1], "close": [close], "volume": [5]}]}}]}}).encode()
+
+    def test_daylight_saving_bar_keeps_its_session_date(self):
+        # 04:00 UTC is midnight in New York in April. Today's -5h winter offset would give the previous day.
+        ts = int(pd.Timestamp("2025-04-03 04:00", tz="UTC").timestamp())
+        self.assertEqual(H.parse_yahoo(self.yahoo(ts)).date.iloc[0], "2025-04-03")
+
+    def test_winter_bar_keeps_its_session_date(self):
+        ts = int(pd.Timestamp("2025-01-15 05:00", tz="UTC").timestamp())
+        self.assertEqual(H.parse_yahoo(self.yahoo(ts)).date.iloc[0], "2025-01-15")
+
+    def test_bars_without_a_close_are_dropped(self):
+        self.assertEqual(len(H.parse_yahoo(self.yahoo(1700000000, close=None))), 0)
 
 
 if __name__ == "__main__":

@@ -23,9 +23,9 @@ si reimplementano dopo: i riferimenti qui sotto sono solo storici; (5) **tutti i
    direzioni, ma comprare il rimbalzo non è risultato profittevole e seguire l'inerzia non batte il caso (Caporale-Plastun, JES 2019).
    Il momentum giornaliero è forte (Liu-Tsyvinski, RFS 2021): nel brevissimo il panico tende a proseguire, non a rimbalzare.
    Sui regimi di funding negativo (squeeze) i dati favorevoli sono di un broker (K33), su orizzonti 30–360 giorni e pochi regimi.
-3. **Potenza.** Conteggio reale (`fase0_conta_eventi.py`, 9 asset, 2019–2026, nessun rendimento futuro calcolato): panico con almeno 1 condizione oltre al prezzo = 459 eventi, **191 cluster indipendenti**;
-   con 3 condizioni solo 3 cluster: la checklist completa non ha quasi casi storici. Con 79 cluster nel campione di test (dal 2024) la potenza è ~60% a d = 0,30 e ~26% a d = 0,20:
-   gli effetti piccoli resteranno probabilmente «non informativi».
+3. **Potenza.** Conteggio reale (`python -m bzd.events`, nessun rendimento futuro calcolato): panico cripto con almeno 1 condizione oltre al prezzo = **188 cluster indipendenti**;
+   con tutte le condizioni quasi nessun caso, in ogni mercato: la checklist completa non è utilizzabile come filtro. Con 79 cluster di test la potenza è ~59% a d = 0,30:
+   gli effetti piccoli resteranno probabilmente «non informativi». Dettagli in `ROADMAP.md`.
 4. **Niente X.** Sentiment solo da fonti gratuite: Reddit (con storia via Arctic Shift, quindi valutabile nei backtest), notizie, Bluesky, Telegram pubblico e altre.
    Le fonti senza storia si registrano da subito e si valutano solo in avanti.
 5. **Automatico solo dopo i test**, su testnet, con un «API wallet» di Hyperliquid che può tradare ma non prelevare,
@@ -88,13 +88,13 @@ Ogni numero nella scheda ha un `id` di evidenza verificabile con `bzd verifica <
 | alternative.me `/fng/` | Fear & Greed dal 2018 | gratuito con attribuzione |
 | Coin Metrics Community, DefiLlama | on-chain, stablecoin | come AMBRA P1c |
 | Storia lunga | candele, funding, OI | **Binance e Bybit, gratuiti** (candele e funding dal 2019-09, OI dal 2020-07): testati il 4/11 |
-| Liquidazioni aggregate | segnale chiave del panico | **storia gratuita non trovata**; proxy: calo di OI + volume + prezzo nella stessa barra; OKX registrato in avanti |
+| Liquidazioni | segnale chiave del panico | **canali Telegram pubblici con storia** (Binance dal 2019-05, Hyperliquid dal 2024-12; bot di terzi con soglie minime: da validare); proxy: calo di OI + volume + prezzo; OKX registrato in avanti |
 
 ### Agente 2 — Calcolo e rilevatore setup (codice)
 Indicatori (barre 1 h e 4 h, più giornaliere): rendimento in unità di volatilità (z), volume z, ΔOI 1/4/24 h, funding e suo z-score,
 basis, RSI 14, distanza da VWAP e medie 50/200, ATR; IV ATM e suo salto, skew 25-delta; tono GDELT e suo salto; indici social.
 
-**Setup (soglie da fissare su dati fino a fine 2023, test dal 2024, poi congelate). Aggiungere il setup SURRISCALDAMENTO (ridurre o stringere gli stop, non short):**
+**Setup (soglie da fissare fino a fine 2023 per le cripto e fino a fine 2014 per gli altri mercati, poi congelate). Aggiungere il setup SURRISCALDAMENTO (ridurre o stringere gli stop, non short):**
 
 | Condizione | PANICO (long sul rimbalzo) | SQUEEZE (long sulla copertura degli short) |
 |---|---|---|
@@ -176,7 +176,7 @@ Il registro serve a U1: misurare se lo strumento migliora davvero le tue decisio
 
 ## 8. Limiti e ipotesi fragili
 - Storia: Hyperliquid limitata (candele 1 h dal 2026-04-10, 4 h dal 2024-07-24 via API); calibrare su altri exchange introduce differenze di basis e liquidità.
-- Liquidazioni aggregate non disponibili gratis: il «panico finito» è stimato con un proxy.
+- Liquidazioni solo da bot di terzi con soglie minime: i totali sono un minimo, da validare.
 - Pannello social: selezione arbitraria, bot, chi scrive non è chi trada; la copertura cripto fuori da Reddit è da misurare; le fonti gratuite possono cambiare.
 - Soglie dei setup: scelte da me come punto di partenza, da congelare prima di guardare il campione di test.
 - K33 è ricerca di un broker con interesse commerciale; gli studi sul sentiment non concordano.
