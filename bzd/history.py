@@ -76,13 +76,14 @@ def get(group, name, n, url, body=None, secrets=()):
     return raw
 
 
-def save(group, name, df):
+def save(group, name, df, quiet=False):
     p = root() / group / f"{name}.csv.gz"
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_name(p.name + ".tmp")
     df.to_csv(tmp, index=False, compression={"method": "gzip"})
     tmp.replace(p)
-    print(f"  {group}/{name}: {len(df):,} rows", flush=True)
+    if not quiet:
+        print(f"  {group}/{name}: {len(df):,} rows", flush=True)
 
 
 def done(group, name):
@@ -203,16 +204,16 @@ def get_tradfi():
         save("tradfi", n, d[["date", "open", "high", "low", "close", "volume"] + (["adjclose"] if "adjclose" in d else [])])
 
 
-def get_vol():
+def get_vol(force=False):
     for name, col in VOL_CBOE.items():
-        if done("vol", name):
+        if done("vol", name) and not force:
             continue
         raw = get("vol", name, 0, f"https://cdn.cboe.com/api/global/us_indices/daily_prices/{name}_History.csv")
         if raw[:1] == b"<":
             raise RuntimeError(f"{name}: got html instead of csv")
         x = pd.read_csv(io.BytesIO(raw))
         d = pd.DataFrame({"date": pd.to_datetime(x["DATE"], format="%m/%d/%Y").dt.strftime("%Y-%m-%d"), "close": pd.to_numeric(x[col], errors="coerce")})
-        save("vol", name, d.dropna())
+        save("vol", name, d.dropna(), quiet=force)
 
 
 def cot_available(report_date):
@@ -224,10 +225,10 @@ def cot_available(report_date):
     return report_date + pd.Timedelta(days=6)
 
 
-def get_cot():
+def get_cot(force=False):
     for sym, (_, code) in MARKETS.items():
         n = safe(sym)
-        if done("cot", n):
+        if done("cot", n) and not force:
             continue
         q = {"cftc_contract_market_code": code, "$limit": 50000, "$order": "report_date_as_yyyy_mm_dd",
              "$select": "report_date_as_yyyy_mm_dd,market_and_exchange_names,open_interest_all,noncomm_positions_long_all,noncomm_positions_short_all,comm_positions_long_all,comm_positions_short_all"}
@@ -244,7 +245,7 @@ def get_cot():
                             "spec_long": d.noncomm_positions_long_all, "spec_short": d.noncomm_positions_short_all,
                             "comm_long": d.comm_positions_long_all, "comm_short": d.comm_positions_short_all})
         out["spec_net_pct_oi"] = (out.spec_long - out.spec_short) / out.oi
-        save("cot", n, out.drop_duplicates("report_date"))
+        save("cot", n, out.drop_duplicates("report_date"), quiet=force)
 
 
 def get_macro():
@@ -274,13 +275,59 @@ def get_attention():
         save("attention", a, pd.DataFrame({"date": [f"{o['timestamp'][:4]}-{o['timestamp'][4:6]}-{o['timestamp'][6:8]}" for o in x], "views": [o["views"] for o in x]}))
 
 
+def merge_tail(old, new, key):
+    """Add new rows to a stored table. For the same timestamp the newer row wins, since sources revise recent bars."""
+    both = pd.concat([old, new], ignore_index=True)
+    if key == "t":  # stored timestamps can mix whole seconds and milliseconds
+        both[key] = pd.to_datetime(both[key], utc=True, format="ISO8601")
+    return both.drop_duplicates(key, keep="last").sort_values(key).reset_index(drop=True)
+
+
+def closed_klines(rows, now_ms):
+    """Binance candles whose close time has passed. An open bar must never reach the detector."""
+    return [k for k in rows if k[6] < now_ms]
+
+
+def refresh_crypto():
+    """Fetch the latest closed 4h bars, funding and open interest."""
+    now_ms, tag = int(time.time() * 1000), int(time.time())
+    for a in CRYPTO:
+        n = f"{a}_candles_4h"
+        x = closed_klines(json.loads(get("live", n, tag, f"https://fapi.binance.com/fapi/v1/klines?interval=4h&symbol={a}USDT&limit=60")), now_ms)
+        d = pd.DataFrame([(k[0], float(k[1]), float(k[2]), float(k[3]), float(k[4]), float(k[7])) for k in x], columns="t open high low close volume_usd".split())
+        d["t"] = to_utc(d.t).astype(str)
+        save("crypto", n, merge_tail(pd.read_csv(root() / "crypto" / f"{n}.csv.gz"), d, "t"), quiet=True)
+        n = f"{a}_funding"
+        x = json.loads(get("live", n, tag, f"https://fapi.binance.com/fapi/v1/fundingRate?symbol={a}USDT&limit=30"))
+        d = pd.DataFrame({"t": to_utc(pd.Series([k["fundingTime"] for k in x])).astype(str), "funding": [float(k["fundingRate"]) for k in x]})
+        save("crypto", n, merge_tail(pd.read_csv(root() / "crypto" / f"{n}.csv.gz"), d, "t"), quiet=True)
+        n = f"{a}_oi_4h"
+        x = json.loads(get("live", n, tag, f"https://api.bybit.com/v5/market/open-interest?category=linear&symbol={a}USDT&intervalTime=4h&limit=60"))["result"]["list"]
+        d = pd.DataFrame({"t": to_utc(pd.Series([int(k["timestamp"]) for k in x])).astype(str), "oi": [float(k["openInterest"]) for k in x]})
+        save("crypto", n, merge_tail(pd.read_csv(root() / "crypto" / f"{n}.csv.gz"), d, "t"), quiet=True)
+
+
+def refresh_daily(with_cot=False):
+    """Fetch recent daily bars and volatility indices, and the COT reports when asked."""
+    tag, today = int(time.time()), datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    for s in list(MARKETS) + list(ETF_CHECK.values()) + VOL_YAHOO:
+        n = safe(s)
+        d = parse_yahoo(get("live", n, tag, f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(s)}?interval=1d&range=1mo"))
+        d = d[d.date < today]
+        old = pd.read_csv(root() / "tradfi" / f"{n}.csv.gz")
+        save("tradfi", n, merge_tail(old, d[[c for c in old.columns if c in d]], "date"), quiet=True)
+    get_vol(force=True)
+    if with_cot:
+        get_cot(force=True)
+
+
 GROUPS = {"crypto": get_crypto, "tradfi": get_tradfi, "vol": get_vol, "cot": get_cot, "macro": get_macro, "attention": get_attention}
 
 
 def quality(df):
     """Facts a reader needs before trusting a series."""
     tcol = "date" if "date" in df else "report_date" if "report_date" in df else "t"
-    t = pd.to_datetime(df[tcol], utc=True)
+    t = pd.to_datetime(df[tcol], utc=True, format="ISO8601")
     out = {"rows": len(df), "start": t.min().strftime("%Y-%m-%d"), "end": t.max().strftime("%Y-%m-%d"),
            "dupes": int(t.duplicated().sum()), "max_gap_days": int(t.sort_values().diff().dt.days.max()) if len(t) > 1 else 0}
     if {"open", "high", "low", "close"} <= set(df.columns):

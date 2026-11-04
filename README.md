@@ -43,6 +43,14 @@ python3 -m bzd.telegram status
 
 `.devcontainer/devcontainer.json` installs Claude Code and the Python packages on creation, and starts the recorder and backfill with `scripts/start-services.sh` on every start. They stop whenever the Codespace pauses, and those gaps can't be filled for data with no history. Claude runs as root, without GitHub credentials. Run `gl` in a normal VS Code terminal to let the running session push: it copies that terminal's token to a file only root can read. `gl off` deletes it. Run `gl` again if the token expires or after a rebuild.
 
+## Alerts
+
+`python -m bzd.alerts` runs the frozen setups on fresh data and logs every alert to `data/alerts/log.jsonl`. Sending is off until the agents review alerts: with `BZD_ALERTS_TELEGRAM=on` in `.env`, alerts with score 1 or more also go to Telegram. They are unvalidated until phase B3, and the module never places orders.
+
+1. On Telegram, message @BotFather, send `/newbot`, and put the token in `.env` as `TELEGRAM_BOT_TOKEN=`.
+2. Send your new bot any message, then run `.venv/bin/python -m bzd.alerts chatid` and put the number in `.env` as `TELEGRAM_CHAT_ID=`.
+3. Run `.venv/bin/python -m bzd.alerts test`. The running service reads `.env` again on its own.
+
 ## Moving to another machine
 
 Stop the recorder, copy `data/` and `.env`, then start it on the new machine. Run only one recorder per data directory. Add a process manager such as systemd there so it restarts after crashes and reboots.

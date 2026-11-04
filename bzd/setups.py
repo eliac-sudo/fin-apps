@@ -127,11 +127,11 @@ def daily_setups(cfg, d, etf_z=None, cot=None, vol_index=None, is_future=True):
 
 def load_crypto(a):
     d = read("crypto", f"{a}_candles_4h")
-    d = d.assign(t=pd.to_datetime(d.t, utc=True)).set_index("t").sort_index()
+    d = d.assign(t=pd.to_datetime(d.t, utc=True, format="ISO8601")).set_index("t").sort_index()
     f = read("crypto", f"{a}_funding")
-    f = f.assign(t=pd.to_datetime(f.t, utc=True).dt.floor("s")).drop_duplicates("t").set_index("t").funding.sort_index()
+    f = f.assign(t=pd.to_datetime(f.t, utc=True, format="ISO8601").dt.floor("s")).drop_duplicates("t").set_index("t").funding.sort_index()
     o = read("crypto", f"{a}_oi_4h")
-    return d[~d.index.duplicated()], f, o.assign(t=pd.to_datetime(o.t, utc=True)).set_index("t").oi.sort_index()
+    return d[~d.index.duplicated()], f, o.assign(t=pd.to_datetime(o.t, utc=True, format="ISO8601")).set_index("t").oi.sort_index()
 
 
 def load_vol_index(name, index):
