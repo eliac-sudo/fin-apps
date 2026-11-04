@@ -10,7 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .events import daily, read
+from .events import crypto_daily, daily, read
 from .history import safe
 from .recorder import BASE
 
@@ -51,8 +51,8 @@ def daily_sigma(close):
 
 def market_sigma(market):
     """Daily volatility, from the same stored history the setups use."""
-    d = read("crypto", f"{market}_candles_1d") if "=" not in market else read("tradfi", safe(market))
-    return daily_sigma(daily(d if "date" in d else d.assign(date=d.t.str[:10])).close) if d is not None else None
+    d = crypto_daily(market) if "=" not in market else read("tradfi", safe(market))
+    return daily_sigma((d if "=" not in market else daily(d)).close) if d is not None else None
 
 
 def assess(name, mark, prev_day, mark_4h, sigma):

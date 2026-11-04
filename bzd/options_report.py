@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 import numpy as np
 
 from . import indicators as I
-from .events import daily, read
+from .events import crypto_daily, daily, read
 from .recorder import load_env
 
 BLOCKS = (
@@ -20,8 +20,8 @@ BLOCKS = (
     {"name": "Oro", "index": ("vol", "GVZ", "GVZ"), "underlying": ("tradfi", "GLD", 252), "iv": "GLD", "chain": "GLD"},
     {"name": "Petrolio", "index": ("vol", "OVX", "OVX"), "underlying": ("tradfi", "USO", 252), "iv": "USO", "chain": "USO"},
     {"name": "Euro/dollaro", "iv": "FXE", "chain": "FXE"},
-    {"name": "Bitcoin", "index": ("crypto", "BTC_dvol_1d", "DVOL"), "underlying": ("crypto", "BTC_candles_1d", 365), "chain": "BTC"},
-    {"name": "Ethereum", "index": ("crypto", "ETH_dvol_1d", "DVOL"), "underlying": ("crypto", "ETH_candles_1d", 365), "chain": "ETH"},
+    {"name": "Bitcoin", "index": ("crypto", "BTC_dvol_1d", "DVOL"), "underlying": ("crypto", "BTC", 365), "chain": "BTC"},
+    {"name": "Ethereum", "index": ("crypto", "ETH_dvol_1d", "DVOL"), "underlying": ("crypto", "ETH", 365), "chain": "ETH"},
 )
 
 
@@ -36,6 +36,14 @@ def index_series(group, name):
     if "date" not in d:
         d = d.assign(date=d.t.str[:10])
     return daily(d).close.dropna()
+
+
+def close_series(group, name):
+    """Daily closes of the market under the options."""
+    if group == "crypto":
+        d = crypto_daily(name)
+        return None if d is None else d.close.dropna()
+    return index_series(group, name)
 
 
 def level_line(block):
@@ -71,7 +79,7 @@ def price_of_options(block, chain):
     if not (chain and chain.get("iv_30d") and block.get("underlying")):
         return None
     group, name, year_days = block["underlying"]
-    s = index_series(group, name)
+    s = close_series(group, name)
     rv = realized_vol(s, year_days) if s is not None else None
     if not rv:
         return None

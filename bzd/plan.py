@@ -245,7 +245,8 @@ def make_plan(words, now=None):
     p = build_plan(req["capital"], req["risk_pct"], entry, stop, req["target_r"], info, costs["fee_per_side"] + costs["slippage_per_side"],
                    req.get("leverage"), levels["atr_share"] if levels else None)
     text = format_plan(name, p, info, source, TIME_EXIT["crypto" if name in CRYPTO else "other"], notes)
-    return text, {**p, "market": name, "at": (now or datetime.now(timezone.utc)).isoformat(timespec="seconds")}
+    return text, {**p, "market": name, "label": LABELS.get(name, name), "stop_source": source, "notes": notes, "time_exit": TIME_EXIT["crypto" if name in CRYPTO else "other"],
+                  "funding_side": "paghi" if p["funding_per_day"] < 0 else "incassi", "at": (now or datetime.now(timezone.utc)).isoformat(timespec="seconds")}
 
 
 def log_plan(rec):

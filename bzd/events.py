@@ -75,6 +75,15 @@ def daily(df):
     return d[~d.index.duplicated()]
 
 
+def crypto_daily(asset):
+    """Daily closes from the 4h bars, which stay fresh. The last value is the latest closed bar of today, so it's never a day behind."""
+    d = read("crypto", f"{asset}_candles_4h")
+    if d is None:
+        return None
+    d = d.assign(date=pd.to_datetime(d.t.str[:10], utc=True)).sort_values("t")
+    return d.drop_duplicates("date", keep="last").set_index("date")
+
+
 def vol_series(name, index):
     x = read("vol", name)
     if x is None:

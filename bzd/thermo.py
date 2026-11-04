@@ -14,7 +14,7 @@ import pandas as pd
 
 from . import indicators as I
 from . import texts as T
-from .events import align_cot, daily, read
+from .events import align_cot, crypto_daily, daily, read
 from .history import CRYPTO, MARKETS, safe
 from .recorder import BASE, load_env
 from .setups import VOL_INDEX, load_crypto, load_vol_index
@@ -46,32 +46,34 @@ def crypto_reading(a):
     fund7 = f.rolling(21).mean().reindex(d.index, method="ffill")
     oi7 = o.reindex(d.index, method="ffill", limit=2).pct_change(42, fill_method=None)
     rs = I.rsi(c)
-    parts = {"slancio": I.past_percentile(r42).iloc[-1], "rsi": rs.iloc[-1], "estensione": I.past_percentile(I.sma_distance(c, 1200)).iloc[-1],
-             "funding": I.past_percentile(fund7).iloc[-1], "oi": I.past_percentile(oi7).iloc[-1]}
-    return reading(a, "crypto", c, rs, parts, d.index[-1], extra={"sma200_dist": I.sma_distance(c, 1200).iloc[-1], "vwap_dist": I.vwap_distance(d, 42, "volume_usd").iloc[-1]})
+    series = {"slancio": I.past_percentile(r42), "rsi": rs, "estensione": I.past_percentile(I.sma_distance(c, 1200)),
+              "funding": I.past_percentile(fund7), "oi": I.past_percentile(oi7)}
+    return reading(a, "crypto", c, rs, series, d.index[-1], 42, extra={"sma200_dist": I.sma_distance(c, 1200).iloc[-1], "vwap_dist": I.vwap_distance(d, 42, "volume_usd").iloc[-1]})
 
 
 def daily_reading(sym, cls):
     d = daily(read("tradfi", safe(sym)))
     c = d.close
-    parts = {}
     rs = I.rsi(c)
-    parts["slancio"] = I.past_percentile(np.log(c.where(c > 0)).diff(20)).iloc[-1]
-    parts["rsi"] = rs.iloc[-1]
-    parts["estensione"] = I.past_percentile(I.sma_distance(c, 200)).iloc[-1]
+    series = {"slancio": I.past_percentile(np.log(c.where(c > 0)).diff(20)), "rsi": rs, "estensione": I.past_percentile(I.sma_distance(c, 200))}
     cot = read("cot", safe(sym))
     if cot is not None:
         spec = align_cot(cot, d.index).spec_net_pct_oi
-        parts["posizionamento"] = I.past_percentile(spec.dropna()).reindex(d.index).ffill().iloc[-1]
+        series["posizionamento"] = I.past_percentile(spec.dropna()).reindex(d.index).ffill()
     vi = load_vol_index(VOL_INDEX[sym], d.index) if sym in VOL_INDEX else None
     if vi is not None and vi.notna().iloc[-1]:
-        parts["calma"] = 100 - I.past_percentile(vi).iloc[-1]
-    return reading(sym, cls, c, rs, parts, d.index[-1], extra={"sma200_dist": I.sma_distance(c, 200).iloc[-1]})
+        series["calma"] = 100 - I.past_percentile(vi)
+    return reading(sym, cls, c, rs, series, d.index[-1], 5, extra={"sma200_dist": I.sma_distance(c, 200).iloc[-1]})
 
 
-def reading(name, cls, close, rs, parts, last, extra):
-    heat, vals = heat_from(parts)
-    return {"market": name, "class": cls, "heat": heat, "parts": vals, "price": float(close.iloc[-1]), "bar": last.isoformat(), "rsi": float(rs.iloc[-1]) if not pd.isna(rs.iloc[-1]) else None, **{k: float(v) for k, v in extra.items() if not pd.isna(v)}}
+def at(series, i):
+    return {k: v.iloc[i] for k, v in series.items() if len(v) >= abs(i)}
+
+
+def reading(name, cls, close, rs, series, last, week_bars, extra):
+    heat, vals = heat_from(at(series, -1))
+    week_ago = heat_from(at(series, -1 - week_bars))[0]
+    return {"market": name, "class": cls, "heat": heat, "heat_change_7d": heat - week_ago if heat is not None and week_ago is not None else None, "parts": vals, "price": float(close.iloc[-1]), "bar": last.isoformat(), "rsi": float(rs.iloc[-1]) if not pd.isna(rs.iloc[-1]) else None, **{k: float(v) if not pd.isna(v) else None for k, v in extra.items()}}
 
 
 def all_readings():
@@ -98,13 +100,10 @@ def price_position(close, year_bars):
 
 def market_position(market):
     """Price position of a market from stored daily closes, or None."""
-    if market in CRYPTO:
-        d, bars = read("crypto", f"{market}_candles_1d"), 365
-    else:
-        d, bars = read("tradfi", safe(market)), 252
+    d, bars = (crypto_daily(market), 365) if market in CRYPTO else (read("tradfi", safe(market)), 252)
     if d is None:
         return None
-    return price_position(daily(d if "date" in d else d.assign(date=d.t.str[:10])).close, bars)
+    return price_position((d if market in CRYPTO else daily(d)).close, bars)
 
 
 def position_text(p):
@@ -142,16 +141,55 @@ def fear_greed():
     return None if d is None else {"value": int(d.value.iloc[-1]), "date": d.date.iloc[-1]}
 
 
+PART_IT = {"slancio": "slancio", "rsi": "RSI", "estensione": "distanza dalla media", "funding": "funding", "oi": "leva (OI)", "posizionamento": "speculatori", "calma": "volatilità bassa"}
+PART_COLD = {"calma": "volatilità alta"}  # calm that is low means volatility that is high
+CLASS_IT = {"crypto": "Cripto", "equities": "Azioni", "bonds": "Bond", "commodities": "Materie prime", "fx": "Forex"}
+
+
+def class_summary(rows):
+    """One market class in words: how hot, how it changed, and what is driving it."""
+    avg = float(np.mean([r["heat"] for r in rows]))
+    changes = [r["heat_change_7d"] for r in rows if r.get("heat_change_7d") is not None]
+    parts = {}
+    for r in rows:
+        for k, v in r["parts"].items():
+            parts.setdefault(k, []).append(v)
+    means = {k: float(np.mean(v)) for k, v in parts.items()}
+    hot = [PART_IT[k] for k, v in sorted(means.items(), key=lambda x: -x[1]) if v >= 60][:2]
+    cold = [PART_COLD.get(k, PART_IT[k]) for k, v in sorted(means.items(), key=lambda x: x[1]) if v <= 40][:2]
+    return {"heat": avg, "band": band(avg), "change_7d": float(np.mean(changes)) if changes else None, "hot": hot, "cold": cold, "parts": means}
+
+
+def why_text(s):
+    bits = ([f"scalda: {', '.join(s['hot'])}"] if s["hot"] else []) + ([f"raffredda: {', '.join(s['cold'])}"] if s["cold"] else [])
+    return " · ".join(bits) or "nessun fattore estremo"
+
+
+def overview(summaries):
+    """The whole picture in one sentence, without the reader having to compare numbers."""
+    names = {b: [CLASS_IT[c] for c, s in summaries.items() if s["band"] == b] for b in {s["band"] for s in summaries.values()}}
+    hot = [c for b, g in names.items() if "caldo" in b for c in g]
+    cold = [c for b, g in names.items() if "freddo" in b for c in g]
+    moved = max(((c, s) for c, s in summaries.items() if s["change_7d"] is not None), key=lambda x: abs(x[1]["change_7d"]), default=None)
+    text = (f"Caldi: {', '.join(hot)}. " if hot else "Nessun mercato caldo. ") + (f"Freddi: {', '.join(cold)}." if cold else "Nessun mercato freddo.")
+    if moved and abs(moved[1]["change_7d"]) >= 5:
+        text += f" Il cambiamento più forte in 7 giorni è {CLASS_IT[moved[0]]} ({moved[1]['change_7d']:+.0f})."
+    return text
+
+
 def build_digest(now=None):
     now = now or datetime.now(timezone.utc)
     rows = all_readings()
-    names = {"crypto": "Cripto", "equities": "Azioni", "bonds": "Bond", "commodities": "Materie prime", "fx": "Forex"}
-    out = [f"🌡 <b>Termometro</b> · {now:%d/%m %H:%M} UTC", "Quanto è caldo ogni mercato rispetto al suo passato, da 0 a 100."]
-    for cls, label in names.items():
-        g = sorted([r for r in rows if r["class"] == cls and r["heat"] is not None], key=lambda r: -r["heat"])
-        if g:
-            avg = float(np.mean([r["heat"] for r in g]))
-            out += ["", f"<b>{label}: {avg:.0f}</b> {band(avg)}", " · ".join(f"{LABELS.get(r['market'], r['market'])} {r['heat']:.0f}" for r in g[:9])]
+    groups = {c: sorted([r for r in rows if r["class"] == c and r["heat"] is not None], key=lambda r: -r["heat"]) for c in CLASS_IT}
+    groups = {c: g for c, g in groups.items() if g}
+    summaries = {c: class_summary(g) for c, g in groups.items()}
+    out = [f"🌡 <b>Termometro</b> · {now:%d/%m %H:%M} UTC", "0 = mercato scarico, 100 = mercato surriscaldato, rispetto al suo passato.", "", f"<b>{overview(summaries)}</b>"]
+    for c, g in groups.items():
+        s = summaries[c]
+        change = f" ({s['change_7d']:+.0f} in 7 giorni)" if s["change_7d"] is not None else ""
+        name = lambda r: LABELS.get(r["market"], r["market"])
+        extremes = f"Più caldo {name(g[0])} {g[0]['heat']:.0f} · più freddo {name(g[-1])} {g[-1]['heat']:.0f}" if len(g) > 1 else f"{name(g[0])} {g[0]['heat']:.0f}"
+        out += ["", f"<b>{CLASS_IT[c]}: {s['heat']:.0f}</b> {s['band']}{change}", extremes, why_text(s)]
     pos = sorted((p["pct"], LABELS.get(m, m)) for m, p in ((m, market_position(m)) for m in [*CRYPTO, *MARKETS]) if p)
     if pos:
         out += ["", "<b>Prezzo rispetto all'ultimo anno</b>", "Più economici: " + " · ".join(n for _, n in pos[:5]), "Più cari: " + " · ".join(n for _, n in pos[:-6:-1])]

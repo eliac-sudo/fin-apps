@@ -112,15 +112,35 @@ class TestThermo(unittest.TestCase):
                  {"time": "2026-11-03T22:00:00+00:00", "text": "cake recipe"}, {"time": "2026-10-01T00:00:00+00:00", "text": "bitcoin crash"}]
         self.assertEqual(Th.mood(items, "crypto", NOW), {"texts": 2, "fear": 1, "greed": 1})
 
-    def test_digest_has_no_options_and_stays_short(self):
+    def rows(self):
+        return [{"market": "BTC", "class": "crypto", "heat": 90.0, "heat_change_7d": 12.0, "parts": {"funding": 95, "slancio": 85, "oi": 30}},
+                {"market": "ETH", "class": "crypto", "heat": 70.0, "heat_change_7d": 8.0, "parts": {"funding": 75, "slancio": 65, "oi": 20}},
+                {"market": "ES=F", "class": "equities", "heat": 30.0, "heat_change_7d": None, "parts": {"calma": 10}}]
+
+    def test_digest_says_what_is_going_on_in_words(self):
         from unittest import mock
-        rows = [{"market": "BTC", "class": "crypto", "heat": 90.0}, {"market": "ES=F", "class": "equities", "heat": 30.0}]
-        with mock.patch.object(Th, "all_readings", return_value=rows), mock.patch.object(Th, "fear_greed", return_value={"value": 34, "date": "x"}):
+        with mock.patch.object(Th, "all_readings", return_value=self.rows()), mock.patch.object(Th, "fear_greed", return_value={"value": 34, "date": "x"}), \
+                mock.patch.object(Th, "market_position", return_value=None):
             t, _ = Th.build_digest(NOW)
         self.assertNotIn("GEX", t)
-        self.assertNotIn("IV", t)
+        self.assertIn("0 = mercato scarico", t)
+        self.assertIn("Caldi: Cripto. Freddi: Azioni.", t)
+        self.assertIn("Cripto (+10)", t)
+        self.assertIn("+10 in 7 giorni", t)
+        self.assertIn("Più caldo BTC 90 · più freddo ETH 70", t)
+        self.assertIn("scalda: funding, slancio · raffredda: leva (OI)", t)
+        self.assertIn("raffredda: volatilità alta", t)
         self.assertIn("S&amp;P 500 30", t)
-        self.assertLess(len(t), 600)
+
+    def test_quiet_markets_say_so(self):
+        s = {"crypto": {"band": Th.band(50), "change_7d": 1.0}}
+        self.assertEqual(Th.overview(s), "Nessun mercato caldo. Nessun mercato freddo.")
+
+    def test_reading_compares_with_a_week_ago(self):
+        import pandas as pd
+        up, c = pd.Series([40.0] * 6 + [60.0]), pd.Series([1.0] * 7)
+        r = Th.reading("X", "fx", c, up, {"slancio": up}, c.index[-1] if False else pd.Timestamp("2026-11-04"), 5, {})
+        self.assertEqual(r["heat_change_7d"], 20)
 
 
 class TestOptionsReport(unittest.TestCase):
@@ -181,3 +201,13 @@ class TestCheapOrDear(unittest.TestCase):
             self.assertEqual(R.price_of_options(b, {"iv_30d": rv})["label"], "nella norma")
         self.assertIsNone(R.price_of_options({}, {"iv_30d": .2}))
         self.assertIsNone(R.price_of_options(b, None))
+
+
+class TestCryptoDaily(unittest.TestCase):
+    def test_keeps_the_last_bar_of_each_day(self):
+        import pandas as pd
+        from unittest import mock
+        from bzd import events as E
+        bars = pd.DataFrame({"t": ["2026-11-03 00:00:00+00:00", "2026-11-03 20:00:00+00:00", "2026-11-04 00:00:00+00:00", "2026-11-04 16:00:00+00:00"], "close": [1.0, 2.0, 3.0, 4.0]})
+        with mock.patch.object(E, "read", return_value=bars):
+            self.assertEqual(E.crypto_daily("BTC").close.tolist(), [2, 4])
