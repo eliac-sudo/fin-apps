@@ -30,6 +30,8 @@ TELEGRAM_LIMIT = 3900
 DAILY_EVERY, COT_EVERY = 6 * 3600, 24 * 3600
 DIGEST_HOUR_UTC = 6  # the thermometer goes out once a day from this hour
 CRYPTO_HL = {"BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX", "LINK"}
+COMMAND_MAX_AGE = 600  # seconds; a request older than this is ignored, because its prices would be stale
+LOOP_SECONDS = 20
 BAR_DELAY = 120  # seconds after a 4h close, so the exchange has finished the bar
 HL_MARKET = {"ES=F": "xyz:SP500", "NQ=F": "xyz:XYZ100", "CL=F": "xyz:CL", "GC=F": "xyz:GOLD", "SI=F": "xyz:SILVER", "HG=F": "xyz:COPPER",
              "EURUSD=X": "xyz:EUR", "USDJPY=X": "xyz:JPY", "GBPUSD=X": "xyz:GBP", "ZB=F": "xyz:TLT"}
@@ -189,6 +191,11 @@ def format_item(a):
     return "\n".join(out)
 
 
+def plan_name(a):
+    """The name /piano takes, or nothing if the market isn't on Hyperliquid."""
+    return a["market"] if a["class"] == "crypto" else "xyz:" + HL_MARKET[a["market"]].removeprefix("xyz:") if a["market"] in HL_MARKET else None
+
+
 def format_group(alerts, review=None):
     """One message per class and setup, so a market-wide move doesn't send nine."""
     a0 = alerts[0]
@@ -208,6 +215,8 @@ def format_group(alerts, review=None):
     options = safe_options([(a["class"], a["market"]) for a in alerts])
     if options:
         lines += ["", options, ""]
+    if setup != "overheating" and plan_name(a0):
+        lines.append(f"Quanto comprare: /piano {plan_name(a0)} CAPITALE")
     lines.append("Stop e obiettivo sono indicativi. Non è consulenza finanziaria.")
     return "\n".join(lines)
 
@@ -234,6 +243,24 @@ def check_moves(st, telegram_on, now=None, root=None, sigma=M.market_sigma):
         if telegram_on:
             st["pending"] += split_message(M.format_moves(moves, now, safe_options([(m["class"], m["market"]) for m in moves])))
     return moves
+
+
+def poll_commands(st, log=print, now=None):
+    """Answer /piano from your own chat only. Anything else, or anything old after a pause, is ignored. This reads and replies: it never trades."""
+    from . import plan
+    now = now or time.time()
+    updates = telegram_call("getUpdates", {"offset": st.get("tg_offset", 0), "timeout": 0, "allowed_updates": json.dumps(["message"])}).get("result", [])
+    for u in updates:
+        st["tg_offset"] = u["update_id"] + 1
+        m = u.get("message") or {}
+        words = str(m.get("text") or "").split()
+        if str((m.get("chat") or {}).get("id")) != str(os.environ["TELEGRAM_CHAT_ID"]) or now - m.get("date", 0) > COMMAND_MAX_AGE or not words:
+            continue
+        cmd = words[0].split("@")[0].lower()
+        if cmd in ("/piano", "/plan"):
+            for part in split_message(plan.answer(words[1:])):
+                send_text(part)
+    save_state(st)
 
 
 def split_message(text, limit=TELEGRAM_LIMIT):
@@ -403,6 +430,10 @@ def cycle(st, log=print, refresh=True):
         if digest_due(st, now):
             queue_digest(st, now, log)
         flush(st, log=log)
+        try:
+            poll_commands(st, log)
+        except Exception as e:
+            log(f"command check failed, will retry: {type(e).__name__}: {e}")
     save_state(st)
     return new
 
@@ -426,7 +457,7 @@ def cmd_run():
             cycle(load_state(), log)
         except Exception as e:
             log(f"cycle failed: {type(e).__name__}: {e}")
-        for _ in range(60):
+        for _ in range(LOOP_SECONDS):
             if flag["stop"]:
                 break
             time.sleep(1)

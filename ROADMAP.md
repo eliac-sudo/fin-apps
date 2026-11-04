@@ -196,7 +196,7 @@ Raw alerts stay off Telegram until the agents review them. The flow: the detecto
 
 ## Order
 
-B3 has run once: of 15 tests only crypto panic passed, narrowly (`docs/B3_RISULTATI.md`). Telegram alerts, the thermometer and a separate options message are on, with paid agent reviews off (`BZD_AGENTS`). Any new setup needs a v2 pre-registration and fresh data. Next are the 100 labels, **A3** and a read-only app. The frozen setups are in `config/setups_v1.json`. A2 can slot in whenever you decide to run it.
+B3 has run once: of 15 tests only crypto panic passed, narrowly (`docs/B3_RISULTATI.md`). Telegram alerts, the thermometer and a separate options message are on, with paid agent reviews off (`BZD_AGENTS`). Any new setup needs a v2 pre-registration and fresh data. A3, the position and exit calculator, is built (`docs/A3_REGOLE.md`) and now needs real use. Next are the 100 labels and a read-only app. The frozen setups are in `config/setups_v1.json`. A2 can slot in whenever you decide to run it.
 
 ## Deferred
 

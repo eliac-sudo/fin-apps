@@ -47,6 +47,8 @@ python3 -m bzd.telegram status
 
 `python -m bzd.alerts` runs the frozen setups on fresh data and logs every alert to `data/alerts/log.jsonl`. Sending is off until the agents review alerts: with `BZD_ALERTS_TELEGRAM=on` in `.env`, every trigger also goes to Telegram, with what the B3 test said about it and the options context for that market. Strong price moves (`bzd/moves.py`) go out too, within about 15 minutes, and are logged to `data/alerts/moves.jsonl`: they are large against the market's own volatility, on the Hyperliquid snapshots, and aren't tested as a signal. The module never places orders.
 
+`python -m bzd.plan BTC 5000`, or `/piano BTC 5000` to the bot, gives the position size, leverage, stop, target and time exit for a chosen risk (`docs/A3_REGOLE.md`). You place the orders by hand. It reads public prices only, and logs each plan to `data/alerts/plans.jsonl`.
+
 1. On Telegram, message @BotFather, send `/newbot`, and put the token in `.env` as `TELEGRAM_BOT_TOKEN=`.
 2. Send your new bot any message, then run `.venv/bin/python -m bzd.alerts chatid` and put the number in `.env` as `TELEGRAM_CHAT_ID=`.
 3. Run `.venv/bin/python -m bzd.alerts test`. The running service reads `.env` again on its own.
