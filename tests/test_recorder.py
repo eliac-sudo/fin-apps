@@ -94,6 +94,27 @@ class T(unittest.TestCase):
         names = [j.name for j in J.all_jobs() + J.candle_jobs()]
         self.assertEqual(len(names), len(set(names)))
 
+    def test_prune_removes_only_expired_days(self):
+        now = R.datetime(2026, 11, 4, tzinfo=R.timezone.utc)
+        short, forever = J.Job("soc_a", "http://x", 60, keep=35), J.Job("liq_a", "http://x", 60)
+        for name, day in [("soc_a", "2026-09-29"), ("soc_a", "2026-09-30"), ("soc_a", "2026-11-04"), ("liq_a", "2020-01-01")]:
+            (self.arc.root / "raw" / name / day).mkdir(parents=True)
+        self.assertEqual(self.arc.prune([short, forever], now), 1)
+        days = sorted(p.name for p in (self.arc.root / "raw" / "soc_a").iterdir())
+        self.assertEqual(days, ["2026-09-30", "2026-11-04"])
+        self.assertTrue((self.arc.root / "raw" / "liq_a" / "2020-01-01").exists())
+
+    def test_prune_keeps_the_latest_response_of_a_quiet_job(self):
+        now = R.datetime(2026, 11, 4, tzinfo=R.timezone.utc)
+        (self.arc.root / "raw" / "soc_b" / "2026-01-01").mkdir(parents=True)
+        self.arc.state["soc_b"] = {"path": "raw/soc_b/2026-01-01/000000Z.json.gz"}
+        self.assertEqual(self.arc.prune([J.Job("soc_b", "http://x", 60, keep=35)], now), 0)
+
+    def test_social_is_limited_but_liquidation_channels_are_not(self):
+        jobs = {j.name: j for j in J.social_jobs()}
+        self.assertEqual(jobs["soc_bluesky_bitcoin"].keep, J.SOCIAL_KEEP_DAYS)
+        self.assertEqual(jobs["soc_tg_binanceliquidations"].keep, 0)
+
     def test_status_flags_jobs_that_never_ran(self):
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(R.cmd_status(self.arc), 1)

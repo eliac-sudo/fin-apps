@@ -1,5 +1,5 @@
 """What the recorder collects. Priority: data with no free history, which is lost if not saved now."""
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from urllib.parse import quote
 
 MIN, HOUR, DAY = 60, 3600, 86400
@@ -12,6 +12,7 @@ HOST_GAP = {
     "api.stlouisfed.org": 1, "api.hyperliquid.xyz": 0.5,
 }
 DEFAULT_GAP = 2
+SOCIAL_KEEP_DAYS = 35  # covers daily, weekly and monthly analysis, with a margin for late runs
 
 
 # Public channels checked 4 Nov 2026: active, with a post on or near that date. Size alone doesn't prove a channel is
@@ -35,6 +36,7 @@ class Job:
     kind: str = "json"  # json | xml | csv | tg
     body: tuple = ()  # sorted (key, value) pairs of a JSON POST body
     needs: tuple = ()  # env vars required; the job is skipped without them
+    keep: int = 0  # days of raw responses to keep; 0 keeps them for good
 
 
 def hl(name, every, **body):
@@ -92,7 +94,8 @@ def social_jobs():
     j.append(Job("soc_4chan_biz", "https://a.4cdn.org/biz/catalog.json", HOUR))
     for c, every in TELEGRAM.items():
         j.append(Job(f"soc_tg_{c.lower()}", f"https://t.me/s/{c}", every, "tg"))
-    return j
+    # Liquidation channels are market data with no free history, so they are kept
+    return [x if "liquidations" in x.name else replace(x, keep=SOCIAL_KEEP_DAYS) for x in j]
 
 
 def news_jobs():

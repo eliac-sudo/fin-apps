@@ -4,7 +4,7 @@
     python -m bzd.recorder run                  run until stopped
     python -m bzd.recorder status               show job health; exits 1 if any job is late
 """
-import fcntl, gzip, hashlib, json, os, re, signal, sys, threading, time, urllib.error, urllib.request
+import fcntl, gzip, hashlib, json, os, re, shutil, signal, sys, threading, time, urllib.error, urllib.request
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -134,6 +134,21 @@ class Archive:
             self._save_state()
         return rec
 
+    def prune(self, jobs, now):
+        """Delete whole days older than each job's `keep`, except the day holding its latest response."""
+        removed = 0
+        for job in jobs:
+            if not job.keep:
+                continue
+            cutoff = (now - timedelta(days=job.keep)).strftime("%Y-%m-%d")
+            with self.lock:
+                latest = Path(self.state.get(job.name, {}).get("path", "")).parent.name
+            for d in (self.root / "raw" / job.name).glob("????-??-??"):
+                if d.name < cutoff and d.name != latest:
+                    shutil.rmtree(d)
+                    removed += 1
+        return removed
+
 
 def retry_delay(job, fails, retry_after=None):
     delay = min(max(job.every, 60) * 2 ** (fails - 1), 3600)
@@ -188,7 +203,12 @@ def cmd_run(arc):
     print(f"recording {len(jobs)} jobs on {len(threads)} hosts to {arc.root}", flush=True)
     for t in threads:
         t.start()
-    stop.wait()
+    while True:
+        removed = arc.prune(jobs, datetime.now(timezone.utc))
+        if removed:
+            print(f"pruned {removed} old day folders", flush=True)
+        if stop.wait(J.DAY):
+            break
     for t in threads:
         t.join(timeout=100)
 

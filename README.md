@@ -23,6 +23,8 @@ Data goes to `data/`, or to `BZD_DATA` if set:
 
 Jobs and request spacing are in `bzd/jobs.py`.
 
+Social responses are deleted after 35 days (`SOCIAL_KEEP_DAYS`), which covers daily, weekly and monthly analysis. The recorder checks at start and once a day. Manifest lines stay, so a path in an old line may no longer exist. Telegram liquidation channels and all other data are kept.
+
 ## Moving to another machine
 
 Stop the recorder, copy `data/` and `.env`, then start it on the new machine. Run only one recorder per data directory. Add a process manager such as systemd there so it restarts after crashes and reboots.
