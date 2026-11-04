@@ -48,14 +48,14 @@ Tested with keyless requests from this environment. A source that responded once
 
 | Source | Data | Checked |
 |---|---|---|
-| Reddit RSS | live posts and comments | responds; the `.json` route returned 403 |
+| Reddit RSS | live posts and comments | works at one request per 60 seconds, 429 at 8 seconds; the `.json` route returned 403 |
 | Bluesky public API | author feeds, full reply threads, search | works; search returned 403 on `public.api.bsky.app`, 200 on `api.bsky.app` |
 | Telegram `t.me/s/<channel>` | public channels | HTML, paging reached 2015 on one channel; could become backtestable |
 | 4chan /biz/ JSON | threads and replies | works; short archive |
 | Mastodon, Lemmy, Hacker News, YouTube RSS | posts, stories, videos | respond; crypto coverage not measured |
 | CoinDesk, Cointelegraph, Decrypt, The Block, Fed, ECB RSS | news | respond |
 | Google News RSS | Reuters headlines | responds; unofficial |
-| GDELT DOC API | tone, 3-month window | enforces 1 request per 5 seconds |
+| GDELT DOC API | tone, 3-month window | returned 429 even at one request per 15 seconds from here; GKG raw files are the reliable route |
 | OKX | recent liquidations | responds; record forward |
 
 **Not usable**: X API (your decision), X syndication (429), Nitter (410), StockTwits (403 Cloudflare), BitMEX funding (403 from here), Coinalyze (needs a key, though it may be free; not checked).
@@ -96,7 +96,7 @@ The same setups (panic, squeeze, overheating) apply to crypto, equities, commodi
 | ECB, Frankfurter | daily FX | Frankfurter reaches 1999 |
 | CFTC COT (legacy, financial) | futures positioning, the closest match to crypto funding and OI | legacy from 1986; financial report current to 2026-10-27 |
 | FINRA | daily short volume, short interest | responds; relevant to stock squeezes |
-| FRED | macro, volatility indices | **keyless CSV timed out from here**; retest, or use your free key |
+| FRED | macro, volatility indices (including EVZ for FX) | works with your free key; keyless CSV timed out |
 | Stooq | prices | blocked by a JavaScript check |
 
 **Options data**
