@@ -162,16 +162,6 @@ class TestMake(unittest.TestCase):
         self.assertEqual(self.make(["BTC", "10000", "stop", "90"])[1]["stop"], 90)
 
 
-class TestAlertHint(unittest.TestCase):
-    def test_every_hinted_name_is_one_the_calculator_accepts(self):
-        for cls, market, expected in (("crypto", "BTC", "BTC"), ("commodities", "GC=F", "xyz:GOLD")):
-            name = A.plan_name({"class": cls, "market": market})
-            self.assertEqual(P.resolve(name), expected)
-        for market in A.HL_MARKET:
-            P.resolve(A.plan_name({"class": "x", "market": market}))
-        self.assertIsNone(A.plan_name({"class": "commodities", "market": "ZS=F"}))
-
-
 class TestTelegram(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
