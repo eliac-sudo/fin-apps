@@ -51,6 +51,10 @@ python3 -m bzd.telegram status
 2. Send your new bot any message, then run `.venv/bin/python -m bzd.alerts chatid` and put the number in `.env` as `TELEGRAM_CHAT_ID=`.
 3. Run `.venv/bin/python -m bzd.alerts test`. The running service reads `.env` again on its own.
 
+## Thermometer
+
+`python -m bzd.thermo` shows how hot each market looks against its own past, from 0 to 100, plus option metrics and a word-count mood. With Telegram on it goes out once a day. It is descriptive, unvalidated and costs nothing, since it uses no LLM.
+
 ## Agents
 
 Alerts with score 1 or more get a review from `bzd/agents.py`: it reads recent news and social, gives a view with citations, and code discards any quote or number it can't trace. A view never changes the numbers or blocks an alert. It needs `ANTHROPIC_API_KEY` in `.env`.

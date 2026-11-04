@@ -17,6 +17,7 @@ TOPICS = {
     "crypto": r"crypto|bitcoin|btc|ethereum|\beth\b|solana|altcoin|stablecoin|liquidat|binance|hyperliquid|funding",
     "equities": r"stock|s&p|nasdaq|russell|equit|wall street|\bfed\b|powell|earnings|recession",
     "bonds": r"treasur|bond|yield|\bfed\b|\becb\b|powell|lagarde|inflation|rate cut|rate hike",
+    "commodities": r"commodit|\boil\b|crude|\bgold\b|silver|copper|natural gas|wheat|\bcorn\b|soybean|grain|opec",
     "fx": r"forex|dollar|\beuro\b|\byen\b|sterling|\bfed\b|\becb\b|boj|intervention|currency",
     "CL=F": r"\boil\b|crude|wti|brent|opec|barrel|refiner|hormuz",
     "NG=F": r"natural gas|\blng\b|henry hub",

@@ -8,9 +8,11 @@
 
 Alerts are UNVALIDATED until phase B3 tests the setups. This module never places orders.
 """
-import fcntl, json, os, signal, sys, time, urllib.error, urllib.parse, urllib.request
+import fcntl, gzip, html, json, os, signal, sys, time, urllib.error, urllib.parse, urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
+
+import re
 
 import pandas as pd
 
@@ -25,6 +27,8 @@ MIN_SCORE_TO_SEND = 1  # about 5 alerts a week in the last 12 months; lower scor
 MAX_AGE = {"4h": pd.Timedelta(hours=8), "1d": pd.Timedelta(days=4)}  # older triggers are stale, e.g. after a pause
 TELEGRAM_LIMIT = 3900
 DAILY_EVERY, COT_EVERY = 6 * 3600, 24 * 3600
+DIGEST_HOUR_UTC = 6  # the thermometer goes out once a day from this hour
+CRYPTO_HL = {"BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX", "LINK"}
 BAR_DELAY = 120  # seconds after a 4h close, so the exchange has finished the bar
 HL_MARKET = {"ES=F": "xyz:SP500", "NQ=F": "xyz:XYZ100", "CL=F": "xyz:CL", "GC=F": "xyz:GOLD", "SI=F": "xyz:SILVER", "HG=F": "xyz:COPPER",
              "EURUSD=X": "xyz:EUR", "USDJPY=X": "xyz:JPY", "GBPUSD=X": "xyz:GBP", "ZB=F": "xyz:TLT"}
@@ -67,6 +71,45 @@ def level_plan(d, entry_rules):
     return {"price": px, "stop": stop, "target_3r": px + 3 * risk, "risk_pct": risk / px}
 
 
+def hl_mark(market, root=None, now=None):
+    """Latest Hyperliquid mark from the recorder's snapshots, if recent. Costs nothing, since it reads saved data."""
+    name = market if market in CRYPTO_HL else HL_MARKET.get(market)
+    if not name:
+        return None
+    base = Path(root or os.environ.get("BZD_DATA", BASE / "data")) / "raw" / ("hl_ctx_xyz" if name.startswith("xyz:") else "hl_ctx_main")
+    files = sorted(base.glob("*/*.gz"), key=lambda p: (p.parent.name, p.name))
+    if not files:
+        return None
+    when = datetime.strptime(files[-1].parent.name + files[-1].name[:7], "%Y-%m-%d%H%M%SZ").replace(tzinfo=timezone.utc)
+    if (now or datetime.now(timezone.utc)) - when > pd.Timedelta(hours=1):
+        return None
+    meta, ctx = json.load(gzip.open(files[-1]))
+    for a, x in zip(meta["universe"], ctx):
+        if a["name"] == name and x.get("markPx"):
+            return float(x["markPx"])
+    return None
+
+
+def freshness(price_df, trigger, plan, market, now):
+    """Has the price already moved past the plan? The levels were set at the trigger, which can be days old."""
+    last, base = float(price_df.close.iloc[-1]), float(price_df.close.loc[trigger])
+    out = {"bars_since_trigger": int(len(price_df.loc[trigger:]) - 1), "latest_close": last, "move_since_trigger_pct": round(100 * (last / base - 1), 2)}
+    try:
+        mark = hl_mark(market, now=now)
+    except Exception:
+        mark = None
+    ref = last
+    if plan and mark:
+        out["hl_mark"] = mark
+        out["hl_gap_from_plan_pct"] = round(100 * (mark / plan["price"] - 1), 2)
+        if market in CRYPTO_HL:  # other markets have a basis against the futures used for the plan, so it is shown, not compared
+            ref = mark
+    if plan:
+        out["plan_broken"] = bool(ref <= plan["stop"])
+        out["target_hit"] = bool(ref >= plan["target_3r"])
+    return out
+
+
 def build_alert(cls, market, setup, trigger, price_df, conds, config, bar, now):
     """One alert as plain data, so it can be logged whether or not it gets sent."""
     cfg, keep = config["classes"][cls], config["scored"].get(cls, {}).get(setup, [])
@@ -75,13 +118,14 @@ def build_alert(cls, market, setup, trigger, price_df, conds, config, bar, now):
     z = ret_z(price_df.close, cfg["z_window"]).iloc[i]
     exit_cfg = json.loads(X.CONFIG.read_text())
     delay = config["confirm_bars"][setup] + 1
+    plan = level_plan(price_df.loc[:trigger], exit_cfg["initial_stop"])
     return {
         "key": f"{market}|{setup}|{trigger.isoformat()}", "class": cls, "market": market, "setup": setup, "bar": bar,
         "trigger": trigger.isoformat(), "detected": now.isoformat(timespec="seconds"), "z": None if pd.isna(z) else round(float(z), 1),
         "score": int(sum(values[n] == 1 for n in keep)), "max_score": len(keep),
         "met": [n for n in keep if values[n] == 1], "not_met": [n for n in keep if values[n] == 0],
         "unknown": [n for n in keep if pd.isna(values[n])], "entry_after_bars": delay,
-        "plan": level_plan(price_df.loc[:trigger], exit_cfg["initial_stop"]),
+        "plan": plan, "fresh": freshness(price_df, trigger, plan, market, now),
         "config_sha256": config_hash(),
     }
 
@@ -110,12 +154,22 @@ def format_item(a):
         out.append("  ✓ " + ", ".join(COND_IT[n] for n in a["met"]))
     if a["unknown"]:
         out.append("  ? " + ", ".join(COND_IT[n] for n in a["unknown"]) + " (dato non ancora noto)")
-    p = a.get("plan")
+    p, f = a.get("plan"), a.get("fresh") or {}
     if p and a["setup"] != "overheating":
-        line = f"  Prezzo {fmt_price(p['price'])} · stop {fmt_price(p['stop'])} (−{p['risk_pct']:.1%}) · obiettivo 3R {fmt_price(p['target_3r'])}"
+        line = f"  Al trigger {fmt_price(p['price'])} · stop {fmt_price(p['stop'])} (−{p['risk_pct']:.1%}) · obiettivo 3R {fmt_price(p['target_3r'])}"
         if p["risk_pct"] > .10:
             line += " ⚠️ stop molto largo: con la leva la liquidazione può arrivare prima"
         out.append(line)
+    if f.get("bars_since_trigger"):
+        out.append(f"  Ora {fmt_price(f['latest_close'])} ({f['move_since_trigger_pct']:+.1f}% dal trigger, {f['bars_since_trigger']} barre fa)")
+    if f.get("hl_mark"):
+        out.append(f"  Hyperliquid ora {fmt_price(f['hl_mark'])} ({f['hl_gap_from_plan_pct']:+.1f}% dal prezzo del piano)")
+    if f.get("plan_broken") and a["setup"] != "overheating":
+        out.append("  ❌ Già sotto lo stop: il piano non è più valido")
+    elif f.get("target_hit") and a["setup"] != "overheating":
+        out.append("  ✅ Già oltre l'obiettivo: troppo tardi per questo piano")
+    elif a["setup"] != "overheating" and abs(f.get("hl_gap_from_plan_pct") or 0) > 3:
+        out.append("  ⚠️ Prezzo lontano dal piano: ricontrolla i livelli prima di agire")
     return "\n".join(out)
 
 
@@ -126,7 +180,7 @@ def format_group(alerts, review=None):
     action = {"overheating": "Se hai una posizione: valuta di ridurla o stringere lo stop. Non è un segnale di short.",
               "panic": f"Ingresso dello studio: non prima dell'apertura di {wait} barre dopo il trigger, per la conferma del volume.",
               "squeeze": "Ingresso dello studio: apertura della barra successiva."}[setup]
-    lines = [f"🧪 {SETUP_IT[setup]} · {a0['class']} · barre {a0['bar']}", f"Trigger {a0['trigger'][:16].replace('T', ' ')} UTC", ""]
+    lines = [f"🧪 <b>{SETUP_IT[setup]}</b> · {a0['class']} · barre {a0['bar']}", f"Trigger {a0['trigger'][:16].replace('T', ' ')} UTC", ""]
     lines += [format_item(a) for a in alerts] + ["", action]
     note = calibration_note(a0["class"], setup)
     if note:
@@ -168,6 +222,17 @@ def telegram_call(method, params):
         raise RuntimeError(f"telegram unreachable: {type(e.reason).__name__}") from None
 
 
+def send_text(text):
+    """Send with light formatting. If Telegram rejects the markup, send the same words plain, so an alert is never lost."""
+    base = {"chat_id": os.environ["TELEGRAM_CHAT_ID"], "text": text, "disable_web_page_preview": "true"}
+    try:
+        return telegram_call("sendMessage", {**base, "parse_mode": "HTML"})
+    except RuntimeError as e:
+        if "http 400" not in str(e):
+            raise
+        return telegram_call("sendMessage", {**base, "text": html.unescape(re.sub(r"</?(b|a)\b[^>]*>", "", text))})
+
+
 def telegram_ready():
     return bool(os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_CHAT_ID"))
 
@@ -179,7 +244,7 @@ def sending_enabled():
 
 def flush(st, send=None, log=print):
     """Send pending messages in order. Anything unsent stays pending for the next cycle."""
-    send = send or (lambda text: telegram_call("sendMessage", {"chat_id": os.environ["TELEGRAM_CHAT_ID"], "text": text, "disable_web_page_preview": "true"}))
+    send = send or send_text
     while st["pending"]:
         try:
             send(st["pending"][0])
@@ -240,6 +305,21 @@ def crypto_due(st, now_ts):
     return st["last_crypto"] < last_close
 
 
+def digest_due(st, now):
+    """True once per UTC day, from the set hour, so a paused Codespace doesn't send a backlog."""
+    today = now.strftime("%Y-%m-%d")
+    return now.hour >= DIGEST_HOUR_UTC and st.get("last_digest") != today
+
+
+def queue_digest(st, now, log=print):
+    from .thermo import build_digest
+    try:
+        st["pending"] += split_message(build_digest(now)[0])
+        st["last_digest"] = now.strftime("%Y-%m-%d")
+    except Exception as e:
+        log(f"thermometer failed, will retry: {type(e).__name__}: {e}")
+
+
 def cycle(st, log=print, refresh=True):
     now_ts = time.time()
     changed = False
@@ -263,6 +343,9 @@ def cycle(st, log=print, refresh=True):
         enqueue(found, st, sending_enabled(), review_alerts)
         log(f"{datetime.now(timezone.utc):%Y-%m-%d %H:%M} checked: {new} new alerts")
     if sending_enabled():
+        now = datetime.now(timezone.utc)
+        if digest_due(st, now):
+            queue_digest(st, now, log)
         flush(st, log=log)
     save_state(st)
     return new

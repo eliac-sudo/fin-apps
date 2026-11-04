@@ -248,7 +248,7 @@ def get_cot(force=False):
         save("cot", n, out.drop_duplicates("report_date"), quiet=force)
 
 
-def get_macro():
+def get_macro(force=False):
     key = os.environ.get("FRED_API_KEY")
     if not key:
         print("  FRED_API_KEY missing: skipping FRED", flush=True)
@@ -259,20 +259,20 @@ def get_macro():
         x = json.loads(get("macro", s, 0, u, secrets=("FRED_API_KEY",)))["observations"]
         d = pd.DataFrame({"date": [o["date"] for o in x], "value": pd.to_numeric([o["value"] for o in x], errors="coerce")}).dropna()
         save("macro", s, d)
-    if not done("macro", "fear_greed"):
+    if force or not done("macro", "fear_greed"):
         x = json.loads(get("macro", "fear_greed", 0, "https://api.alternative.me/fng/?limit=0"))["data"]
         d = pd.DataFrame({"date": pd.to_datetime([int(o["timestamp"]) for o in x], unit="s").strftime("%Y-%m-%d"), "value": [int(o["value"]) for o in x]})
-        save("macro", "fear_greed", d.sort_values("date"))
+        save("macro", "fear_greed", d.sort_values("date"), quiet=force)
 
 
-def get_attention():
+def get_attention(force=False):
     end = datetime.now(timezone.utc).strftime("%Y%m%d")
     for a in WIKI:
-        if done("attention", a):
+        if done("attention", a) and not force:
             continue
         u = f"https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/user/{a}/daily/20150701/{end}"
         x = json.loads(get("attention", a, 0, u))["items"]
-        save("attention", a, pd.DataFrame({"date": [f"{o['timestamp'][:4]}-{o['timestamp'][4:6]}-{o['timestamp'][6:8]}" for o in x], "views": [o["views"] for o in x]}))
+        save("attention", a, pd.DataFrame({"date": [f"{o['timestamp'][:4]}-{o['timestamp'][4:6]}-{o['timestamp'][6:8]}" for o in x], "views": [o["views"] for o in x]}), quiet=force)
 
 
 def merge_tail(old, new, key):
@@ -307,6 +307,14 @@ def refresh_crypto():
         save("crypto", n, merge_tail(pd.read_csv(root() / "crypto" / f"{n}.csv.gz"), d, "t"), quiet=True)
 
 
+def get_macro_fng_and_attention():
+    """Thermometer inputs that are free and small. FRED series aren't needed for it, so its key isn't used here."""
+    x = json.loads(get("live", "fear_greed", int(time.time()), "https://api.alternative.me/fng/?limit=30"))["data"]
+    new = pd.DataFrame({"date": pd.to_datetime([int(o["timestamp"]) for o in x], unit="s").strftime("%Y-%m-%d"), "value": [int(o["value"]) for o in x]})
+    save("macro", "fear_greed", merge_tail(pd.read_csv(root() / "macro" / "fear_greed.csv.gz"), new, "date"), quiet=True)
+    get_attention(force=True)
+
+
 def refresh_daily(with_cot=False):
     """Fetch recent daily bars and volatility indices, and the COT reports when asked."""
     tag, today = int(time.time()), datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -317,6 +325,7 @@ def refresh_daily(with_cot=False):
         old = pd.read_csv(root() / "tradfi" / f"{n}.csv.gz")
         save("tradfi", n, merge_tail(old, d[[c for c in old.columns if c in d]], "date"), quiet=True)
     get_vol(force=True)
+    get_macro_fng_and_attention()
     if with_cot:
         get_cot(force=True)
 

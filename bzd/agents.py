@@ -6,7 +6,7 @@
 Rules agreed with the user: the model may cite and give a view. It can't change numbers, scores or stops, and it
 can't block an alert. Code discards any quote not found in its source and any number not found in the facts.
 """
-import json, os, re, sys
+import html, json, os, re, sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -16,6 +16,7 @@ from .recorder import BASE, load_env
 DEFAULT_MODEL = "claude-opus-5-5"
 DEFAULT_BUDGET = 5.0  # USD per calendar month; reviews stop there and alerts carry on without them
 MAX_TOKENS = 8000
+MAX_POINTS_SHOWN = 3
 # USD per million tokens (input, output), first-party rates as of 2026-10-06. Unknown models use the highest, to overstate.
 PRICES = {"claude-opus-5-5": (4, 20), "claude-sonnet-5-5": (2, 10), "claude-haiku-5-5": (.10, .50), "claude-opus-5": (5, 25), "claude-opus-4-8": (5, 25), "claude-fable-5-1": (10, 50)}
 HIGHEST = (10, 50)
@@ -32,6 +33,7 @@ Il tuo compito:
 
 Regole:
 - Ogni argomento cita un testo: `item_id` esatto e `quote` copiata parola per parola da quel testo, breve.
+- Massimo tre frasi nella sintesi e massimo tre argomenti per lato: scegli i più forti.
 - Non scrivere nessun numero che non sia nei fatti dell'alert o nelle frasi che citi. Non stimare probabilità o prezzi.
 - Non prevedere il prezzo e non dire di comprare o vendere. La decisione è dell'utente.
 - Una voce sola o un account anonimo non è un consenso: dillo.
@@ -93,7 +95,7 @@ def log_usage(model, usage, cost, purpose, request_id=None):
 
 def facts_for(alerts):
     """The only numbers the model may repeat."""
-    keep = ("market", "setup", "class", "bar", "trigger", "z", "score", "max_score", "met", "not_met", "unknown", "plan")
+    keep = ("market", "setup", "class", "bar", "trigger", "z", "score", "max_score", "met", "not_met", "unknown", "plan", "fresh")
     return [{k: a.get(k) for k in keep} for a in alerts]
 
 
@@ -107,6 +109,9 @@ def code_checks(alerts, items, now):
             out.append(f"{a['market']}: OI non in forte calo, le vendite forzate potrebbero non essere finite.")
         if a["setup"] == "squeeze" and "shorts_building" in a.get("not_met", []):
             out.append(f"{a['market']}: nessun aumento di short visibile, lo squeeze è meno sostenuto.")
+        f = a.get("fresh") or {}
+        if f.get("plan_broken"):
+            out.append(f"{a['market']}: il prezzo è già sotto lo stop del piano, il piano non è più valido.")
         p = a.get("plan")
         if p and p["risk_pct"] > .10:
             out.append(f"{a['market']}: stop molto largo, con la leva la liquidazione può arrivare prima.")
@@ -122,7 +127,8 @@ def code_checks(alerts, items, now):
 def numbers_in(text):
     """Numbers in a text, in one form: 1,234.5 and 1.234,5 and 1234,5 all become digits and one decimal part."""
     out = set()
-    for m in re.findall(r"\d[\d.,]*\d|\d", text or ""):
+    text = re.sub(r"(?i)\b4chan\b", "", text or "")  # a source's name, not a figure. Q4 or 24h still count as numbers
+    for m in re.findall(r"\d[\d.,]*\d|\d", text):
         out.add(re.sub(r"[.,]", "", m))
     return out
 
@@ -132,8 +138,8 @@ def allowed_numbers(alerts, cited):
     for a in alerts:
         allowed |= numbers_in(json.dumps(facts_for([a])))
         p = a.get("plan") or {}
-        for v in p.values():
-            if isinstance(v, (int, float)):
+        for v in list(p.values()) + list((a.get("fresh") or {}).values()):
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
                 for fmt in ("{:.2f}", "{:.4f}", "{:.1f}", "{:,.2f}", "{:.0f}"):
                     allowed |= numbers_in(fmt.format(v))
         if p.get("risk_pct"):
@@ -279,21 +285,25 @@ def source_name(item):
 
 def format_review(rec):
     """The part of the Telegram message that comes from the agents."""
-    lines = ["", "🤖 Controlli e lettura degli agenti"]
-    lines += [f"⚠️ {c}" for c in rec.get("checks", [])]
+    lines = ["", "🤖 <b>Controlli e lettura degli agenti</b>"]
+    lines += [f"⚠️ {html.escape(c)}" for c in rec.get("checks", [])]
     if rec["status"] != "ok":
         reason = {"off": "agenti spenti", "no_texts": rec.get("detail"), "budget": rec.get("detail"), "error": rec.get("detail"), "rejected": rec.get("detail")}.get(rec["status"], rec["status"])
-        lines.append(f"Lettura non disponibile: {reason}.")
+        lines.append(html.escape(f"Lettura non disponibile: {reason}."))
         return "\n".join(lines)
     r, cited = rec["review"], rec.get("cited", {})
-    lines.append(f"Lettura: {r['lettura'].upper()} · umore: {r['umore']} · {rec['n_texts']} testi letti")
-    lines.append(r["sintesi"])
+    lines.append(f"<b>Lettura: {html.escape(r['lettura'].upper())}</b> · umore: {html.escape(r['umore'])} · {rec['n_texts']} testi letti")
+    lines.append(html.escape(r["sintesi"]))
     for side, mark in (("pro", "➕"), ("contro", "➖")):
-        for p in r[side]:
+        for p in r[side][:MAX_POINTS_SHOWN]:
             it = cited.get(p["item_id"], {})
-            lines.append(f"{mark} {p['punto']}\n   «{p['quote']}» ({source_name(it)}) {it.get('url', '')}")
+            name = html.escape(source_name(it) or "fonte")
+            link = f'<a href="{html.escape(it["url"], quote=True)}">{name}</a>' if it.get("url") else name
+            lines.append(f"{mark} {html.escape(p['punto'])}\n   «{html.escape(p['quote'])}» ({link})")
+        if len(r[side]) > MAX_POINTS_SHOWN:
+            lines.append(f"   + altri {len(r[side]) - MAX_POINTS_SHOWN} nel registro")
     if r["non_sappiamo"]:
-        lines.append("Non sappiamo: " + "; ".join(r["non_sappiamo"]))
+        lines.append("Non sappiamo: " + html.escape("; ".join(r["non_sappiamo"][:3])))
     lines.append("La lettura è un parere, non una conferma che il setup funzioni.")
     return "\n".join(lines)
 

@@ -64,6 +64,21 @@ class TestGuardrails(unittest.TestCase):
     def test_numbers_from_facts_and_quotes_are_allowed(self):
         self.assertEqual(G.check_review(good(sintesi="Z di -3.1, punteggio 1 su 3, stop a 92.82, taglio di 2 milioni."), [alert()], [item()]), [])
 
+    def test_a_source_name_is_not_a_number_but_real_ones_still_count(self):
+        self.assertEqual(G.check_review(good(sintesi="Un post da 4chan invita a comprare."), [alert()], [item()]), [])
+        self.assertTrue(G.check_review(good(sintesi="Nel Q4 salirà."), [alert()], [item()]))
+
+    def test_model_text_cannot_inject_markup(self):
+        rec = {"status": "ok", "checks": [], "n_texts": 1, "cited": {}, "review": good(sintesi="<script>x</script>", contro=[])}
+        self.assertIn("&lt;script&gt;", G.format_review(rec))
+
+    def test_only_top_points_are_shown(self):
+        pts = [{"punto": f"p{i}", "item_id": "t1", "quote": "q"} for i in range(5)]
+        rec = {"status": "ok", "checks": [], "n_texts": 1, "cited": {"t1": item()}, "review": good(pro=pts, contro=[])}
+        t = G.format_review(rec)
+        self.assertNotIn("p3", t)
+        self.assertIn("altri 2", t)
+
     def test_quote_match_ignores_case_and_spacing(self):
         r = good()
         r["contro"][0]["quote"] = "opec   RAISES output by 2 million barrels"

@@ -97,6 +97,56 @@ class TestMessages(unittest.TestCase):
         self.assertTrue(all(len(p) <= 100 for p in A.split_message("y" * 250, 100)))
 
 
+class TestFreshness2(unittest.TestCase):
+    def frame(self, closes):
+        idx = pd.date_range("2026-11-01", periods=len(closes), freq="D", tz="UTC")
+        return pd.DataFrame({"close": closes}, index=idx)
+
+    def test_price_below_stop_breaks_the_plan(self):
+        d = self.frame([100., 96., 88.])
+        plan = {"price": 96., "stop": 92., "target_3r": 110., "risk_pct": .04}
+        with mock.patch.object(A, "hl_mark", return_value=None):
+            f = A.freshness(d, d.index[1], plan, "CL=F", NOW)
+        self.assertTrue(f["plan_broken"])
+        self.assertEqual(f["bars_since_trigger"], 1)
+        self.assertAlmostEqual(f["move_since_trigger_pct"], -8.33)
+        self.assertIn("non è più valido", A.format_item(alert(market="CL=F", fresh=f, **{"class": "commodities"})))
+
+    def test_crypto_uses_the_hyperliquid_mark(self):
+        d = self.frame([100., 96.])
+        plan = {"price": 96., "stop": 92., "target_3r": 110., "risk_pct": .04}
+        with mock.patch.object(A, "hl_mark", return_value=90.):
+            self.assertTrue(A.freshness(d, d.index[1], plan, "BTC", NOW)["plan_broken"])
+
+    def test_other_markets_show_the_mark_but_do_not_compare_across_basis(self):
+        d = self.frame([100., 96.])
+        plan = {"price": 96., "stop": 92., "target_3r": 110., "risk_pct": .04}
+        with mock.patch.object(A, "hl_mark", return_value=90.):
+            f = A.freshness(d, d.index[1], plan, "CL=F", NOW)
+        self.assertFalse(f["plan_broken"])
+        self.assertAlmostEqual(f["hl_gap_from_plan_pct"], -6.25)
+        self.assertIn("lontano dal piano", A.format_item(alert(market="CL=F", fresh=f, **{"class": "commodities"})))
+
+    def test_digest_is_once_a_day_from_the_set_hour(self):
+        early, later = pd.Timestamp("2026-11-05 03:00", tz="UTC"), pd.Timestamp("2026-11-05 09:00", tz="UTC")
+        self.assertFalse(A.digest_due({}, early))
+        self.assertTrue(A.digest_due({}, later))
+        self.assertFalse(A.digest_due({"last_digest": "2026-11-05"}, later))
+
+    def test_rejected_markup_falls_back_to_plain_text(self):
+        calls = []
+
+        def fake(method, params):
+            calls.append(params)
+            if params.get("parse_mode"):
+                raise RuntimeError("telegram http 400")
+
+        with mock.patch.object(A, "telegram_call", fake), mock.patch.dict(os.environ, {"TELEGRAM_CHAT_ID": "1"}):
+            A.send_text('<b>x</b> &amp; <a href="u">y</a>')
+        self.assertEqual(calls[1]["text"], "x & y")
+        self.assertNotIn("parse_mode", calls[1])
+
+
 class TestDelivery(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
