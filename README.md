@@ -51,6 +51,17 @@ python3 -m bzd.telegram status
 2. Send your new bot any message, then run `.venv/bin/python -m bzd.alerts chatid` and put the number in `.env` as `TELEGRAM_CHAT_ID=`.
 3. Run `.venv/bin/python -m bzd.alerts test`. The running service reads `.env` again on its own.
 
+## Agents
+
+Alerts with score 1 or more get a review from `bzd/agents.py`: it reads recent news and social, gives a view with citations, and code discards any quote or number it can't trace. A view never changes the numbers or blocks an alert. It needs `ANTHROPIC_API_KEY` in `.env`.
+
+```
+.venv/bin/python -m bzd.agents costi    # what has been spent
+.venv/bin/python -m bzd.agents prova    # review the latest alert; costs money
+```
+
+Automatic reviews are off unless `BZD_AGENTS=on` is in `.env`. `prova` always runs, because you asked for it by hand. Reviews stop at `BZD_LLM_BUDGET_USD` per calendar month (default 5), and alerts carry on without them. `BZD_MODEL` sets the model (default `claude-opus-5-5`). Reviews are logged to `data/agents/reviews.jsonl`, with the raw file and hash of every cited text.
+
 ## Moving to another machine
 
 Stop the recorder, copy `data/` and `.env`, then start it on the new machine. Run only one recorder per data directory. Add a process manager such as systemd there so it restarts after crashes and reboots.

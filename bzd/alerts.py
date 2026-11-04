@@ -15,6 +15,7 @@ from pathlib import Path
 import pandas as pd
 
 from . import exits as X
+from .agents import format_review, review_alerts
 from . import history as H
 from .events import first_of_runs, ret_z
 from .recorder import BASE, UA, load_env
@@ -118,7 +119,7 @@ def format_item(a):
     return "\n".join(out)
 
 
-def format_group(alerts):
+def format_group(alerts, review=None):
     """One message per class and setup, so a market-wide move doesn't send nine."""
     a0 = alerts[0]
     setup, wait = a0["setup"], a0["entry_after_bars"]
@@ -130,6 +131,9 @@ def format_group(alerts):
     note = calibration_note(a0["class"], setup)
     if note:
         lines.append(note)
+    if review:
+        lines.append(format_review(review))
+        lines.append("")
     lines.append("⚠️ NON VALIDATO: i test finali non sono ancora stati fatti. Stop e obiettivo sono indicativi. Non è consulenza finanziaria.")
     return "\n".join(lines)
 
@@ -204,20 +208,28 @@ def worth_sending(a):
     return a["score"] + len(a["unknown"]) >= MIN_SCORE_TO_SEND
 
 
-def enqueue(found, st, telegram_on):
-    """Log every alert, mark it seen, and queue those worth sending. With no bot set up, nothing piles up for later."""
+def enqueue(found, st, telegram_on, review=None):
+    """Log every alert, whatever the agents say, and queue those worth sending. Without a bot, nothing piles up for later.
+
+    Only alerts worth sending get a paid review. A review can add a view, but it can't remove an alert.
+    """
     alert_dir().mkdir(parents=True, exist_ok=True)
+    groups, reviews = {}, {}
+    for a in found:
+        if worth_sending(a):
+            groups.setdefault((a["class"], a["setup"], a["trigger"]), []).append(a)
+    for k, g in groups.items():
+        if review:
+            reviews[k] = review(g)
     with open(alert_dir() / "log.jsonl", "a") as f:
         for a in found:
-            send = telegram_on and worth_sending(a)
-            f.write(json.dumps({**a, "queued_for_telegram": send}) + "\n")
+            rec = reviews.get((a["class"], a["setup"], a["trigger"])) if worth_sending(a) else None
+            f.write(json.dumps({**a, "queued_for_telegram": telegram_on and worth_sending(a), "review_status": rec["status"] if rec else None,
+                                "review_stance": rec["review"]["lettura"] if rec and rec.get("review") else None}, ensure_ascii=False) + "\n")
             st["seen"].append(a["key"])
-    groups = {}
-    for a in found:
-        if telegram_on and worth_sending(a):
-            groups.setdefault((a["class"], a["setup"], a["trigger"]), []).append(a)
-    for g in groups.values():
-        st["pending"] += split_message(format_group(g))
+    if telegram_on:
+        for k, g in groups.items():
+            st["pending"] += split_message(format_group(g, reviews.get(k)))
     st["seen"] = st["seen"][-5000:]
 
 
@@ -248,7 +260,7 @@ def cycle(st, log=print, refresh=True):
     if changed or not refresh:
         found = detect(load_config(), st, pd.Timestamp.now(tz="UTC"))
         new = len(found)
-        enqueue(found, st, sending_enabled())
+        enqueue(found, st, sending_enabled(), review_alerts)
         log(f"{datetime.now(timezone.utc):%Y-%m-%d %H:%M} checked: {new} new alerts")
     if sending_enabled():
         flush(st, log=log)

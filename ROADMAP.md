@@ -196,7 +196,7 @@ Raw alerts stay off Telegram until the agents review them. The flow: the detecto
 
 ## Order
 
-Next is a first agent report (B4 and B5 in simple form), then **A3** and **B3**. The frozen setups are in `config/setups_v1.json`. A2 can slot in whenever you decide to run it.
+First agent review is running (B4 and B5 in simple form; the 100 labels and kappa are still to do). Next are **A3** and **B3**. The frozen setups are in `config/setups_v1.json`. A2 can slot in whenever you decide to run it.
 
 ## Deferred
 
