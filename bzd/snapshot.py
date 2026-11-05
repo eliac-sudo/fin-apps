@@ -12,6 +12,7 @@ from . import options_report as O
 from . import technicals as K
 from . import texts as T
 from . import thermo as Z
+from . import zones as ZN
 from .alerts import CLASS_IT, COND_IT, SETUP_IT, SETUP_MEANS, alert_dir, test_verdict
 from .events import crypto_daily, daily, read
 from .history import CRYPTO, MARKETS, safe
@@ -334,9 +335,21 @@ def freshness(now):
     return {"recorder_minutes": minutes, "ok": minutes is not None and minutes <= 40}
 
 
+def add_zones(markets, sentiment):
+    """The BYZ and SZT tags for every market, each theme's mood coming from the sentiment part."""
+    moods = {c["name"]: c for c in sentiment["classes"]} if sentiment else {}
+    fear_greed = (sentiment.get("fear_greed") or {}).get("value") if sentiment else None
+    for m in markets:
+        m["zones"] = ZN.market_zones(m["market"], moods, fear_greed)
+
+
 def briefing(markets, classes, lab, tech, alerts):
     """What matters today, in sentences. Each one is built from the numbers on the page."""
     out = []
+    by_tag = lambda tag: [m["label"] for m in markets if (m.get("zones") or {}).get("1d", {}).get("tag") == tag]
+    byz, szt = by_tag("BYZ"), by_tag("SZT")
+    if byz or szt:
+        out.append({"tone": "zone", "text": "Sul giornaliero: " + "; ".join(([f"BYZ su {', '.join(byz)}"] if byz else []) + ([f"SZT su {', '.join(szt)}"] if szt else [])) + "."})
     moved = [m for m in markets if (m.get("returns") or {}).get("7g") is not None]
     if moved:
         up, down = max(moved, key=lambda m: m["returns"]["7g"]), min(moved, key=lambda m: m["returns"]["7g"])
@@ -376,8 +389,10 @@ def build(now=None):
     markets, summaries, overview = part(markets_part, errors, "markets", ([], {}, ""))
     lab = part(lab_part, errors, "lab", [])
     tech = part(technical_part, errors, "technical", [])
+    sentiment = part(lambda: sentiment_part(now), errors, "sentiment", None)
+    part(lambda: add_zones(markets, sentiment), errors, "zones", None)
     alerts = part(lambda: alerts_part({m["market"]: m["price"] for m in markets}), errors, "alerts", {"setups": [], "moves": [], "resets": []})
     return clean({"at": now.isoformat(timespec="seconds"), "markets": markets, "classes": summaries, "overview": overview, "briefing": part(lambda: briefing(markets, summaries, lab, tech, alerts), errors, "briefing", []),
-                  "options": part(options_part, errors, "options", []), "lab": lab, "sentiment": part(lambda: sentiment_part(now), errors, "sentiment", None),
+                  "options": part(options_part, errors, "options", []), "lab": lab, "sentiment": sentiment, "zone_info": {"frames": ZN.FRAMES, "past": ZN.PAST, "byz": ZN.BYZ_BELOW, "szt": ZN.SZT_ABOVE},
                   "alerts": alerts, "tests": part(tests_part, errors, "tests", None), "technical": tech,
                   "freshness": part(lambda: freshness(now), errors, "freshness", {"recorder_minutes": None, "ok": False}), "errors": errors})

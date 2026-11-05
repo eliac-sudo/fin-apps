@@ -156,3 +156,10 @@ class TestCache(unittest.TestCase):
             App.refresh()
             self.assertEqual(App._cache["data"], b"old")
             self.assertFalse(App._cache["busy"])
+
+
+class TestBriefingZones(unittest.TestCase):
+    def test_briefing_names_the_tags(self):
+        rows = [{"label": "Oro", "zones": {"1d": {"tag": "BYZ"}}}, {"label": "BTC", "zones": {"1d": {"tag": "SZT"}}}, {"label": "ETH", "zones": {"1d": {"tag": "NTR"}}}]
+        t = S.briefing(rows, {}, [], [], {})[0]["text"]
+        self.assertEqual(t, "Sul giornaliero: BYZ su Oro; SZT su BTC.")

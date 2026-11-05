@@ -49,6 +49,8 @@ python3 -m bzd.telegram status
 
 `python -m bzd.app` opens the read-only desktop app on port 8787: the picture across markets, options and volatility explained, option contracts that look cheap or dear with gamma exposure (`docs/OPZIONI_MODELLI.md`), technical analysis per market with levels drawn by code, sentiment with Google's public trending searches, alerts with their levels, the calculator and the test results. It serves saved data, holds no keys and places no orders. In a Codespace, open it from the Ports tab and keep the port private.
 
+The home page tags each asset BYZ or SZT on 4h, daily, weekly, monthly and 12-month views, from 70% indicators and 30% sentiment (`docs/ZONE_BYZ_SZT.md`). The tag describes a state and isn't tested as a signal.
+
 `python -m bzd.plan BTC 5000`, or `/piano BTC 5000` to the bot, gives the position size, leverage, stop, target and time exit for a chosen risk (`docs/A3_REGOLE.md`). You place the orders by hand. It reads public prices only, and logs each plan to `data/alerts/plans.jsonl`.
 
 1. On Telegram, message @BotFather, send `/newbot`, and put the token in `.env` as `TELEGRAM_BOT_TOKEN=`.
