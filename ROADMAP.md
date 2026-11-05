@@ -4,34 +4,6 @@ Two tracks run side by side: **A, exits** comes first and **B, signals** runs al
 
 Not financial advice. Leveraged short-term trading can lose the whole position margin.
 
-## What the event counts show
-
-Reproduce with `python -m bzd.history get`, then `python -m bzd.setups events`. The detector computes **no forward returns**, so the test sample is still unseen. Counts below predate the frozen v1 config, whose current counts are in `docs/PREREGISTRAZIONE_v1.md`.
-
-Scope: 9 crypto assets on 4h bars, and 21 futures and FX markets on daily bars. A cluster is a group of events close in time, roughly one market episode (1 day apart for crypto, 3 days otherwise). Calibration/test split: 2024 for crypto, 2015 for the rest, which have far longer history.
-
-| Market, setup | Conditions beyond price | Clusters | Calibration | Test |
-|---|---:|---:|---:|---:|
-| Crypto panic | any | 305 | 174 | 131 |
-| Crypto panic | ≥1 | 188 | 109 | 79 |
-| Crypto panic | ≥2 | 46 | 26 | 20 |
-| Crypto squeeze | ≥2 | 90 | 50 | 40 |
-| Crypto overheating | ≥2 | 159 | 90 | 69 |
-| Equities panic | any | 82 | 37 | 45 |
-| Equities panic | ≥1 | 49 | 18 | 31 |
-| Bonds panic | any | 84 | 44 | 40 |
-| Commodities panic | any | 214 | 117 | 97 |
-| Commodities panic | ≥1 | 78 | 39 | 39 |
-| FX panic | any | 178 | 92 | 86 |
-| FX panic | ≥1 | 84 | 40 | 44 |
-
-Full table: `data/hist/event_counts.csv`, including a looser panic trigger at z ≤ −2.5.
-
-- **Strict checklists are almost empty in every market.** Outside crypto, panic with all 3 conditions never occurs and ≥2 gives 2–7 clusters. Use conditions as a 0–3 score that ranks events, and don't require them.
-- **Some conditions aren't selective.** Crypto squeeze and overheating barely drop from "any" to ≥1 (535 to 489, 195 to 193), so those conditions need tightening in B1c.
-- **Power stays limited.** At d = 0.30: 79 clusters give about 59% and 45 about 33%. At d = 0.50 most of these samples reach high power, so only large effects will be detectable per market.
-- **These depend on first-pass definitions**, which get frozen in B1c.
-
 ## Data problems found and handled
 
 - **Yahoo dates (fixed).** Using Yahoo's current timezone offset moved daylight-saving bars back one day, which created lookahead and made the roll filter remove real crashes. After the fix, futures correlate 0.89–0.98 with their ETFs on the same day and about zero with the next day's ETF move, with no weekend bars.
@@ -86,7 +58,7 @@ Public channels can be paged back to their first post, and each message links to
 | `HyperliquidLiquidations` | 13K | 2024-12 | Hyperliquid liquidations above $50K, including `xyz` markets |
 | `whale_alert_io` | 296K | 2019-04 | Large transfers, mints |
 
-Limits to check once the backfill ends:
+Limits to check before using them:
 
 - The channels are third-party bots with minimum sizes, which may have changed over time. Totals are a floor, so compare within a period and don't treat them as complete.
 - Outages would look like calm. Check message counts by month, and compare against the recorder's OKX feed and with OI drops.
@@ -144,7 +116,7 @@ The same setups (panic, squeeze, overheating) apply to crypto, equities, commodi
 
 Doesn't work: Cboe total put/call file stops at 2019-10-04, Yahoo options returned 401. DoltHub works when queries filter on date and symbol: it has historical chains and daily IV and realized volatility per underlying.
 
-**Option signals to build**: IV level and jump, term structure inversion (front IV above back IV, a panic marker), 25-delta skew, put/call, and GEX with both sign conventions. Only the first can be backtested widely today. Skew has SKEW for US equities and Deribit trades for BTC. GEX and put/call by underlying stay forward-only unless a chain history source turns up.
+**Option signals**: IV level and jump, term structure inversion (front IV above back IV, a panic marker), 25-delta skew, put/call, and GEX with both sign conventions. Only the first can be backtested widely today. Skew has SKEW for US equities and Deribit trades for BTC. GEX and put/call by underlying stay forward-only unless a chain history source turns up.
 
 **Rules for non-crypto markets**
 
@@ -172,14 +144,14 @@ A1 doesn't need your address. A2 waits until you choose to run it.
 | **B1a. Recorder (running)** | Start archiving what has no free history: option chains, liquidations, social, L2 books, Hyperliquid candles. Raw responses with timestamps and hashes | Runs unattended with gap alerts. **Every day of delay is data lost for good** |
 | **B1b. Historical store (done, except quality items above)** | Download and clean all backtestable data for every market class, with publication dates and futures rolls handled | Coverage report per source and market, plus event counts per class |
 | **B1c. Detector (frozen v1, liquidations excluded)** | No-lookahead features and setups: panic, squeeze, **overheating** (trim or tighten stops, not short), with option conditions and per-market substitutes | Definitions and thresholds frozen on data to 2023, pre-registered |
-| **B2. Experimental alerts (running, Telegram pending the bot)** | Terminal or Telegram alert with score, data and links, **labelled unvalidated**. Every signal paper-logged | Runs reliably. You get signals from here, before the tests finish |
+| **B2. Experimental alerts (running on Telegram)** | Terminal or Telegram alert with score, data and links, **labelled unvalidated**. Every signal paper-logged | Runs reliably. You get signals from here, before the tests finish |
 | **B3. Event study (run once, see `docs/B3_RISULTATI.md`)** | P1, Q1 and overheating tests against random entries on the same asset, plus stop and target results in R, with clustered errors | Each setup supported, not supported or inconclusive; label updated |
 | **B4. Sentiment** | Reddit first, because it can be backtested, then news tone, attention and forward-only sources. LLM labels validated on 100 of your labels | Kappa ≥ 0.6. Backtest whether sentiment adds anything beyond the price, leverage and funding score |
 | **B5. Setup card** | Past similar cases with honest intervals, pro and con case, sources with evidence IDs | Every number traces to an evidence ID. Intervals use clusters, not raw cases |
 
 ## Rule for the agents (agreed 4 Nov 2026)
 
-Raw alerts stay off Telegram until the agents review them. The flow: the detector finds a setup, code checks data freshness and consistency, an agent reads news and social and gives its view with citations, the supervisor checks every number in the text against the data, and everything is logged before one message goes out.
+Alerts go out on their own, and paid reviews are off (`BZD_AGENTS`). When reviews run:
 
 - **Agents may** read and cite sources, flag inconsistencies, and give a reasoned view for or against.
 - **Agents may not** change numbers, scores or stops, or silently block an alert. An alert they reject is still logged with their view.
@@ -196,7 +168,7 @@ Raw alerts stay off Telegram until the agents review them. The flow: the detecto
 
 ## Order
 
-B3 has run once: of 15 tests only crypto panic passed, narrowly (`docs/B3_RISULTATI.md`). Telegram alerts, the thermometer and a separate options message are on, with paid agent reviews off (`BZD_AGENTS`). Any new setup needs a v2 pre-registration and fresh data. A3, the position and exit calculator, is built (`docs/A3_REGOLE.md`) and now needs real use. The read-only desktop app is built (`bzd/app.py`). Agents stay paused for now, on the user's decision. The current state and next steps are in `docs/STATO.md`. The frozen setups are in `config/setups_v1.json`. A2 can slot in whenever you decide to run it.
+The current state and next steps are in `docs/STATO.md`. Any new setup needs a v2 pre-registration and fresh data.
 
 ## Deferred
 
