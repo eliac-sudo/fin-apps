@@ -63,7 +63,7 @@ class TestSentiment(unittest.TestCase):
 
 class TestMarket(unittest.TestCase):
     def test_all_frames_and_the_trend_flag(self):
-        d = bars(np.r_[np.linspace(100, 300, 2500), np.linspace(300, 225, 14)])
+        d = bars(np.r_[np.linspace(100, 3000, 2500), np.linspace(3000, 2800, 4)])  # a dip too short to turn the 50-bar average
         month = d.resample("MS").agg({"open": "first", "high": "max", "low": "min", "close": "last"})
         with mock.patch.object(Z.K, "frames", return_value={"1d": d, "1M": month}):
             r = Z.market_zones("GC=F", {"Metalli preziosi": {"fear": 90, "greed": 10}})
