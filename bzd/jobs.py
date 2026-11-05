@@ -135,5 +135,5 @@ def macro_jobs():
             DAY, needs=("FRED_API_KEY",),
         ))
     for geo in ("US", "IT"):
-        j.append(Job(f"trends_google_{geo.lower()}", f"https://trends.google.com/trending/rss?geo={geo}", 2 * HOUR))
+        j.append(Job(f"trends_google_{geo.lower()}", f"https://trends.google.com/trending/rss?geo={geo}", 2 * HOUR, kind="xml"))
     return j

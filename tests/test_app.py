@@ -77,3 +77,11 @@ class TestTrends(unittest.TestCase):
                 f.write(self.FEED)
             r = S.trends_part(tmp)[0]
             self.assertEqual((r["geo"], r["total"], r["market"][0]["query"]), ("USA", 2, "bitcoin price"))
+
+    def test_recorder_accepts_the_feed(self):
+        from bzd.jobs import all_jobs
+        from bzd.recorder import validate
+        jobs = [j for j in all_jobs() if j.name in S.TRENDS_JOBS]
+        self.assertEqual(len(jobs), 2)
+        for j in jobs:
+            self.assertIsNone(validate(j.kind, self.FEED))
