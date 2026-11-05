@@ -122,6 +122,9 @@ def news_jobs():
         gq = quote(f'"{q}"')
         j.append(Job(f"news_gdelt_tone_{slug}", f"https://api.gdeltproject.org/api/v2/doc/doc?query={gq}&mode=timelinetone&format=json&timespan=1d", HOUR))
         j.append(Job(f"news_gdelt_art_{slug}", f"https://api.gdeltproject.org/api/v2/doc/doc?query={gq}&mode=artlist&format=json&maxrecords=100&timespan=1d&sort=datedesc", HOUR))
+    for slug, q in (("rare_metals", "rare earths OR lithium OR copper price"), ("europe_bonds", "bund OR ECB bond yields"), ("japan_bonds", "JGB OR Bank of Japan yields"), ("china_bonds", "China bond yields OR PBOC"),
+                    ("yen", "yen dollar"), ("euro_fx", "euro dollar exchange rate"), ("sterling", "sterling pound"), ("swiss_franc", "swiss franc"), ("yuan", "yuan renminbi")):
+        j.append(Job(f"news_gnews_{slug}", "https://news.google.com/rss/search?q=" + quote(q) + "&hl=en-US&gl=US&ceid=US:en", HOUR, "xml"))
     return j
 
 

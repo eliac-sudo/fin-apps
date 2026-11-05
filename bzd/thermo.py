@@ -70,10 +70,20 @@ def at(series, i):
     return {k: v.iloc[i] for k, v in series.items() if len(v) >= abs(i)}
 
 
+HISTORY_DAYS = 120
+
+
+def heat_history(series):
+    """Daily heat of one market for the last few months, as {date: heat}. Same plain average as today's number, on the same strictly-past percentiles."""
+    h = pd.concat(series, axis=1).mean(axis=1, skipna=True).dropna()
+    h = h.groupby(pd.to_datetime(h.index, utc=True).strftime("%Y-%m-%d")).last().tail(HISTORY_DAYS)
+    return {k: float(v) for k, v in h.items()}
+
+
 def reading(name, cls, close, rs, series, last, week_bars, extra):
     heat, vals = heat_from(at(series, -1))
     week_ago = heat_from(at(series, -1 - week_bars))[0]
-    return {"market": name, "class": cls, "heat": heat, "heat_change_7d": heat - week_ago if heat is not None and week_ago is not None else None, "parts": vals, "price": float(close.iloc[-1]), "bar": last.isoformat(), "rsi": float(rs.iloc[-1]) if not pd.isna(rs.iloc[-1]) else None, **{k: float(v) if not pd.isna(v) else None for k, v in extra.items()}}
+    return {"market": name, "history": heat_history(series), "class": cls, "heat": heat, "heat_change_7d": heat - week_ago if heat is not None and week_ago is not None else None, "parts": vals, "price": float(close.iloc[-1]), "bar": last.isoformat(), "rsi": float(rs.iloc[-1]) if not pd.isna(rs.iloc[-1]) else None, **{k: float(v) if not pd.isna(v) else None for k, v in extra.items()}}
 
 
 def all_readings():
@@ -108,6 +118,13 @@ def market_position(market):
 
 def position_text(p):
     return f"{p['label']} rispetto all'ultimo anno ({p['from_high']:+.0f}% dal massimo, {p['from_low']:+.0f}% dal minimo)"
+
+
+def mood_of(items, pattern, now, hours=24):
+    """Same crude word count as mood(), for any topic pattern. Returns the counts and the matching texts."""
+    start = (now - timedelta(hours=hours)).isoformat()
+    picked = [it for it in items if it["time"] >= start and pattern.search(it["text"])]
+    return {"texts": len(picked), "fear": sum(bool(re.search(FEAR, it["text"], re.I)) for it in picked), "greed": sum(bool(re.search(GREED, it["text"], re.I)) for it in picked)}, picked
 
 
 def mood(items, cls, now, hours=24):

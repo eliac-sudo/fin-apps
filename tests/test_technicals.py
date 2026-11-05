@@ -106,10 +106,10 @@ class TestContext(unittest.TestCase):
 
 
 class TestFrames(unittest.TestCase):
-    def test_metrics_report_value_and_change(self):
+    def test_metrics_report_each_indicator(self):
         f = K.read_frame(bars(list(np.linspace(100, 300, 300))), "1d")
-        self.assertAlmostEqual(f["metrics"]["rsi"]["value"], f["rsi"])
-        self.assertIsNotNone(f["metrics"]["dist50"]["change"])
+        self.assertAlmostEqual(f["metrics"]["rsi"], f["rsi"])
+        self.assertGreater(f["metrics"]["dist50"], 0)
 
     def test_read_frame_on_known_trend(self):
         f = K.read_frame(bars(list(np.linspace(100, 300, 300))), "1d")

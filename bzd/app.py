@@ -19,11 +19,36 @@ PAGE = Path(__file__).with_name("app.html")
 _cache, _lock, _live = {"at": 0, "data": None}, threading.Lock(), {}
 
 
+def refresh():
+    try:
+        data = json.dumps(S.build()).encode()
+        with _lock:
+            _cache.update(data=data, at=time.time())
+    except Exception as e:
+        print(f"refresh failed: {type(e).__name__}", flush=True)
+    finally:
+        with _lock:
+            _cache["busy"] = False
+
+
 def snapshot():
+    """Old data at once and new data in the background, so nobody waits for a rebuild. Only the very first reading blocks."""
     with _lock:
-        if _cache["data"] is None or time.time() - _cache["at"] > CACHE_SECONDS:
-            _cache.update(data=json.dumps(S.build()).encode(), at=time.time())
-        return _cache["data"]
+        have, stale = _cache["data"] is not None, time.time() - _cache["at"] > CACHE_SECONDS
+        start = stale and not _cache.get("busy")
+        if start:
+            _cache["busy"] = True
+    if start:
+        if have:
+            threading.Thread(target=refresh, daemon=True).start()
+        else:
+            refresh()
+    for _ in range(600):
+        with _lock:
+            if _cache["data"] is not None:
+                return _cache["data"]
+        time.sleep(.5)
+    raise TimeoutError("first reading is still running")
 
 
 def option_market(key, fresh):

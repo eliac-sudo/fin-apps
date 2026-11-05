@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 
 from . import indicators as I
 from . import option_lab as L
@@ -17,8 +18,17 @@ from .history import CRYPTO, MARKETS, safe
 from .moves import NAMES as MOVE_NAMES, snapshot_files, snapshot_time
 from .recorder import BASE
 
+PLAN_KEY = {**{c: c for c in CRYPTO}, "ES=F": "sp500", "NQ=F": "nasdaq", "GC=F": "oro", "SI=F": "argento", "HG=F": "rame", "CL=F": "petrolio", "EURUSD=X": "eur", "USDJPY=X": "jpy", "GBPUSD=X": "gbp", "ZB=F": "tlt"}
+SENTIMENT_GROUPS = (
+    ("Cripto", "Cripto", T.TOPICS["crypto"]), ("Azioni", "Azioni", T.TOPICS["equities"]),
+    ("Bond", "USA", r"treasur|\bt-bill|u\.?s\.? (bond|yield)|10-year yield|2-year yield"), ("Bond", "Europa", r"\bbunds?\b|\bbtps?\b|\bgilts?\b|euro(zone|pe\w*) (bond|yield)|\becb\b"),
+    ("Bond", "Giappone", r"\bjgbs?\b|japan\w* (bond|yield)|\bboj\b|bank of japan"), ("Bond", "Cina", r"chin\w+ (government )?(bond|yield)|\bpboc\b"),
+    ("Materie prime", "Energia", r"\boil\b|crude|\bwti\b|brent|opec|natural gas|\blng\b|gasoline|refiner"), ("Materie prime", "Metalli preziosi", r"\bgold\b|silver|platinum|palladium|bullion|precious metal"),
+    ("Materie prime", "Metalli rari e industriali", r"copper|alumini?um|lithium|nickel|cobalt|rare earth|uranium|\bzinc\b"), ("Materie prime", "Agricoli", r"\bcorn\b|wheat|soybean|\bgrains?\b|\bcocoa\b|\bcoffee\b|\bsugar\b"),
+    ("Forex", "Dollaro", r"\bdollar\b|\bdxy\b|\busd\b"), ("Forex", "Euro", r"\beuro\b|\beur\b|eurusd"), ("Forex", "Yen", r"\byen\b|\bjpy\b"), ("Forex", "Sterlina", r"\bsterling\b|\bpound\b|\bgbp\b"), ("Forex", "Franco svizzero", r"swiss franc|\bchf\b"), ("Forex", "Yuan", r"\byuan\b|\brenminbi\b|\bcny\b"),
+)
+MIN_MOOD_SIGNALS = 10
 CLASS_ORDER = ("crypto", "equities", "bonds", "commodities", "fx")
-MOOD_CLASSES = ("crypto", "equities", "bonds", "commodities", "fx")
 
 
 def clean(x):
@@ -38,18 +48,36 @@ def label(market):
     return Z.LABELS.get(market, market).replace("&amp;", "&")
 
 
+def returns_of(market):
+    """Price change over 1, 7 and 30 days, in percent."""
+    d = crypto_daily(market) if market in CRYPTO else daily(read("tradfi", safe(market)))
+    c = d.close.dropna()
+    back = lambda n: 100 * (float(c.iloc[-1]) / float(c.iloc[-1 - n]) - 1) if len(c) > n and c.iloc[-1 - n] > 0 else None
+    return {"1g": back(1), "7g": back(7 if market in CRYPTO else 5), "30g": back(30 if market in CRYPTO else 21)}
+
+
+def class_history(rows):
+    """The class heat over time: the plain average of its markets on each day."""
+    frame = pd.DataFrame({r["market"]: r["history"] for r in rows if r.get("history")})
+    if frame.empty:
+        return {"dates": [], "values": []}
+    mean = frame.sort_index().ffill(limit=4).mean(axis=1).dropna()
+    return {"dates": list(mean.index), "values": [float(x) for x in mean.values]}
+
+
 def markets_part():
     rows = Z.all_readings()
     out = []
     for r in rows:
         p = Z.market_position(r["market"])
-        out.append({**r, "label": label(r["market"]), "band": Z.band(r["heat"]) if r["heat"] is not None else None, "position": p})
+        out.append({**{k: v for k, v in r.items() if k != "history"}, "label": label(r["market"]), "band": Z.band(r["heat"]) if r["heat"] is not None else None, "position": p, "returns": returns_of(r["market"]), "plan_key": PLAN_KEY.get(r["market"])})
     summaries = {}
     for c in CLASS_ORDER:
         g = [r for r in rows if r["class"] == c and r["heat"] is not None]
         if g:
             s = Z.class_summary(g)
-            summaries[c] = {**s, "name": Z.CLASS_IT[c], "why": Z.why_text(s)}
+            ordered = sorted(g, key=lambda r: -r["heat"])
+            summaries[c] = {**s, "name": Z.CLASS_IT[c], "why": Z.why_text(s), "history": class_history(g), "hottest": {"label": label(ordered[0]["market"]), "heat": ordered[0]["heat"]}, "coldest": {"label": label(ordered[-1]["market"]), "heat": ordered[-1]["heat"]}}
     return out, summaries, Z.overview(summaries) if summaries else ""
 
 
@@ -134,11 +162,17 @@ def options_part():
 
 def sentiment_part(now):
     items, errors = T.load_items(now=now, hours=24)
-    classes, until = [], now.isoformat()
-    for c in MOOD_CLASSES:
-        m = Z.mood(items, c, now)
-        picks = T.select_for(items, c, None, until, per_source=2, total=6)
-        classes.append({"class": c, "name": Z.CLASS_IT[c], **m, "texts_sample": [{"source": x["source"], "time": x["time"], "url": x["url"], "text": x["text"][:220]} for x in picks]})
+    classes = []
+    for family, name, pattern in SENTIMENT_GROUPS:
+        m, picked = Z.mood_of(items, re.compile(pattern, re.I), now)
+        seen, sample = {}, []
+        for x in picked:  # balanced across sources, so one busy forum can't fill the list
+            source = x["source"].split("_")[1] if x["source"].startswith("soc_") else x["source"]
+            if seen.get(source, 0) < 2 and len(sample) < 6:
+                seen[source] = seen.get(source, 0) + 1
+                sample.append({"source": x["source"], "time": x["time"], "url": x["url"], "text": x["text"][:220]})
+        tilt = "pochi segnali" if m["fear"] + m["greed"] < MIN_MOOD_SIGNALS else "prevale la paura" if m["fear"] / (m["fear"] + m["greed"]) > .65 else "prevale l'euforia" if m["fear"] / (m["fear"] + m["greed"]) < .35 else "equilibrio"
+        classes.append({"family": family, "name": name, "full": name if family == name else f"{family}: {name}", "tilt": tilt, **m, "texts_sample": sample})
     return {"classes": classes, "fear_greed": Z.fear_greed(), "attention": Z.attention(), "trends": part(trends_part, errors, "trends", []), "total": len(items), "source_errors": sorted(errors)}
 
 
@@ -191,12 +225,12 @@ def alerts_part(prices):
     out = []
     for a in read_jsonl(alert_dir() / "log.jsonl", 200):
         plan = a.get("plan") if a["setup"] != "overheating" else None
-        out.append({**since_trigger(plan, prices.get(a["market"])), "market": label(a["market"]), "class": CLASS_IT.get(a["class"], a["class"]), "setup": SETUP_IT.get(a["setup"], a["setup"]), "means": SETUP_MEANS.get(a["setup"]),
+        out.append({**since_trigger(plan, prices.get(a["market"])), "plan_key": PLAN_KEY.get(a["market"]), "raw_setup": a["setup"], "market": label(a["market"]), "class": CLASS_IT.get(a["class"], a["class"]), "setup": SETUP_IT.get(a["setup"], a["setup"]), "means": SETUP_MEANS.get(a["setup"]),
                     "trigger": a["trigger"], "z": a.get("z"), "score": a.get("score"), "max_score": a.get("max_score"), "met": [COND_IT.get(n, n) for n in a.get("met", [])],
                     "not_met": [COND_IT.get(n, n) for n in a.get("not_met", [])], "unknown": [COND_IT.get(n, n) for n in a.get("unknown", [])],
                     "plan": plan, "entry_after_bars": a.get("entry_after_bars"), "verdict": test_verdict(a["class"], a["setup"])})
-    moves = [{**m, "label": MOVE_NAMES.get(m["name"], m["name"])} for m in read_jsonl(alert_dir() / "moves.jsonl", 100)]
-    resets = [{**r, "label": label(r["market"]), "frame": K.FRAME_IT[r["tf"]]} for r in read_jsonl(alert_dir() / "resets.jsonl", 100)]
+    moves = [{**m, "label": MOVE_NAMES.get(m["name"], m["name"]), "plan_key": PLAN_KEY.get(m.get("market"))} for m in read_jsonl(alert_dir() / "moves.jsonl", 100)]
+    resets = [{**r, "label": label(r["market"]), "frame": K.FRAME_IT[r["tf"]], "plan_key": PLAN_KEY.get(r["market"])} for r in read_jsonl(alert_dir() / "resets.jsonl", 100)]
     return {"setups": out, "moves": moves, "resets": resets}
 
 
@@ -238,11 +272,36 @@ def lab_market(key, fresh=False):
 
 
 def technical_part():
-    return [{**K.summary(m), "label": label(m)} for m in K.all_markets()]
+    return [{**K.summary(m), "label": label(m), "plan_key": PLAN_KEY.get(m)} for m in K.all_markets()]
 
 
 def technical_market(market):
-    return {"label": label(market), "frames": K.analyze(market)}
+    return {"label": label(market), "plan_key": PLAN_KEY.get(market), "frames": K.analyze(market)}
+
+
+SETUP_RULE = {"panic": "il prezzo cade di almeno {z} deviazioni standard in una barra, rispetto alle ultime {w} barre", "squeeze": "il prezzo sale di almeno {z} deviazioni standard in una barra, rispetto alle ultime {w} barre",
+              "overheating": "il prezzo è esteso verso l'alto di almeno {z} deviazioni standard rispetto alla sua media lunga"}
+CLASS_MARKETS = {"crypto": "BTC, ETH, SOL, BNB, XRP, DOGE, ADA, AVAX, LINK", "equities": "S&P 500, Nasdaq, Russell", "bonds": "Treasury USA a 2, 5, 10 e 30 anni",
+                 "commodities": "petrolio, gas, oro, argento, rame, mais, grano, soia", "fx": "EUR, JPY, GBP, AUD, CHF, CAD contro il dollaro"}
+
+
+def test_reading(v, setup):
+    """What one result means, in words, built from its own numbers."""
+    it = lambda x: f"{x:+.2f}".replace(".", ",")
+    pct = it(100 * v["mean"])
+    if v["outcome"] == "supportata":
+        out = [f"Dopo questo setup il mercato ha fatto in media {pct}% rispetto a ingressi casuali, e il risultato supera la soglia della sua famiglia di test."]
+        out.append("Regge anche alla soglia più severa, quella che tiene conto di tutti i 15 test." if v.get("passes_global") else "Non regge però alla soglia più severa, quella che tiene conto di tutti i 15 test: può essere un falso positivo.")
+    elif v["outcome"] == "non supportata":
+        out = [f"La differenza media è {pct}% rispetto a ingressi casuali, e non basta per dire che il setup abbia un vantaggio. Con questi episodi un vantaggio di media grandezza si sarebbe visto {100 * v['power_d30']:.0f} volte su 100."]
+    else:
+        out = [f"La differenza media è {pct}%, ma gli episodi sono troppo pochi: un vantaggio di media grandezza si sarebbe visto solo {100 * v['power_d30']:.0f} volte su 100. Non si può concludere né che funzioni né che non funzioni."]
+    lo, hi = 100 * v["ci90"][0], 100 * v["ci90"][1]
+    out.append(f"Il vero effetto, con il 90% di confidenza, sta tra {it(lo)}% e {it(hi)}%." + (" L'intervallo comprende lo zero." if lo < 0 < hi else ""))
+    link = v.get("score_link") or {}
+    if link.get("spearman") is not None:
+        out.append("Più conferme non hanno significato risultati migliori." if link.get("p", 1) >= .05 or link["spearman"] <= 0 else "Più conferme si sono accompagnate a risultati migliori.")
+    return out
 
 
 def tests_part():
@@ -250,11 +309,22 @@ def tests_part():
     if not p.exists():
         return None
     t = json.loads(p.read_text())
+    config = json.loads((BASE / "config" / "setups_v1.json").read_text())
     rows = []
     for k, v in t["tests"].items():
-        if "/" in k and k.split("/")[1] in SETUP_IT:
-            c, s = k.split("/")
-            rows.append({"class": c, "class_name": CLASS_IT.get(c, c), "setup": s, "setup_name": SETUP_IT[s], "mean": v.get("mean"), "p": v.get("p"), "clusters": v.get("clusters"), "outcome": v.get("outcome"), "passes_global": v.get("passes_global")})
+        if "/" not in k or k.split("/")[1] not in SETUP_IT:
+            continue
+        c, setup = k.split("/")
+        cc = config["classes"][c]
+        z = cc[setup].get("z_long", abs(cc[setup].get("z", 0)))
+        horizons = {int(n): {"mean": x["mean"], "p": x["p"]} for n, x in (v.get("other_horizons") or {}).items()}
+        horizons[int(v["horizon_bars"])] = {"mean": v["mean"], "p": v["p"]}
+        unit = "barre da 4 ore" if cc["bar"] == "4h" else "sedute"
+        exit_part = v.get("exit_target_3R_descriptive") or {}
+        rows.append({"class": c, "class_name": CLASS_IT.get(c, c), "setup": setup, "setup_name": SETUP_IT[setup], "means": SETUP_MEANS[setup], "markets": CLASS_MARKETS.get(c), "rule": SETUP_RULE[setup].format(z=z, w=cc["z_window"]), "conditions": [COND_IT.get(n, n) for n in config["scored"].get(c, {}).get(setup, [])],
+                     "calibration_end": cc["calibration_end"], **{f: v.get(f) for f in ("mean", "p", "boot_p", "clusters", "events", "outcome", "passes_global", "ci90", "d", "power_d30", "share_up", "mean_net", "mean_net_stress_slippage", "skipped")},
+                     "horizon_bars": v["horizon_bars"], "unit": unit, "unit_one": "barra da 4 ore" if cc["bar"] == "4h" else "seduta", "horizons": [{"bars": n, **horizons[n]} for n in sorted(horizons)], "score_link": v.get("score_link"), "reading": test_reading(v, setup),
+                     "exit": {f: exit_part.get(f) for f in ("rule_R", "hold_R", "worst10_rule", "worst10_hold")} if exit_part else None})
     return rows
 
 
@@ -262,6 +332,33 @@ def freshness(now):
     files = snapshot_files("hl_ctx_main")
     minutes = int((now - snapshot_time(files[-1])).total_seconds() // 60) if files else None
     return {"recorder_minutes": minutes, "ok": minutes is not None and minutes <= 40}
+
+
+def briefing(markets, classes, lab, tech, alerts):
+    """What matters today, in sentences. Each one is built from the numbers on the page."""
+    out = []
+    moved = [m for m in markets if (m.get("returns") or {}).get("7g") is not None]
+    if moved:
+        up, down = max(moved, key=lambda m: m["returns"]["7g"]), min(moved, key=lambda m: m["returns"]["7g"])
+        out.append({"tone": "move", "text": "In una settimana il rialzo più forte è di " + up["label"] + " (" + f"{up['returns']['7g']:+.1f}".replace(".", ",") + "%), il calo più forte di " + down["label"] + " (" + f"{down['returns']['7g']:+.1f}".replace(".", ",") + "%)."})
+    change = [(c, s) for c, s in classes.items() if s.get("change_7d") is not None]
+    if change:
+        c, s = max(change, key=lambda x: abs(x[1]["change_7d"]))
+        verb = "si è scaldato" if s["change_7d"] > 0 else "si è raffreddato"
+        out.append({"tone": "hot" if s["change_7d"] > 0 else "cold", "text": f"Il gruppo che cambia di più è {s['name']}: {verb} di {abs(s['change_7d']):.0f} punti in 7 giorni. {s['why']}"})
+    extreme = [t for t in tech if (t["rsi"].get("1d") or 50) <= 30]
+    high = [t for t in tech if (t["rsi"].get("1d") or 50) >= 70]
+    if extreme or high:
+        bits = ([f"ipervenduto su {', '.join(t['label'] for t in extreme)}"] if extreme else []) + ([f"ipercomprato su {', '.join(t['label'] for t in high)}"] if high else [])
+        out.append({"tone": "warn", "text": "RSI giornaliero agli estremi: " + "; ".join(bits) + "."})
+    resets = [t["label"] for t in tech if any(t["reset"].values())]
+    if resets:
+        out.append({"tone": "warn", "text": f"Reset in corso su {', '.join(resets)}: l'RSI è a un estremo mentre il trend di fondo resta quello."})
+    rated = [b for b in lab if b.get("ratio")]
+    if rated:
+        top, low = max(rated, key=lambda b: b["ratio"]), min(rated, key=lambda b: b["ratio"])
+        out.append({"tone": "options", "text": "Le opzioni più care sono su " + top["name"] + " (" + f"{top['ratio']:.1f}".replace(".", ",") + " volte il movimento previsto), le più economiche su " + low["name"] + " (" + f"{low['ratio']:.1f}".replace(".", ",") + " volte)."})
+    return out
 
 
 def part(fn, errors, name, default):
@@ -277,7 +374,10 @@ def build(now=None):
     now = now or datetime.now(timezone.utc)
     errors = {}
     markets, summaries, overview = part(markets_part, errors, "markets", ([], {}, ""))
-    return clean({"at": now.isoformat(timespec="seconds"), "markets": markets, "classes": summaries, "overview": overview,
-                  "options": part(options_part, errors, "options", []), "lab": part(lab_part, errors, "lab", []), "sentiment": part(lambda: sentiment_part(now), errors, "sentiment", None),
-                  "alerts": part(lambda: alerts_part({m["market"]: m["price"] for m in markets}), errors, "alerts", {"setups": [], "moves": [], "resets": []}), "tests": part(tests_part, errors, "tests", None), "technical": part(technical_part, errors, "technical", []),
+    lab = part(lab_part, errors, "lab", [])
+    tech = part(technical_part, errors, "technical", [])
+    alerts = part(lambda: alerts_part({m["market"]: m["price"] for m in markets}), errors, "alerts", {"setups": [], "moves": [], "resets": []})
+    return clean({"at": now.isoformat(timespec="seconds"), "markets": markets, "classes": summaries, "overview": overview, "briefing": part(lambda: briefing(markets, summaries, lab, tech, alerts), errors, "briefing", []),
+                  "options": part(options_part, errors, "options", []), "lab": lab, "sentiment": part(lambda: sentiment_part(now), errors, "sentiment", None),
+                  "alerts": alerts, "tests": part(tests_part, errors, "tests", None), "technical": tech,
                   "freshness": part(lambda: freshness(now), errors, "freshness", {"recorder_minutes": None, "ok": False}), "errors": errors})

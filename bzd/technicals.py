@@ -16,7 +16,6 @@ FRAMES = {"4h": {"bars": 360, "swing": 5}, "1d": {"bars": 400, "swing": 5}, "1w"
 LEVEL_WIDTH_ATR = .25  # swings closer than this are one level
 CHART_BARS = 140
 TREND_BARS = 10
-CHANGE_BARS = 5  # how far back the "change" of each indicator looks, in bars of that timeframe
 RESET_RSI = {"1M": 40, "1w": 40, "1d": 30}  # about 1.3 alerts a week across 30 markets; 30 on weekly and monthly would almost never fire. Chosen for frequency, not tested
 APP_RESET_RSI = {**RESET_RSI, "4h": 30}
 MAX_STALE_DAYS = 4
@@ -111,7 +110,7 @@ def read_frame(d, tf):
     low = APP_RESET_RSI[tf]
     in_reset = "ipervenduto" if slow == "rialzo" and rs.iloc[-1] < low else "ipercomprato" if slow == "ribasso" and rs.iloc[-1] > 100 - low else None
     hist = macd - signal
-    metric = lambda x: {"value": None if pd.isna(x.iloc[-1]) else float(x.iloc[-1]), "change": None if len(x) <= CHANGE_BARS or pd.isna(x.iloc[-1 - CHANGE_BARS]) or pd.isna(x.iloc[-1]) else float(x.iloc[-1] - x.iloc[-1 - CHANGE_BARS])}
+    metric = lambda x: None if pd.isna(x.iloc[-1]) else float(x.iloc[-1])
     metrics = {"rsi": metric(rs), "macd": metric(100 * hist / c), "dist20": metric(100 * (c / ema20 - 1)), "dist50": metric(100 * (c / sma50 - 1)), "dist200": metric(100 * (c / sma200 - 1)),
                "atr": metric(100 * atr(d) / c), "bollinger": metric((c - mid) / (2 * sd.where(sd > 0)))}
     return {"tf": tf, "price": px, "bar": d.index[-1].isoformat(), "metrics": metrics, "trend": trend_of(px, ema20.iloc[-1], sma50.iloc[-1]), "slow_trend": slow if isinstance(slow, str) else None, "reset": in_reset, "reset_low": low, "rsi": rs.iloc[-1], "ema20": ema20.iloc[-1], "sma50": sma50.iloc[-1],
