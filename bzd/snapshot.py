@@ -7,6 +7,7 @@ import numpy as np
 
 from . import indicators as I
 from . import options_report as O
+from . import technicals as K
 from . import texts as T
 from . import thermo as Z
 from .alerts import CLASS_IT, COND_IT, SETUP_IT, SETUP_MEANS, alert_dir, test_verdict
@@ -167,7 +168,16 @@ def alerts_part(prices):
                     "not_met": [COND_IT.get(n, n) for n in a.get("not_met", [])], "unknown": [COND_IT.get(n, n) for n in a.get("unknown", [])],
                     "plan": plan, "entry_after_bars": a.get("entry_after_bars"), "verdict": test_verdict(a["class"], a["setup"])})
     moves = [{**m, "label": MOVE_NAMES.get(m["name"], m["name"])} for m in read_jsonl(alert_dir() / "moves.jsonl", 100)]
-    return {"setups": out, "moves": moves}
+    resets = [{**r, "label": label(r["market"]), "frame": K.FRAME_IT[r["tf"]]} for r in read_jsonl(alert_dir() / "resets.jsonl", 100)]
+    return {"setups": out, "moves": moves, "resets": resets}
+
+
+def technical_part():
+    return [{**K.summary(m), "label": label(m)} for m in K.all_markets()]
+
+
+def technical_market(market):
+    return {"label": label(market), "frames": K.analyze(market)}
 
 
 def tests_part():
@@ -204,5 +214,5 @@ def build(now=None):
     markets, summaries, overview = part(markets_part, errors, "markets", ([], {}, ""))
     return clean({"at": now.isoformat(timespec="seconds"), "markets": markets, "classes": summaries, "overview": overview,
                   "options": part(options_part, errors, "options", []), "sentiment": part(lambda: sentiment_part(now), errors, "sentiment", None),
-                  "alerts": part(lambda: alerts_part({m["market"]: m["price"] for m in markets}), errors, "alerts", {"setups": [], "moves": []}), "tests": part(tests_part, errors, "tests", None),
+                  "alerts": part(lambda: alerts_part({m["market"]: m["price"] for m in markets}), errors, "alerts", {"setups": [], "moves": [], "resets": []}), "tests": part(tests_part, errors, "tests", None), "technical": part(technical_part, errors, "technical", []),
                   "freshness": part(lambda: freshness(now), errors, "freshness", {"recorder_minutes": None, "ok": False}), "errors": errors})

@@ -7,9 +7,9 @@
 <title>BZD · quadro dei mercati</title>
 <style>
 :root{color-scheme:dark;--page:#0d0d0d;--surface:#1a1a19;--surface2:#232322;--ink:#f0efec;--ink2:#c3c2b7;--muted:#898781;--grid:#2c2c2a;--axis:#383835;--border:rgba(255,255,255,.10);
---s1:#3987e5;--s2:#d95926;--h0:#3987e5;--h1:#184f95;--h2:#383835;--h3:#7d3333;--h4:#e66767;--i0:#0b0b0b;--i1:#f0efec;--i2:#f0efec;--i3:#f0efec;--i4:#0b0b0b;--good:#0ca30c;--warn:#fab219;--serious:#ec835a;--crit:#d03b3b}
+--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--h0:#3987e5;--h1:#184f95;--h2:#383835;--h3:#7d3333;--h4:#e66767;--i0:#0b0b0b;--i1:#f0efec;--i2:#f0efec;--i3:#f0efec;--i4:#0b0b0b;--good:#0ca30c;--warn:#fab219;--serious:#ec835a;--crit:#d03b3b}
 :root[data-theme=light]{color-scheme:light;--page:#f9f9f7;--surface:#fcfcfb;--surface2:#f2f1ed;--ink:#0b0b0b;--ink2:#52514e;--muted:#6f6d68;--grid:#e1e0d9;--axis:#c3c2b7;--border:rgba(11,11,11,.10);
---s1:#2a78d6;--s2:#eb6834;--h0:#256abf;--h1:#9ec5f4;--h2:#f0efec;--h3:#f3b0af;--h4:#d03b3b;--i0:#fff;--i1:#0b0b0b;--i2:#0b0b0b;--i3:#0b0b0b;--i4:#fff}
+--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--h0:#256abf;--h1:#9ec5f4;--h2:#f0efec;--h3:#f3b0af;--h4:#d03b3b;--i0:#fff;--i1:#0b0b0b;--i2:#0b0b0b;--i3:#0b0b0b;--i4:#fff}
 *{box-sizing:border-box}
 body{margin:0;background:var(--page);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
 header{display:flex;align-items:center;gap:20px;padding:12px 28px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:5}
@@ -74,6 +74,8 @@ input,select{background:var(--surface2);color:var(--ink);border:1px solid var(--
 .tip{position:fixed;z-index:20;pointer-events:none;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:12.5px;box-shadow:0 4px 14px rgba(0,0,0,.3);display:none;max-width:280px}
 .tip strong{display:block;font-size:14px}
 .tip em{display:inline-block;width:12px;height:2px;margin-right:5px;vertical-align:3px}
+.rows{cursor:pointer}.rows:hover{background:var(--surface2)}.rows.on{background:var(--surface2)}
+.seg{display:inline-flex;gap:2px;background:var(--surface2);padding:2px;border-radius:7px}.seg button{all:unset;cursor:pointer;padding:4px 12px;border-radius:5px;font-size:13px;color:var(--ink2)}.seg button[aria-pressed=true]{background:var(--surface);color:var(--ink);font-weight:600}
 dialog{background:var(--surface);color:var(--ink);border:1px solid var(--border);border-radius:12px;padding:22px;width:min(860px,92vw)}
 dialog::backdrop{background:rgba(0,0,0,.55)}
 .kv{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:12px 0}.kv div b{display:block;font-size:19px;font-weight:600}.kv div span{font-size:12px;color:var(--muted)}
@@ -94,7 +96,7 @@ svg text{font:11px system-ui,sans-serif;fill:var(--muted)}
 <dialog id="dlg"></dialog>
 <script>
 "use strict";
-const TABS=[["oggi","Oggi"],["opzioni","Opzioni e volatilità"],["sentiment","Sentiment"],["alert","Alert"],["piano","Piano"],["test","Test"]];
+const TABS=[["oggi","Oggi"],["opzioni","Opzioni e volatilità"],["tecnica","Analisi tecnica"],["sentiment","Sentiment"],["alert","Alert"],["piano","Piano"],["test","Test"]];
 const PARTS={slancio:"Slancio",rsi:"RSI",estensione:"Distanza dalla media",funding:"Funding",oi:"Leva (OI)",posizionamento:"Speculatori",calma:"Calma (volatilità bassa)"};
 let D=null,tab=location.hash.slice(1)||"oggi";
 const $=s=>document.querySelector(s);
@@ -109,14 +111,14 @@ const short=s=>{const[,m,d]=s.split("-");return d+"/"+m};
 const tip=$("#tip");
 function showTip(ev,...kids){tip.replaceChildren(...kids);tip.style.display="block";const r=tip.getBoundingClientRect();tip.style.left=Math.min(ev.clientX+14,innerWidth-r.width-8)+"px";tip.style.top=Math.min(ev.clientY+14,innerHeight-r.height-8)+"px"}
 const hideTip=()=>tip.style.display="none";
-function lineChart(series,{height=190,digits=1,suffix=""}={}){
-  const dates=series[0].dates,W=640,H=height,R=62,T=10,B=22,box=el("div");
+function lineChart(series,{height=190,digits=1,suffix="",W=640,domain=null,refs=[]}={}){
+  const dates=series[0].dates,H=height,R=62,T=10,B=22,box=el("div");
   const vals=series.flatMap(s=>s.values).filter(v=>v!=null);if(!vals.length)return el("p",{class:"muted"},"Nessuno storico.");
-  let lo=Math.min(...vals),hi=Math.max(...vals);const step0=(hi-lo||1)/4,mag=10**Math.floor(Math.log10(step0)),step=[1,2,2.5,5,10].map(m=>m*mag).find(s=>s>=step0);lo=Math.floor(lo/step)*step;hi=Math.ceil(hi/step)*step;
+  let lo=Math.min(...vals),hi=Math.max(...vals);const step0=(hi-lo||1)/4,mag=10**Math.floor(Math.log10(step0)),step=[1,2,2.5,5,10].map(m=>m*mag).find(s=>s>=step0);lo=Math.floor(lo/step)*step;hi=Math.ceil(hi/step)*step;if(domain){[lo,hi]=domain}
   const tickDigits=step<.1?3:step<1?(step<.25?2:1):0,L=14+7*Math.max(fmt(lo,tickDigits).length,fmt(hi,tickDigits).length);
   const x=i=>L+(W-L-R)*i/Math.max(1,dates.length-1),y=v=>T+(H-T-B)*(1-(v-lo)/(hi-lo||1));
   const g=svg("svg",{viewBox:`0 0 ${W} ${H}`,width:"100%",role:"img","aria-label":series.map(s=>s.name).join(", ")});
-  for(let v=lo;v<=hi+1e-9;v+=step){g.append(svg("line",{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:"var(--grid)"}));const t=svg("text",{x:L-6,y:y(v)+4,"text-anchor":"end"});t.textContent=fmt(v,tickDigits);g.append(t)}
+  for(const v of refs.length?refs:Array.from({length:Math.round((hi-lo)/step)+1},(_,i)=>lo+i*step)){g.append(svg("line",{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:refs.length?"var(--axis)":"var(--grid)"}));const t=svg("text",{x:L-6,y:y(v)+4,"text-anchor":"end"});t.textContent=fmt(v,tickDigits);g.append(t)}
   let lastMonth="";dates.forEach((d,i)=>{const m=d.slice(0,7);if(m!==lastMonth&&i>4&&+m.slice(5)%2===0){const t=svg("text",{x:x(i),y:H-6,"text-anchor":"middle"});t.textContent=["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"][+m.slice(5)-1];g.append(t)}lastMonth=m});
   const ends=[];
   for(const s of series){let p="",on=false;s.values.forEach((v,i)=>{if(v==null){on=false;return}p+=(on?"L":"M")+x(i).toFixed(1)+" "+y(v).toFixed(1);on=true});
@@ -184,6 +186,15 @@ opzioni(){
       el("ul",{class:"plain"},b.text.map(t=>el("li",null,t))),
       el("div",{class:"small muted",style:"margin-top:8px"},[b.level?b.level.label+" "+fmt(b.level.value,1)+" del "+short(b.level.date):null,b.term?b.term.short_name+" "+fmt(b.term.short,1)+", "+b.term.long_name+" "+fmt(b.term.long,1):null,b.skew_pts!=null?"skew "+sgn(b.skew_pts,1)+" pt":null,b.snapshot?"opzioni del "+when(b.snapshot):null].filter(Boolean).join(" · ")))}))
   ]},
+tecnica(){
+  const rows=D.technical||[];if(!rows.length)return el("p",{class:"notice bad"},"Analisi tecnica non disponibile.");const tfs=["4h","1d","1w","1M"];
+  if(!TA.market||!rows.find(r=>r.market===TA.market))setTimeout(()=>openTA(rows[0].market));else setTimeout(drawTA);
+  const icon=t=>({rialzo:"▲",ribasso:"▼",laterale:"■"}[t]||"–");
+  return [el("p",{class:"hero"},"Analisi tecnica di ogni mercato"),el("p",{class:"sub"},"Supporti e resistenze li calcola il codice dai massimi e minimi che si ripetono: più tocchi, livello più forte. Possono differire da quelli che disegneresti a mano. Niente di questo è testato come segnale."),
+  el("div",{class:"grid",style:"grid-template-columns:400px minmax(0,1fr);align-items:start"},
+    el("div",{class:"card",style:"padding:10px 8px;position:sticky;top:70px"},el("table",{style:"font-size:12.5px"},el("thead",null,el("tr",null,el("th",null,"Mercato"),["4h","1g","1s","1m"].map(t=>el("th",{style:"text-align:center;padding:6px 4px"},t)),el("th",{class:"num"},"RSI 1g"))),el("tbody",null,rows.map(r=>el("tr",{class:"rows","data-m":r.market,onclick:()=>openTA(r.market)},el("td",{style:"padding:3.5px 10px"},el("b",null,r.label)),tfs.map(t=>el("td",{style:"text-align:center;padding:3.5px 4px",title:(r.trend[t]||"nessun dato")+(r.reset[t]?", reset in corso":"")},icon(r.trend[t]),r.reset[t]?"🔄":null)),el("td",{class:"num",style:"padding:3.5px 10px"},fmt((r.rsi||{})["1d"])))))),
+      el("p",{class:"small muted",style:"margin:8px 10px 2px"},"▲ rialzo ▼ ribasso ■ laterale. 🔄 reset in corso. I mercati non cripto non hanno lo storico a 4 ore.")),
+    el("div",{class:"card",id:"ta"}))]},
 sentiment(){
   const s=D.sentiment;if(!s)return el("p",{class:"notice bad"},"Sentiment non disponibile.");
   const fg=s.fear_greed;
@@ -213,7 +224,8 @@ alert(){
       s.price_now?el("div",null,"Ultima chiusura "+price(s.price_now)+" ("+sgn(s.since_pct,1)+"% dal trigger)"):null,
       s.broken?el("div",{class:"notice bad"},"▲ Già sotto lo stop: il piano non è più valido."):s.target_hit?el("div",{class:"notice"},"▲ Già oltre l'obiettivo: troppo tardi per questo piano."):null,
       el("div",null,s.verdict))}):el("p",{class:"muted"},"Nessun setup registrato finora.")),
-    el("div",{class:"card"},el("h2",null,"Forti movimenti"),a.moves.length?a.moves.map(m=>el("div",{class:"text"},el("b",{style:"color:var(--ink)"},(m.down?"🔻 ":"🔺 ")+m.label+" "+sgn(m.pct,1)+"% in "+m.window),el("div",null,when(m.at)+" · soglia "+sgn(m.limit_pct,1)+"%"),m.position?el("div",null,m.position):null)):el("p",{class:"muted"},"Nessuno registrato.")))
+    el("div",{class:"card"},el("h2",null,"Forti movimenti"),a.moves.length?a.moves.map(m=>el("div",{class:"text"},el("b",{style:"color:var(--ink)"},(m.down?"🔻 ":"🔺 ")+m.label+" "+sgn(m.pct,1)+"% in "+m.window),el("div",null,when(m.at)+" · soglia "+sgn(m.limit_pct,1)+"%"),m.position?el("div",null,m.position):null)):el("p",{class:"muted"},"Nessuno registrato."),
+      el("h2",{style:"margin-top:18px"},"Reset RSI"),a.resets.length?a.resets.map(r=>el("div",{class:"text"},el("b",{style:"color:var(--ink)"},"🔄 "+r.label+" · "+r.frame),el("div",null,"RSI "+fmt(r.rsi)+" (soglia "+r.threshold+"), "+r.kind),el("div",null,when(r.bar)))):el("p",{class:"muted"},"Nessuno registrato finora.")))
   ]},
 piano(){
   const out=el("div",{style:"margin-top:16px"});const opts=["BTC","ETH","SOL","BNB","XRP","DOGE","ADA","AVAX","LINK","sp500","nasdaq","oro","argento","rame","petrolio","eur","jpy","gbp","tlt"];
@@ -228,6 +240,36 @@ test(){
   el("div",{class:"card"},el("table",null,el("thead",null,el("tr",null,el("th",null,""),classes.map(c=>el("th",null,T.find(r=>r.class===c).class_name)))),el("tbody",null,setups.map(s=>el("tr",null,el("td",null,T.find(r=>r.setup===s).setup_name),classes.map(c=>{const r=T.find(x=>x.class===c&&x.setup===s);return el("td",null,r?[el("b",null,sgn(r.mean*100,2)+"%"),el("div",{class:"small muted"},icon[r.outcome]||"❔ non informativa")]:"–")})))))),
   el("section",{class:"card"},el("h2",null,"Come leggerlo"),el("ul",{class:"plain"},el("li",null,"Il panico cripto passa la soglia della sua famiglia di test, non quella più severa su tutti i 15. C'era circa il 22% di probabilità di almeno un falso positivo."),el("li",null,"Il guadagno viene da DOGE, AVAX, XRP e ADA, mentre ETH, BNB e LINK sono vicini a zero."),el("li",null,"Non supportata vuol dire nessun vantaggio dimostrato. Non informativa vuol dire troppo pochi episodi per dirlo."),el("li",null,"Dettagli in docs/B3_RISULTATI.md.")))]}
 };
+const TF={"4h":"4 ore","1d":"Giornaliero","1w":"Settimanale","1M":"Mensile"},TREND_ICON={rialzo:"▲ rialzo",ribasso:"▼ ribasso",laterale:"■ laterale","n.d.":"–"};
+function candles(c,f){const W=900,H=390,R=108,T=10,B=22,n=c.t.length,box=el("div");
+  const lv=[...f.supports,...f.resistances];const all=[...c.l,...c.h];let lo=Math.min(...all),hi=Math.max(...all);for(const l of lv){if(l.price>lo*.8&&l.price<hi*1.2){lo=Math.min(lo,l.price);hi=Math.max(hi,l.price)}}const pad=(hi-lo)*.03;lo-=pad;hi+=pad;
+  const step0=(hi-lo)/5,mag=10**Math.floor(Math.log10(step0)),step=[1,2,2.5,5,10].map(m=>m*mag).find(s=>s>=step0),dg=step<.01?4:step<.1?3:step<1?2:step<10?1:0,L=14+7*fmt(hi,dg).length;
+  const x=i=>L+(W-L-R)*(i+.5)/n,y=v=>T+(H-T-B)*(1-(v-lo)/(hi-lo)),g=svg("svg",{viewBox:`0 0 ${W} ${H}`,width:"100%",role:"img","aria-label":"Grafico a candele con medie e livelli"});
+  for(let v=Math.ceil(lo/step)*step;v<=hi;v+=step){g.append(svg("line",{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:"var(--grid)"}));const t=svg("text",{x:L-6,y:y(v)+4,"text-anchor":"end"});t.textContent=fmt(v,dg);g.append(t)}
+  const every=Math.ceil(n/7);c.t.forEach((d,i)=>{if(i%every===0){const t=svg("text",{x:x(i),y:H-6,"text-anchor":"middle"});t.textContent=f.tf==="4h"||f.tf==="1d"?d.slice(8,10)+"/"+d.slice(5,7):d.slice(5,7)+"/"+d.slice(2,4);g.append(t)}});
+  const w=Math.max(1.5,(W-L-R)/n*.62);c.t.forEach((_,i)=>{const up=c.c[i]>=c.o[i],col=up?"var(--s1)":"var(--s2)";g.append(svg("line",{x1:x(i),x2:x(i),y1:y(c.h[i]),y2:y(c.l[i]),stroke:col,"stroke-width":1}));const a=y(Math.max(c.o[i],c.c[i])),b=y(Math.min(c.o[i],c.c[i]));g.append(svg("rect",{x:x(i)-w/2,y:a,width:w,height:Math.max(1,b-a),fill:col}))});
+  const LINES=[["ema20","EMA 20","var(--s3)"],["sma50","SMA 50","var(--s4)"],["sma200","SMA 200","var(--s5)"]];
+  for(const[k,,col]of LINES){let p="",on=false;c[k].forEach((v,i)=>{if(v==null){on=false;return}p+=(on?"L":"M")+x(i).toFixed(1)+" "+y(v).toFixed(1);on=true});if(p)g.append(svg("path",{d:p,fill:"none",stroke:col,"stroke-width":2,"stroke-linejoin":"round"}))}
+  const tags=[...f.supports.map(l=>({...l,s:"S"})),...f.resistances.map(l=>({...l,s:"R"}))].filter(l=>l.price>=lo&&l.price<=hi).map(l=>({...l,yy:y(l.price)})).sort((a,b)=>a.yy-b.yy);
+  for(let i=1;i<tags.length;i++)if(tags[i].yy-tags[i-1].yy<14)tags[i].yy=tags[i-1].yy+14;
+  for(const l of tags){g.append(svg("line",{x1:L,x2:W-R,y1:y(l.price),y2:y(l.price),stroke:"var(--ink2)","stroke-width":Math.min(2.5,.6+l.touches*.3),opacity:.75}));const t=svg("text",{x:W-R+6,y:l.yy+4});t.textContent=l.s+" "+fmt(l.price,dg)+" ×"+l.touches;t.style.fill="var(--ink)";g.append(t)}
+  const cross=svg("line",{y1:T,y2:H-B,stroke:"var(--axis)",visibility:"hidden"});g.append(cross);const hit=svg("rect",{x:L,y:T,width:W-L-R,height:H-T-B,fill:"transparent"});
+  hit.addEventListener("pointermove",ev=>{const r=g.getBoundingClientRect(),i=Math.max(0,Math.min(n-1,Math.floor(((ev.clientX-r.left)/r.width*W-L)/(W-L-R)*n)));cross.setAttribute("x1",x(i));cross.setAttribute("x2",x(i));cross.setAttribute("visibility","visible");showTip(ev,el("span",{class:"muted"},c.t[i]),el("strong",null,price(c.c[i])),el("div",{class:"muted"},"apertura "+price(c.o[i])+" · massimo "+price(c.h[i])+" · minimo "+price(c.l[i])),...LINES.filter(([k])=>c[k][i]!=null).map(([k,n,col])=>el("div",null,el("em",{style:`background:${col}`}),price(c[k][i])+" "+n)))});
+  hit.addEventListener("pointerleave",()=>{cross.setAttribute("visibility","hidden");hideTip()});g.append(hit);box.append(g);
+  box.append(el("div",{class:"legend"},el("span",null,el("i",{style:"background:var(--s1)"}),"candela in salita"),el("span",null,el("i",{style:"background:var(--s2)"}),"candela in discesa"),...LINES.map(([,n,col])=>el("span",null,el("i",{class:"line",style:`background:${col}`}),n)),el("span",null,el("i",{class:"line",style:"background:var(--ink2)"}),"S supporto, R resistenza, ×tocchi")));return box}
+function taCards(f){const r=f.rsi,bb=f.bollinger,dist=v=>v==null?"–":sgn((f.price/v-1)*100,1)+"%";return el("div",{class:"grid g3",style:"margin-top:14px"},
+  el("div",{class:"card"},el("h3",{class:"small"},"Trend"),el("div",{class:"big",style:"font-size:24px"},TREND_ICON[f.trend]||f.trend),el("div",{class:"small muted"},"Prezzo, EMA 20 e SMA 50 in ordine. Trend di fondo (SMA 50): "+(f.slow_trend||"n.d.")+".")),
+  el("div",{class:"card"},el("h3",{class:"small"},"RSI 14"),el("div",{class:"big",style:"font-size:24px"},fmt(r)),el("div",{class:"small muted"},f.reset?(f.reset==="ipervenduto"?"🔄 Reset: ipervenduto in un trend di fondo al rialzo (soglia "+f.reset_low+").":"🔄 Reset: ipercomprato in un trend di fondo al ribasso (soglia "+(100-f.reset_low)+")."):r>=70?"Ipercomprato: sopra 70.":r<=30?"Ipervenduto: sotto 30.":"In zona normale.")),
+  el("div",{class:"card"},el("h3",{class:"small"},"MACD"),el("div",{class:"big",style:"font-size:24px"},f.macd_hist>0?"▲ sopra il segnale":"▼ sotto il segnale"),el("div",{class:"small muted"},f.macd_rising?"Lo slancio sta aumentando.":"Lo slancio sta diminuendo.")),
+  el("div",{class:"card"},el("h3",{class:"small"},"Distanza dalle medie"),el("div",{style:"font-size:15px;font-weight:600;margin-top:6px"},"EMA 20 "+dist(f.ema20)+" · SMA 50 "+dist(f.sma50)+" · SMA 200 "+dist(f.sma200)),el("div",{class:"small muted"},"Quanto il prezzo è lontano da ciascuna media.")),
+  el("div",{class:"card"},el("h3",{class:"small"},"Bande di Bollinger"),el("div",{class:"big",style:"font-size:24px"},bb==null?"–":bb>=1?"sopra la banda":bb<=-1?"sotto la banda":"dentro le bande"),el("div",{class:"small muted"},"Posizione "+sgn(bb,2)+": ±1 sono le bande, a 2 deviazioni standard.")),
+  el("div",{class:"card"},el("h3",{class:"small"},"Volatilità (ATR 14)"),el("div",{class:"big",style:"font-size:24px"},fmt(f.atr_pct,1)+"%"),el("div",{class:"small muted"},"Movimento medio di una candela su questo timeframe.")),
+  el("div",{class:"card",style:"grid-column:1/-1"},el("h3",{class:"small"},"Supporti e resistenze su questo timeframe"),el("div",{class:"grid g2",style:"margin-top:6px"},[["Resistenze",[...f.resistances].reverse()],["Supporti",f.supports]].map(([n,ls])=>el("div",null,el("b",null,n),ls.length?ls.map(l=>el("div",{class:"small"},price(l.price)+" · "+sgn((l.price/f.price-1)*100,1)+"% · "+l.touches+" tocchi, ultimo "+l.last)):el("div",{class:"small muted"},"Nessun livello ripetuto in questa direzione.")))),el("div",{class:"small muted",style:"margin-top:8px"},"Sono gli stessi livelli disegnati sul grafico, calcolati dai massimi e minimi che si ripetono.")))}
+let TA={market:null,tf:"1d",data:null};
+async function openTA(m){TA.market=m;TA.data=null;drawTA();const r=await fetch("/api/technical?market="+encodeURIComponent(m));if(TA.market!==m)return;TA.data=r.ok?await r.json():{error:true};if(TA.data.frames&&!TA.data.frames[TA.tf])TA.tf="1d";drawTA()}
+function drawTA(){const box=$("#ta");if(!box)return;document.querySelectorAll(".rows").forEach(r=>r.classList.toggle("on",r.dataset.m===TA.market));const d=TA.data;if(!d){box.replaceChildren(el("p",{class:"muted"},"Carico il grafico…"));return}if(d.error||!d.frames[TA.tf]){box.replaceChildren(el("p",{class:"notice bad"},"Dati non disponibili per questo mercato."));return}
+  const f=d.frames[TA.tf];box.replaceChildren(el("div",{style:"display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px"},el("h2",{style:"font-size:19px"},d.label+" · "+price(f.price)),el("div",{class:"seg"},Object.keys(TF).map(k=>el("button",{"aria-pressed":String(k===TA.tf),disabled:d.frames[k]?null:"disabled",style:d.frames[k]?null:"opacity:.35;cursor:default",onclick:()=>{if(d.frames[k]){TA.tf=k;drawTA()}}},TF[k])))),
+    candles(f.chart,f),el("h3",{style:"margin:14px 0 2px"},"RSI 14"),el("p",{class:"sub",style:"margin:0 0 2px"},"Sopra 70 ipercomprato, sotto 30 ipervenduto. Un reset è l'RSI che torna a un estremo mentre il trend di fondo resta quello."),lineChart([{name:"RSI",values:f.chart.rsi,dates:f.chart.t.map(x=>x.slice(0,10)),color:"var(--s1)"}],{height:150,digits:0,W:900,domain:[0,100],refs:[30,50,70]}),taCards(f))}
 function planView(p){const u=x=>x==null?"–":(Math.abs(x)>=100?fmt(x):fmt(x,2))+" $";const sign=p.side==="long";
   const grid=el("div",{class:"grid g3"},
     el("div",{class:"card"},el("h3",{class:"small"},"Quanto"),el("div",{class:"big"},u(p.notional)),el("div",{class:"small muted"},fmt(p.size,p.decimals)+" · "+p.label+" · "+p.side.toUpperCase()+" da "+price(p.entry))),

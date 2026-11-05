@@ -18,6 +18,7 @@ import pandas as pd
 
 from . import exits as X
 from . import moves as M
+from . import technicals as K
 from .agents import format_review, review_alerts
 from . import history as H
 from .events import first_of_runs, ret_z
@@ -242,6 +243,20 @@ def poll_commands(st, log=print, now=None):
     save_state(st)
 
 
+def check_resets(st, telegram_on, now=None):
+    """RSI resets on monthly, weekly and daily bars, sent as one message. All are logged, and 4h stays in the app."""
+    now = now or datetime.now(timezone.utc)
+    found = K.check_resets(st, now)
+    if found:
+        alert_dir().mkdir(parents=True, exist_ok=True)
+        with open(alert_dir() / "resets.jsonl", "a") as f:
+            for r in found:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        if telegram_on:
+            st["pending"] += split_message(K.format_resets(found, now, lambda m: THERMO_LABELS.get(m, m)))
+    return found
+
+
 def split_message(text, limit=TELEGRAM_LIMIT):
     """Split on line breaks, since Telegram rejects long messages."""
     parts, cur = [], ""
@@ -398,6 +413,12 @@ def cycle(st, log=print, refresh=True):
         new = len(found)
         enqueue(found, st, sending_enabled(), review_alerts)
         log(f"{datetime.now(timezone.utc):%Y-%m-%d %H:%M} checked: {new} new alerts")
+        try:
+            resets = check_resets(st, sending_enabled())
+            if resets:
+                log(f"{datetime.now(timezone.utc):%Y-%m-%d %H:%M} resets: {len(resets)}")
+        except Exception as e:
+            log(f"reset check failed, will retry: {type(e).__name__}: {e}")
     try:
         moved = check_moves(st, sending_enabled())
         if moved:

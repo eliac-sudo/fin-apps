@@ -61,6 +61,9 @@ class Handler(BaseHTTPRequestHandler):
             elif url.path == "/api/price":
                 m = q.get("market", [""])[0]
                 self.send(*((200, json.dumps(S.clean(S.price_series(m))).encode()) if S.known_market(m) else (404, b'{"error":"mercato sconosciuto"}')))
+            elif url.path == "/api/technical":
+                m = q.get("market", [""])[0]
+                self.send(*((200, json.dumps(S.clean(S.technical_market(m))).encode()) if S.known_market(m) else (404, b'{"error":"mercato sconosciuto"}')))
             elif url.path == "/api/plan":
                 code, reply = plan_reply(q)
                 self.send(code, json.dumps(S.clean(reply)).encode())
