@@ -1,0 +1,16 @@
+[Unit]
+Description=BZD Telegram history
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=bzd
+WorkingDirectory=/opt/bzd
+ExecStart=/opt/bzd/.venv/bin/python -u -m bzd.telegram backfill
+Restart=always
+RestartSec=30
+StandardOutput=append:/opt/bzd/data/telegram-backfill.log
+StandardError=append:/opt/bzd/data/telegram-backfill.log
+
+[Install]
+WantedBy=multi-user.target

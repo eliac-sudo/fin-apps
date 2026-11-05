@@ -33,11 +33,20 @@ These need the packages in `requirements.txt`.
 python -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m bzd.history get        # all markets; finished series are skipped
 .venv/bin/python -m bzd.history coverage   # dates, gaps and quality per series
+.venv/bin/python -m bzd.history get positions  # who holds what, for the Chi compra tab; about 30 minutes
 .venv/bin/python -m bzd.setups events      # setup events and counts; computes no forward returns
 .venv/bin/python -m bzd.exits run          # exit rules, calibration period only
 python3 -m bzd.telegram backfill           # liquidation and whale channels; resumable
 python3 -m bzd.telegram status
+.venv/bin/python -m bzd.literature run     # paper catalogue from OpenAlex and arXiv, written to docs/CATALOGO.md
+.venv/bin/python -m bzd.literature check "a title"  # is this paper real?
+.venv/bin/python -m bzd.research verifica  # do the papers the Gemini report cites exist? free
+.venv/bin/python -m bzd.research stima     # cost of the research agents before any paid call
+.venv/bin/python -m bzd.research leggi --paga   # notes on abstracts, checked in code (paid)
+.venv/bin/python -m bzd.research idee --paga    # untested setup drafts for a v2 pre-registration (paid)
 ```
+
+Moving to a server, backups and one-command updates: `docs/SERVER.md`. After a Codespace restart, check the services with `bash scripts/ensure-services.sh` as the `codespace` user.
 
 ## Codespace
 
@@ -47,7 +56,7 @@ python3 -m bzd.telegram status
 
 `python -m bzd.alerts` runs the frozen setups on fresh data and logs every alert to `data/alerts/log.jsonl`. With `BZD_ALERTS_TELEGRAM=on` in `.env`, every trigger also goes to Telegram as insight: what moved, whether the price is cheap or dear against its own last year, what the B3 test said, and the options context for that market. Entries, stops and targets are logged but not sent: they belong in the app. Strong price moves (`bzd/moves.py`) go out too, within about 15 minutes, and are logged to `data/alerts/moves.jsonl`: they are large against the market's own volatility, on the Hyperliquid snapshots, and aren't tested as a signal. RSI resets (`bzd/technicals.py`) go out as well on monthly, weekly and daily bars: the RSI back at an extreme while the slow trend holds. They aren't tested either, and 4h stays in the app. The module never places orders.
 
-`python -m bzd.app` opens the read-only desktop app on port 8787: the picture across markets, options and volatility explained, option contracts that look cheap or dear with gamma exposure (`docs/OPZIONI_MODELLI.md`), technical analysis per market with levels drawn by code, sentiment with Google's public trending searches and a price chart marked with past mood extremes (`bzd/sentiment.py`), alerts with their levels, the calculator and the test results. It serves saved data, holds no keys and places no orders. It writes one file, `data/sentiment/days.json`, which keeps daily word counts after the raw social files are deleted. The Layout button switches between four looks: BZD Neon, Arasaka, Militech and Kang Tao. In a Codespace, open it from the Ports tab and keep the port private.
+`python -m bzd.app` opens the read-only desktop app on port 8787: the picture across markets, options and volatility explained, option contracts that look cheap or dear with gamma exposure (`docs/OPZIONI_MODELLI.md`), technical analysis per market with levels drawn by code, sentiment with Google's public trending searches and a price chart marked with past mood extremes (`bzd/sentiment.py`), who buys the dip and sells the top, and how hard (`docs/CHI_COMPRA.md`), alerts with their levels, the calculator and the test results. It serves saved data, holds no keys and places no orders. It writes one file, `data/sentiment/days.json`, which keeps daily word counts after the raw social files are deleted. The Layout button switches between four looks: BZD Neon, Arasaka, Militech and Kang Tao. In a Codespace, open it from the Ports tab and keep the port private.
 
 The home page tags each asset BYZ or SZT on 4h, daily, weekly, monthly and 12-month views, from 70% indicators and 30% sentiment (`docs/ZONE_BYZ_SZT.md`). The tag describes a state and isn't tested as a signal.
 

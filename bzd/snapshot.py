@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 
+from . import flows as FL
 from . import indicators as I
 from . import option_lab as L
 from . import options_report as O
@@ -279,6 +280,16 @@ def sentiment_market(market):
     return {**view, "label": label(market), "plan_key": PLAN_KEY.get(market)} if view else None
 
 
+def flows_market(market):
+    view = FL.market_view(market)
+    return {**view, "label": label(market)} if view else None
+
+
+def flows_part():
+    cls = {m: ("crypto" if m in CRYPTO else MARKETS[m][0]) for m in K.all_markets()}
+    return [{**r, "label": label(r["market"]), "class": cls[r["market"]]} for r in FL.overview()]
+
+
 def technical_part():
     return [{**K.summary(m), "label": label(m), "plan_key": PLAN_KEY.get(m)} for m in K.all_markets()]
 
@@ -401,5 +412,5 @@ def build(now=None):
     alerts = part(lambda: alerts_part({m["market"]: m["price"] for m in markets}), errors, "alerts", {"setups": [], "moves": [], "resets": []})
     return clean({"at": now.isoformat(timespec="seconds"), "markets": markets, "classes": summaries, "overview": overview, "briefing": part(lambda: briefing(markets, summaries, lab, tech, alerts), errors, "briefing", []),
                   "options": part(options_part, errors, "options", []), "lab": lab, "sentiment": sentiment, "zone_info": {"frames": ZN.FRAMES, "past": ZN.PAST, "byz": ZN.BYZ_BELOW, "szt": ZN.SZT_ABOVE},
-                  "alerts": alerts, "tests": part(tests_part, errors, "tests", None), "technical": tech,
+                  "alerts": alerts, "tests": part(tests_part, errors, "tests", None), "technical": tech, "flows": part(flows_part, errors, "flows", []),
                   "freshness": part(lambda: freshness(now), errors, "freshness", {"recorder_minutes": None, "ok": False}), "errors": errors})
