@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "note": "Fixed before any forward return was computed. Used on the calibration period only.",
+  "entries": ["panic", "squeeze"],
+  "atr_bars": 14,
+  "initial_stop": {"low_lookback_bars": 3, "atr_below_low": 0.5, "min_atr_distance": 0.5},
+  "classes": {
+    "crypto": {"horizon_bars": 42, "max_hold_bars": 84, "fee_per_side": 0.00045, "slippage_per_side": 0.0005, "panic_slippage_sensitivity": 0.002},
+    "equities": {"horizon_bars": 10, "max_hold_bars": 20, "fee_per_side": 0.00045, "slippage_per_side": 0.0002, "panic_slippage_sensitivity": 0.002},
+    "bonds": {"horizon_bars": 10, "max_hold_bars": 20, "fee_per_side": 0.00045, "slippage_per_side": 0.0002, "panic_slippage_sensitivity": 0.002},
+    "commodities": {"horizon_bars": 10, "max_hold_bars": 20, "fee_per_side": 0.00045, "slippage_per_side": 0.0002, "panic_slippage_sensitivity": 0.002},
+    "fx": {"horizon_bars": 10, "max_hold_bars": 20, "fee_per_side": 0.00045, "slippage_per_side": 0.0002, "panic_slippage_sensitivity": 0.002}
+  },
+  "rules": {
+    "hold": {"stop": false, "exit_at": "horizon"},
+    "stop_and_hold": {"stop": true, "exit_at": "horizon"},
+    "stop_half_time": {"stop": true, "exit_at": "half_horizon"},
+    "target_1.5R": {"stop": true, "targets": [[1.5, 1.0]], "exit_at": "max"},
+    "target_2R": {"stop": true, "targets": [[2, 1.0]], "exit_at": "max"},
+    "target_3R": {"stop": true, "targets": [[3, 1.0]], "exit_at": "max"},
+    "thirds_then_trail": {"stop": true, "targets": [[1, 0.3333333333], [2, 0.3333333333]], "breakeven_after_first": true, "trail_atr": 3, "exit_at": "max"},
+    "trail_2atr": {"stop": true, "trail_atr": 2, "exit_at": "max"},
+    "trail_3atr": {"stop": true, "trail_atr": 3, "exit_at": "max"},
+    "overheat_exit": {"stop": true, "exit_on_overheating": true, "exit_at": "max"}
+  },
+  "selection": "For each class and setup, pick the rule with the highest mean net R, only if the 90% cluster-bootstrap interval of its difference from `hold` is above zero. Otherwise keep `hold`. Selected rules are then tested once on the test period (H3).",
+  "bootstrap": {"reps": 2000, "seed": 11}
+}

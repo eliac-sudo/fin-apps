@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'none'">
+<title>BZD · quadro dei mercati</title>
+<style>
+:root{color-scheme:dark;--page:#0d0d0d;--surface:#1a1a19;--surface2:#232322;--ink:#f0efec;--ink2:#c3c2b7;--muted:#898781;--grid:#2c2c2a;--axis:#383835;--border:rgba(255,255,255,.10);
+--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--h0:#3987e5;--h1:#184f95;--h2:#383835;--h3:#7d3333;--h4:#e66767;--i0:#0b0b0b;--i1:#f0efec;--i2:#f0efec;--i3:#f0efec;--i4:#0b0b0b;--good:#0ca30c;--warn:#fab219;--serious:#ec835a;--crit:#d03b3b}
+:root[data-theme=light]{color-scheme:light;--page:#f9f9f7;--surface:#fcfcfb;--surface2:#f2f1ed;--ink:#0b0b0b;--ink2:#52514e;--muted:#6f6d68;--grid:#e1e0d9;--axis:#c3c2b7;--border:rgba(11,11,11,.10);
+--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--h0:#256abf;--h1:#9ec5f4;--h2:#f0efec;--h3:#f3b0af;--h4:#d03b3b;--i0:#fff;--i1:#0b0b0b;--i2:#0b0b0b;--i3:#0b0b0b;--i4:#fff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{display:flex;align-items:center;gap:20px;padding:12px 28px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:5}
+h1{font-size:17px;margin:0;letter-spacing:.04em}
+nav{display:flex;gap:2px;flex:1}
+nav button{all:unset;cursor:pointer;padding:6px 12px;border-radius:6px;color:var(--ink2)}
+nav button:hover{background:var(--surface2)}
+nav button[aria-selected=true]{background:var(--surface2);color:var(--ink);font-weight:600}
+nav button:focus-visible,.tile:focus-visible,button:focus-visible{outline:2px solid var(--s1);outline-offset:1px}
+.meta{color:var(--muted);font-size:12.5px;display:flex;gap:12px;align-items:center;white-space:nowrap}
+.btn{background:var(--surface2);color:var(--ink);border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;font:inherit}
+main{max-width:1500px;margin:0 auto;padding:22px 28px 60px}
+h2{font-size:15px;margin:0 0 3px}
+h3{font-size:14px;margin:0}
+.sub{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+.hero{font-size:22px;line-height:1.3;font-weight:600;margin:0 0 4px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px}
+.grid{display:grid;gap:14px}
+.g5{grid-template-columns:repeat(5,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}.g65{grid-template-columns:minmax(0,3fr) minmax(0,2fr)}
+section{margin-top:18px}
+.big{font-size:34px;font-weight:650;line-height:1.1}
+.small{font-size:12.5px;color:var(--ink2)}
+.muted{color:var(--muted)}
+.gauge{position:relative;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--h0),var(--h2) 50%,var(--h4));margin:12px 0 10px}
+.gauge i{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;background:var(--ink);border:2px solid var(--surface);transform:translate(-50%,-50%)}
+.mapgroup{display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:start;margin-bottom:10px}
+.mapgroup b{padding-top:9px;font-size:12.5px;color:var(--ink2);font-weight:500}
+.tiles{display:flex;flex-wrap:wrap;gap:3px}
+.tile{all:unset;cursor:pointer;width:96px;height:56px;padding:7px 9px;border-radius:5px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between}
+.tile:hover{filter:brightness(1.15)}
+.tile span{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile strong{font-size:17px;font-weight:650;line-height:1}
+.legend{display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--ink2);margin-top:6px}
+.legend i{display:inline-block;width:14px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.legend i.line{height:2px;width:16px;vertical-align:3px}
+.strip{display:grid;grid-template-columns:96px 1fr 104px;gap:10px;align-items:center;height:25px;font-size:12.5px;cursor:pointer;border-radius:4px}
+.strip:hover{background:var(--surface2)}
+.strip .track{position:relative;height:2px;background:var(--axis)}
+.strip .track i{position:absolute;top:50%;width:11px;height:11px;border-radius:50%;background:var(--s1);border:2px solid var(--surface);transform:translate(-50%,-50%)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:99px;background:var(--surface2);font-size:12px;white-space:nowrap}
+.chip b{font-weight:600}
+ul.plain{margin:8px 0 0;padding:0 0 0 16px;color:var(--ink2);font-size:13px}ul.plain li{margin:3px 0}
+.bar{display:grid;grid-template-columns:110px 1fr 54px;gap:10px;align-items:center;height:28px;font-size:13px}
+.bar .t{position:relative;height:14px}
+.bar .t u{position:absolute;left:0;top:0;bottom:0;background:var(--s1);border-radius:0 4px 4px 0}
+.bar .t s{position:absolute;top:-4px;bottom:-4px;width:1px;background:var(--muted)}
+.stack{display:flex;gap:2px;height:14px;margin:8px 0}
+.stack i{display:block;height:100%}.stack i:first-child{border-radius:4px 0 0 4px}.stack i:last-child{border-radius:0 4px 4px 0}
+.text{font-size:12.5px;color:var(--ink2);border-top:1px solid var(--grid);padding:7px 0}
+a{color:var(--s1)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{text-align:left;color:var(--muted);font-weight:500;padding:6px 10px;border-bottom:1px solid var(--axis)}
+td{padding:7px 10px;border-bottom:1px solid var(--grid)}
+td.num,th.num{text-align:right}
+form.plan{display:grid;grid-template-columns:repeat(7,auto);gap:10px;align-items:end}
+label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--ink2)}
+input,select{background:var(--surface2);color:var(--ink);border:1px solid var(--border);border-radius:6px;padding:7px 9px;font:inherit;width:118px}
+.primary{background:var(--s1);color:#fff;border:0;border-radius:6px;padding:8px 18px;cursor:pointer;font:inherit;font-weight:600}
+.notice{border-left:3px solid var(--warn);padding:6px 12px;background:var(--surface2);border-radius:0 6px 6px 0;font-size:13px;margin:6px 0}
+.notice.bad{border-color:var(--crit)}
+.tip{position:fixed;z-index:20;pointer-events:none;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:12.5px;box-shadow:0 4px 14px rgba(0,0,0,.3);display:none;max-width:280px}
+.tip strong{display:block;font-size:14px}
+.tip em{display:inline-block;width:12px;height:2px;margin-right:5px;vertical-align:3px}
+.rows{cursor:pointer}.rows:hover{background:var(--surface2)}.rows.on{background:var(--surface2)}
+.seg{display:inline-flex;gap:2px;background:var(--surface2);padding:2px;border-radius:7px}.seg button{all:unset;cursor:pointer;padding:4px 12px;border-radius:5px;font-size:13px;color:var(--ink2)}.seg button[aria-pressed=true]{background:var(--surface);color:var(--ink);font-weight:600}
+dialog{background:var(--surface);color:var(--ink);border:1px solid var(--border);border-radius:12px;padding:22px;width:min(860px,92vw)}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+.kv{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:12px 0}.kv div b{display:block;font-size:19px;font-weight:600}.kv div span{font-size:12px;color:var(--muted)}
+details summary{cursor:pointer;color:var(--ink2);font-size:12.5px;margin-top:8px}
+svg text{font:11px system-ui,sans-serif;fill:var(--muted)}
+.foot{margin-top:26px;color:var(--muted);font-size:12px}
+@media (max-width:1150px){.g5{grid-template-columns:repeat(3,minmax(0,1fr))}.g3,.g65,.g2{grid-template-columns:1fr}form.plan{grid-template-columns:repeat(3,auto)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>BZD</h1>
+  <nav id="nav" role="tablist"></nav>
+  <div class="meta"><span id="fresh"></span><button class="btn" id="reload">Aggiorna</button><button class="btn" id="theme">Tema</button></div>
+</header>
+<main id="main"><p class="muted">Sto leggendo i dati…</p></main>
+<div class="tip" id="tip"></div>
+<dialog id="dlg"></dialog>
+<script>
+"use strict";
+const TABS=[["oggi","Oggi"],["opzioni","Opzioni e volatilità"],["tecnica","Analisi tecnica"],["sentiment","Sentiment"],["alert","Alert"],["piano","Piano"],["test","Test"]];
+const PARTS={slancio:"Slancio",rsi:"RSI",estensione:"Distanza dalla media",funding:"Funding",oi:"Leva (OI)",posizionamento:"Speculatori",calma:"Calma (volatilità bassa)"};
+let D=null,tab=location.hash.slice(1)||"oggi";
+const $=s=>document.querySelector(s);
+function el(tag,attrs,...kids){const e=document.createElement(tag);for(const[k,v]of Object.entries(attrs||{})){if(v==null)continue;if(k==="class")e.className=v;else if(k==="style")e.style.cssText=v;else if(k.startsWith("on"))e.addEventListener(k.slice(2),v);else e.setAttribute(k,v)}for(const c of kids.flat()){if(c==null||c===false)continue;e.append(c.nodeType?c:document.createTextNode(c))}return e}
+function svg(tag,attrs,...kids){const e=document.createElementNS("http://www.w3.org/2000/svg",tag);for(const[k,v]of Object.entries(attrs||{}))e.setAttribute(k,v);e.append(...kids);return e}
+const fmt=(x,d=0)=>x==null?"–":x.toLocaleString("it-IT",{minimumFractionDigits:d,maximumFractionDigits:d});
+const sgn=(x,d=0)=>x==null?"–":(x>0?"+":x<0?"−":"")+fmt(Math.abs(x),d);
+const price=x=>x==null?"–":fmt(x,x>=100?2:x>=1?4:6);
+const bin=h=>h>=80?4:h>=60?3:h>=40?2:h>=20?1:0;
+const when=s=>{const d=new Date(s);return d.toLocaleString("it-IT",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",timeZone:"UTC"})+" UTC"};
+const short=s=>{const[,m,d]=s.split("-");return d+"/"+m};
+const tip=$("#tip");
+function showTip(ev,...kids){tip.replaceChildren(...kids);tip.style.display="block";const r=tip.getBoundingClientRect();tip.style.left=Math.min(ev.clientX+14,innerWidth-r.width-8)+"px";tip.style.top=Math.min(ev.clientY+14,innerHeight-r.height-8)+"px"}
+const hideTip=()=>tip.style.display="none";
+function lineChart(series,{height=190,digits=1,suffix="",W=640,domain=null,refs=[]}={}){
+  const dates=series[0].dates,H=height,R=62,T=10,B=22,box=el("div");
+  const vals=series.flatMap(s=>s.values).filter(v=>v!=null);if(!vals.length)return el("p",{class:"muted"},"Nessuno storico.");
+  let lo=Math.min(...vals),hi=Math.max(...vals);const step0=(hi-lo||1)/4,mag=10**Math.floor(Math.log10(step0)),step=[1,2,2.5,5,10].map(m=>m*mag).find(s=>s>=step0);lo=Math.floor(lo/step)*step;hi=Math.ceil(hi/step)*step;if(domain){[lo,hi]=domain}
+  const tickDigits=step<.1?3:step<1?(step<.25?2:1):0,L=14+7*Math.max(fmt(lo,tickDigits).length,fmt(hi,tickDigits).length);
+  const x=i=>L+(W-L-R)*i/Math.max(1,dates.length-1),y=v=>T+(H-T-B)*(1-(v-lo)/(hi-lo||1));
+  const g=svg("svg",{viewBox:`0 0 ${W} ${H}`,width:"100%",role:"img","aria-label":series.map(s=>s.name).join(", ")});
+  for(const v of refs.length?refs:Array.from({length:Math.round((hi-lo)/step)+1},(_,i)=>lo+i*step)){g.append(svg("line",{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:refs.length?"var(--axis)":"var(--grid)"}));const t=svg("text",{x:L-6,y:y(v)+4,"text-anchor":"end"});t.textContent=fmt(v,tickDigits);g.append(t)}
+  let lastMonth="";dates.forEach((d,i)=>{const m=d.slice(0,7);if(m!==lastMonth&&i>4&&+m.slice(5)%2===0){const t=svg("text",{x:x(i),y:H-6,"text-anchor":"middle"});t.textContent=["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"][+m.slice(5)-1];g.append(t)}lastMonth=m});
+  const ends=[];
+  for(const s of series){let p="",on=false;s.values.forEach((v,i)=>{if(v==null){on=false;return}p+=(on?"L":"M")+x(i).toFixed(1)+" "+y(v).toFixed(1);on=true});
+    g.append(svg("path",{d:p,fill:"none",stroke:s.color,"stroke-width":2,"stroke-linejoin":"round","stroke-linecap":"round"}));
+    let k=s.values.length-1;while(k>0&&s.values[k]==null)k--;if(s.values[k]!=null){g.append(svg("circle",{cx:x(k),cy:y(s.values[k]),r:4,fill:s.color,stroke:"var(--surface)","stroke-width":2}));ends.push({v:s.values[k],yy:y(s.values[k])})}}
+  ends.sort((a,b)=>a.yy-b.yy);for(let i=1;i<ends.length;i++)if(ends[i].yy-ends[i-1].yy<14)ends[i].yy=ends[i-1].yy+14;
+  for(const e of ends){const t=svg("text",{x:W-R+9,y:e.yy+4});t.textContent=fmt(e.v,digits)+suffix;t.style.fill="var(--ink)";g.append(t)}
+  const cross=svg("line",{y1:T,y2:H-B,stroke:"var(--axis)",visibility:"hidden"});g.append(cross);
+  const hit=svg("rect",{x:L,y:T,width:W-L-R,height:H-T-B,fill:"transparent"});
+  hit.addEventListener("pointermove",ev=>{const r=g.getBoundingClientRect(),i=Math.round(Math.min(1,Math.max(0,((ev.clientX-r.left)/r.width*W-L)/(W-L-R)))*(dates.length-1));cross.setAttribute("x1",x(i));cross.setAttribute("x2",x(i));cross.setAttribute("visibility","visible");
+    showTip(ev,el("span",{class:"muted"},short(dates[i])+"/"+dates[i].slice(0,4)),...series.map(s=>el("div",null,el("em",{style:`background:${s.color}`}),el("b",null,fmt(s.values[i],digits)+suffix)," ",s.name)))});
+  hit.addEventListener("pointerleave",()=>{cross.setAttribute("visibility","hidden");hideTip()});g.append(hit);box.append(g);
+  if(series.length>1)box.append(el("div",{class:"legend"},series.map(s=>el("span",null,el("i",{class:"line",style:`background:${s.color}`}),s.name))));
+  return box}
+function heatLegend(){const names=["molto freddo","freddo","neutro","caldo","molto caldo"];return el("div",{class:"legend"},names.map((n,i)=>el("span",null,el("i",{style:`background:var(--h${i})`}),n)))}
+function statusIcon(ok){return ok?"●":"▲"}
+
+const VIEWS={
+oggi(){
+  const best=(D.options||[]).filter(b=>b.cost).sort((a,b)=>a.cost.ratio-b.cost.ratio),move=D.alerts.moves[0],fg=D.sentiment&&D.sentiment.fear_greed;
+  const pos=D.markets.filter(m=>m.position).sort((a,b)=>a.position.pct-b.position.pct);
+  return [
+  el("p",{class:"hero"},D.overview),
+  el("p",{class:"sub"},"Calore: 0 = mercato scarico, 100 = surriscaldato, sempre rispetto al passato di quel mercato. Descrive e non prevede."),
+  el("div",{class:"grid g5"},Object.values(D.classes).map(c=>el("div",{class:"card"},
+    el("h3",{class:"small"},c.name),el("div",{class:"big"},fmt(c.heat)),
+    el("div",{class:"gauge"},el("i",{style:`left:${c.heat}%`})),
+    el("div",null,c.band.replace(/^\S+\s/,"")," · ",el("span",{class:"muted"},sgn(c.change_7d)+" in 7 giorni")),
+    el("div",{class:"small muted",style:"margin-top:4px"},c.why)))),
+  el("section",{class:"grid g3"},
+    el("div",{class:"card"},el("h3",{class:"small"},"Fear & Greed cripto"),el("div",{class:"big"},fg?fg.value:"–"),el("div",{class:"small muted"},fg?(fg.value<25?"paura estrema":fg.value<45?"paura":fg.value<55?"neutro":fg.value<75?"avidità":"avidità estrema"):"dato mancante")),
+    el("div",{class:"card"},el("h3",{class:"small"},"Opzioni rispetto al movimento reale"),best.length?[el("div",{style:"font-size:19px;font-weight:600;margin-top:6px"},"più care: "+best[best.length-1].name+" ("+fmt(best[best.length-1].cost.ratio,1)+"x)"),el("div",{style:"font-size:19px;font-weight:600"},"più economiche: "+best[0].name+" ("+fmt(best[0].cost.ratio,1)+"x)")]:"–"),
+    el("div",{class:"card"},el("h3",{class:"small"},"Ultimo forte movimento"),move?[el("div",{style:"font-size:19px;font-weight:600;margin-top:6px"},(move.down?"🔻 ":"🔺 ")+move.label+" "+sgn(move.pct,1)+"% in "+move.window),el("div",{class:"small muted"},when(move.at))]:el("div",{class:"small muted",style:"margin-top:6px"},"Nessuno registrato."))),
+  el("section",{class:"grid g65"},
+    el("div",{class:"card"},el("h2",null,"Mappa del calore"),el("p",{class:"sub"},"Clicca un mercato per vedere il grafico e cosa lo scalda."),
+      Object.entries(D.classes).map(([k,c])=>el("div",{class:"mapgroup"},el("b",null,c.name),el("div",{class:"tiles"},D.markets.filter(m=>m.class===k&&m.heat!=null).sort((a,b)=>b.heat-a.heat).map(m=>{const n=bin(m.heat);
+        return el("button",{class:"tile",style:`background:var(--h${n});color:var(--i${n})`,onclick:()=>detail(m),onpointermove:e=>showTip(e,el("strong",null,fmt(m.heat)),m.label," · "+m.band.replace(/^\S+\s/,""),el("div",{class:"muted"},sgn(m.heat_change_7d)+" in 7 giorni")),onpointerleave:hideTip},el("span",null,m.label),el("strong",null,fmt(m.heat)))})))),heatLegend()),
+    el("div",{class:"card"},el("h2",null,"Caro o economico"),el("p",{class:"sub"},"Dove sta il prezzo tra minimo e massimo del suo ultimo anno. Non dice quanto vale."),
+      el("div",{style:"display:grid;grid-template-columns:96px 1fr 104px;gap:10px;font-size:11.5px;color:var(--muted)"},el("span"),el("span",{style:"display:flex;justify-content:space-between"},el("span",null,"più economico"),el("span",null,"più caro")),el("span")),
+      el("div",null,pos.map(m=>el("div",{class:"strip",onclick:()=>detail(m),onpointermove:e=>showTip(e,el("strong",null,m.position.label),m.label+": più alto del "+fmt(m.position.pct)+"% dell'ultimo anno",el("div",{class:"muted"},sgn(m.position.from_high)+"% dal massimo, "+sgn(m.position.from_low)+"% dal minimo")),onpointerleave:hideTip},
+        el("span",null,m.label),el("div",{class:"track"},el("i",{style:`left:${m.position.pct}%`})),el("span",{class:"num muted"},sgn(m.position.from_high)+"% dal max"))))))
+  ]},
+opzioni(){
+  const rank=(D.options||[]).filter(b=>b.cost).sort((a,b)=>b.cost.ratio-a.cost.ratio),maxR=Math.max(2,...rank.map(b=>b.cost.ratio));
+  return [
+  el("p",{class:"hero"},"Quanto costano le opzioni, e cosa dicono del rischio"),
+  el("p",{class:"sub"},"Tutto è calcolato sui dati salvati. Non è testato come segnale: dice cosa è caro o economico, non che comprarlo renda."),
+  el("div",{class:"grid g2"},
+    el("div",{class:"card"},el("h2",null,"Le più care e le più economiche"),el("p",{class:"sub"},"Volatilità attesa a 30 giorni divisa per quella realizzata negli ultimi 20. La riga segna 1x: pari al movimento recente."),
+      rank.map(b=>el("div",{class:"bar",onpointermove:e=>showTip(e,el("strong",null,fmt(b.cost.ratio,2)+"x"),b.name+": attesa "+fmt(b.cost.iv*100)+"%, realizzata "+fmt(b.cost.rv*100)+"%"),onpointerleave:hideTip},el("span",null,b.name),el("div",{class:"t"},el("u",{style:`width:${b.cost.ratio/maxR*100}%`}),el("s",{style:`left:${100/maxR}%`})),el("span",{class:"num"},fmt(b.cost.ratio,1)+"x"))),
+      el("p",{class:"small muted",style:"margin:10px 0 0"},"Sotto 0,9x le chiamo economiche, sopra 1,25x care. Le soglie sono una mia scelta e non sono testate.")),
+    el("div",{class:"card"},el("h2",null,"Come si legge"),
+      el("ul",{class:"plain"},
+        el("li",null,el("b",null,"Volatilità attesa: "),"quanto il mercato si aspetta che il prezzo si muova, ricavato dal prezzo delle opzioni. Si legge in % annua: dividila per 3,5 e hai il movimento atteso in un mese."),
+        el("li",null,el("b",null,"Volatilità realizzata: "),"quanto il prezzo si è mosso davvero. Confrontarle dice se le opzioni sono care o economiche."),
+        el("li",null,el("b",null,"Perché l'attesa sta quasi sempre sopra: "),"chi vende opzioni si fa pagare il rischio di un crollo. In media chi vende guadagna poco spesso e perde molto di rado, quindi «caro» non vuol dire che vendere sia sicuro."),
+        el("li",null,el("b",null,"Breve contro lunga: "),"se la volatilità a 7 giorni supera quella a 30, la paura è concentrata sui prossimi giorni."),
+        el("li",null,el("b",null,"Skew: "),"quanto costano le put (protezione dai ribassi) rispetto alle call. Se è alto, il mercato paga per difendersi."),
+        el("li",null,el("b",null,"Economica non vuol dire affare: "),"chi compra un'opzione perde valore ogni giorno, anche se il prezzo non si muove.")))),
+  el("section",{class:"grid g2"},(D.options||[]).map(b=>{const h=b.history,ser=[];if(h.implied.length)ser.push({name:"Attesa ("+h.implied_name+")",values:h.implied,dates:h.dates,color:"var(--s1)"});if(h.same_units&&h.realized.length)ser.push({name:"Realizzata, 20 giorni",values:h.realized,dates:h.dates,color:"var(--s2)"});
+    return el("div",{class:"card"},el("div",{style:"display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap"},el("h2",null,b.name),el("div",{style:"display:flex;gap:6px;flex-wrap:wrap"},
+      b.level?el("span",{class:"chip"},"Volatilità attesa ",el("b",null,b.level.band)):null,b.cost?el("span",{class:"chip"},"Opzioni ",el("b",null,b.cost.label)):null,b.term&&b.term.inverted?el("span",{class:"chip"},"▲ paura a breve"):null)),
+      ser.length?lineChart(ser,{suffix:h.same_units?"%":""}):el("p",{class:"small muted",style:"margin:10px 0"},"Nessuno storico gratuito della volatilità per questo mercato: mostro solo i dati di oggi."),
+      h.implied_name==="MOVE"?el("p",{class:"small muted",style:"margin:6px 0 0"},"Il MOVE è in punti base, quindi non lo metto sullo stesso grafico della realizzata."):null,
+      el("ul",{class:"plain"},b.text.map(t=>el("li",null,t))),
+      el("div",{class:"small muted",style:"margin-top:8px"},[b.level?b.level.label+" "+fmt(b.level.value,1)+" del "+short(b.level.date):null,b.term?b.term.short_name+" "+fmt(b.term.short,1)+", "+b.term.long_name+" "+fmt(b.term.long,1):null,b.skew_pts!=null?"skew "+sgn(b.skew_pts,1)+" pt":null,b.snapshot?"opzioni del "+when(b.snapshot):null].filter(Boolean).join(" · ")))}))
+  ]},
+tecnica(){
+  const rows=D.technical||[];if(!rows.length)return el("p",{class:"notice bad"},"Analisi tecnica non disponibile.");const tfs=["4h","1d","1w","1M"];
+  if(!TA.market||!rows.find(r=>r.market===TA.market))setTimeout(()=>openTA(rows[0].market));else setTimeout(drawTA);
+  const icon=t=>({rialzo:"▲",ribasso:"▼",laterale:"■"}[t]||"–");
+  return [el("p",{class:"hero"},"Analisi tecnica di ogni mercato"),el("p",{class:"sub"},"Supporti e resistenze li calcola il codice dai massimi e minimi che si ripetono: più tocchi, livello più forte. Possono differire da quelli che disegneresti a mano. Niente di questo è testato come segnale."),
+  el("div",{class:"grid",style:"grid-template-columns:400px minmax(0,1fr);align-items:start"},
+    el("div",{class:"card",style:"padding:10px 8px;position:sticky;top:70px"},el("table",{style:"font-size:12.5px"},el("thead",null,el("tr",null,el("th",null,"Mercato"),["4h","1g","1s","1m"].map(t=>el("th",{style:"text-align:center;padding:6px 4px"},t)),el("th",{class:"num"},"RSI 1g"))),el("tbody",null,rows.map(r=>el("tr",{class:"rows","data-m":r.market,onclick:()=>openTA(r.market)},el("td",{style:"padding:3.5px 10px"},el("b",null,r.label)),tfs.map(t=>el("td",{style:"text-align:center;padding:3.5px 4px",title:(r.trend[t]||"nessun dato")+(r.reset[t]?", reset in corso":"")},icon(r.trend[t]),r.reset[t]?"🔄":null)),el("td",{class:"num",style:"padding:3.5px 10px"},fmt((r.rsi||{})["1d"])))))),
+      el("p",{class:"small muted",style:"margin:8px 10px 2px"},"▲ rialzo ▼ ribasso ■ laterale. 🔄 reset in corso. I mercati non cripto non hanno lo storico a 4 ore.")),
+    el("div",{class:"card",id:"ta"}))]},
+sentiment(){
+  const s=D.sentiment;if(!s)return el("p",{class:"notice bad"},"Sentiment non disponibile.");
+  const fg=s.fear_greed;
+  return [
+  el("p",{class:"hero"},"Cosa si dice nelle ultime 24 ore"),
+  el("p",{class:"sub"},"Letti "+fmt(s.total)+" testi pubblici da news e social, senza agenti. Il conteggio delle parole è grezzo e non è validato: leggilo come orientamento, e controlla le fonti qui sotto."),
+  el("div",{class:"grid g3"},
+    el("div",{class:"card"},el("h3",{class:"small"},"Fear & Greed cripto"),el("div",{class:"big"},fg?fg.value:"–"),fg?el("div",{class:"gauge"},el("i",{style:`left:${fg.value}%`})):null,el("div",{class:"small muted"},"Da alternative.me. 0 = paura, 100 = avidità.")),
+    ...Object.entries(s.attention).slice(0,2).map(([k,z])=>el("div",{class:"card"},el("h3",{class:"small"},"Attenzione su Wikipedia: "+({Bitcoin:"Bitcoin",Stock_market_crash:"crollo di borsa",Recession:"recessione"}[k]||k)),el("div",{class:"big"},sgn(z,1)),el("div",{class:"small muted"},"Visite dell'ultima settimana contro l'anno prima, in deviazioni standard. Sopra +2 è molto insolito.")))),
+  el("section",{class:"grid g2"},s.classes.map(c=>{const tot=c.fear+c.greed||1;return el("div",{class:"card"},
+    el("div",{style:"display:flex;justify-content:space-between;align-items:baseline"},el("h2",null,c.name),el("span",{class:"small muted"},fmt(c.texts)+" testi")),
+    el("div",{class:"stack",onpointermove:e=>showTip(e,el("strong",null,fmt(c.fear)+" contro "+fmt(c.greed)),"testi con parole di paura contro parole di euforia"),onpointerleave:hideTip},el("i",{style:`width:${c.fear/tot*100}%;background:var(--s1)`}),el("i",{style:`width:${c.greed/tot*100}%;background:var(--s2)`})),
+    el("div",{class:"legend",style:"margin:0 0 8px"},el("span",null,el("i",{style:"background:var(--s1)"}),"paura "+fmt(c.fear)),el("span",null,el("i",{style:"background:var(--s2)"}),"euforia "+fmt(c.greed))),
+    el("details",null,el("summary",null,"Leggi alcuni testi"),c.texts_sample.map(t=>el("div",{class:"text"},t.text," ",/^https?:\/\//.test(t.url||"")?el("a",{href:t.url,target:"_blank",rel:"noopener noreferrer"},"fonte"):null,el("span",{class:"muted"}," · "+t.source.replace(/^(news|soc)_/,"")+" · "+when(t.time))))))}))
+  ]},
+alert(){
+  const a=D.alerts;
+  return [
+  el("p",{class:"hero"},"Alert e livelli"),
+  el("p",{class:"sub"},"Qui trovi anche ingresso, stop e obiettivo, che su Telegram non arrivano. I livelli sono indicativi, calcolati al momento del trigger."),
+  el("div",{class:"grid g65"},
+    el("div",{class:"card"},el("h2",null,"Setup"),a.setups.length?a.setups.map(s=>{const p=s.plan;return el("div",{class:"text",style:"padding:12px 0"},
+      el("div",{style:"display:flex;justify-content:space-between;gap:10px"},el("b",{style:"font-size:14px;color:var(--ink)"},s.setup+" · "+s.market),el("span",{class:"muted"},when(s.trigger))),
+      el("div",null,s.means+(s.z!=null?" Movimento "+sgn(s.z,1)+" volte il normale.":"")),
+      s.met.length?el("div",null,"Conferme: "+s.met.join(", ")):null,
+      p?el("div",{class:"kv"},el("div",null,el("b",null,price(p.price)),el("span",null,"prezzo al trigger")),el("div",null,el("b",null,price(p.stop)),el("span",null,"stop (−"+fmt(p.risk_pct*100,1)+"%)")),el("div",null,el("b",null,price(p.target_3r)),el("span",null,"obiettivo 3R")),el("div",null,el("b",null,"barra +"+s.entry_after_bars),el("span",null,"ingresso dello studio"))):null,
+      s.price_now?el("div",null,"Ultima chiusura "+price(s.price_now)+" ("+sgn(s.since_pct,1)+"% dal trigger)"):null,
+      s.broken?el("div",{class:"notice bad"},"▲ Già sotto lo stop: il piano non è più valido."):s.target_hit?el("div",{class:"notice"},"▲ Già oltre l'obiettivo: troppo tardi per questo piano."):null,
+      el("div",null,s.verdict))}):el("p",{class:"muted"},"Nessun setup registrato finora.")),
+    el("div",{class:"card"},el("h2",null,"Forti movimenti"),a.moves.length?a.moves.map(m=>el("div",{class:"text"},el("b",{style:"color:var(--ink)"},(m.down?"🔻 ":"🔺 ")+m.label+" "+sgn(m.pct,1)+"% in "+m.window),el("div",null,when(m.at)+" · soglia "+sgn(m.limit_pct,1)+"%"),m.position?el("div",null,m.position):null)):el("p",{class:"muted"},"Nessuno registrato."),
+      el("h2",{style:"margin-top:18px"},"Reset RSI"),a.resets.length?a.resets.map(r=>el("div",{class:"text"},el("b",{style:"color:var(--ink)"},"🔄 "+r.label+" · "+r.frame),el("div",null,"RSI "+fmt(r.rsi)+" (soglia "+r.threshold+"), "+r.kind),el("div",null,when(r.bar)))):el("p",{class:"muted"},"Nessuno registrato finora.")))
+  ]},
+piano(){
+  const out=el("div",{style:"margin-top:16px"});const opts=["BTC","ETH","SOL","BNB","XRP","DOGE","ADA","AVAX","LINK","sp500","nasdaq","oro","argento","rame","petrolio","eur","jpy","gbp","tlt"];
+  const form=el("form",{class:"plan",onsubmit:async e=>{e.preventDefault();const q=new URLSearchParams();for(const[k,v]of new FormData(form))if(v)q.set(k,v);out.replaceChildren(el("p",{class:"muted"},"Calcolo…"));const r=await fetch("/api/plan?"+q);const j=await r.json();out.replaceChildren(j.plan?planView(j.plan):el("pre",{class:"notice bad",style:"white-space:pre-wrap;font:inherit"},j.error||"Errore"))}},
+    el("label",null,"Mercato",el("select",{name:"market"},opts.map(o=>el("option",null,o)))),el("label",null,"Capitale ($)",el("input",{name:"capital",inputmode:"decimal",value:"5000",required:"required"})),el("label",null,"Rischio %",el("input",{name:"risk",inputmode:"decimal",value:"1"})),
+    el("label",null,"Stop (opzionale)",el("input",{name:"stop",inputmode:"decimal"})),el("label",null,"Target in R",el("input",{name:"target",inputmode:"decimal",value:"3"})),el("label",null,"Leva (opzionale)",el("input",{name:"leva",inputmode:"decimal"})),el("button",{class:"primary"},"Calcola"));
+  return [el("p",{class:"hero"},"Quanto comprare e dove uscire"),el("p",{class:"sub"},"Calcolo con i prezzi pubblici di Hyperliquid. Gli ordini li metti tu: l'app non fa trading. Le regole sono in docs/A3_REGOLE.md."),el("div",{class:"card"},form),out]},
+test(){
+  const T=D.tests;if(!T)return el("p",{class:"notice bad"},"Risultati non disponibili.");
+  const icon={supportata:"✅ supportata","non supportata":"❌ non supportata"},setups=[...new Set(T.map(r=>r.setup))],classes=[...new Set(T.map(r=>r.class))];
+  return [el("p",{class:"hero"},"Su 15 test ne è passato uno, di poco"),el("p",{class:"sub"},"Il test B3 è stato fatto una volta sola, con regole fissate prima. Il numero è la differenza media rispetto a ingressi casuali, a 24 ore sulle cripto e a 5 sedute sugli altri mercati."),
+  el("div",{class:"card"},el("table",null,el("thead",null,el("tr",null,el("th",null,""),classes.map(c=>el("th",null,T.find(r=>r.class===c).class_name)))),el("tbody",null,setups.map(s=>el("tr",null,el("td",null,T.find(r=>r.setup===s).setup_name),classes.map(c=>{const r=T.find(x=>x.class===c&&x.setup===s);return el("td",null,r?[el("b",null,sgn(r.mean*100,2)+"%"),el("div",{class:"small muted"},icon[r.outcome]||"❔ non informativa")]:"–")})))))),
+  el("section",{class:"card"},el("h2",null,"Come leggerlo"),el("ul",{class:"plain"},el("li",null,"Il panico cripto passa la soglia della sua famiglia di test, non quella più severa su tutti i 15. C'era circa il 22% di probabilità di almeno un falso positivo."),el("li",null,"Il guadagno viene da DOGE, AVAX, XRP e ADA, mentre ETH, BNB e LINK sono vicini a zero."),el("li",null,"Non supportata vuol dire nessun vantaggio dimostrato. Non informativa vuol dire troppo pochi episodi per dirlo."),el("li",null,"Dettagli in docs/B3_RISULTATI.md.")))]}
+};
+const TF={"4h":"4 ore","1d":"Giornaliero","1w":"Settimanale","1M":"Mensile"},TREND_ICON={rialzo:"▲ rialzo",ribasso:"▼ ribasso",laterale:"■ laterale","n.d.":"–"};
+function candles(c,f){const W=900,H=390,R=108,T=10,B=22,n=c.t.length,box=el("div");
+  const lv=[...f.supports,...f.resistances];const all=[...c.l,...c.h];let lo=Math.min(...all),hi=Math.max(...all);for(const l of lv){if(l.price>lo*.8&&l.price<hi*1.2){lo=Math.min(lo,l.price);hi=Math.max(hi,l.price)}}const pad=(hi-lo)*.03;lo-=pad;hi+=pad;
+  const step0=(hi-lo)/5,mag=10**Math.floor(Math.log10(step0)),step=[1,2,2.5,5,10].map(m=>m*mag).find(s=>s>=step0),dg=step<.01?4:step<.1?3:step<1?2:step<10?1:0,L=14+7*fmt(hi,dg).length;
+  const x=i=>L+(W-L-R)*(i+.5)/n,y=v=>T+(H-T-B)*(1-(v-lo)/(hi-lo)),g=svg("svg",{viewBox:`0 0 ${W} ${H}`,width:"100%",role:"img","aria-label":"Grafico a candele con medie e livelli"});
+  for(let v=Math.ceil(lo/step)*step;v<=hi;v+=step){g.append(svg("line",{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:"var(--grid)"}));const t=svg("text",{x:L-6,y:y(v)+4,"text-anchor":"end"});t.textContent=fmt(v,dg);g.append(t)}
+  const every=Math.ceil(n/7);c.t.forEach((d,i)=>{if(i%every===0){const t=svg("text",{x:x(i),y:H-6,"text-anchor":"middle"});t.textContent=f.tf==="4h"||f.tf==="1d"?d.slice(8,10)+"/"+d.slice(5,7):d.slice(5,7)+"/"+d.slice(2,4);g.append(t)}});
+  const w=Math.max(1.5,(W-L-R)/n*.62);c.t.forEach((_,i)=>{const up=c.c[i]>=c.o[i],col=up?"var(--s1)":"var(--s2)";g.append(svg("line",{x1:x(i),x2:x(i),y1:y(c.h[i]),y2:y(c.l[i]),stroke:col,"stroke-width":1}));const a=y(Math.max(c.o[i],c.c[i])),b=y(Math.min(c.o[i],c.c[i]));g.append(svg("rect",{x:x(i)-w/2,y:a,width:w,height:Math.max(1,b-a),fill:col}))});
+  const LINES=[["ema20","EMA 20","var(--s3)"],["sma50","SMA 50","var(--s4)"],["sma200","SMA 200","var(--s5)"]];
+  for(const[k,,col]of LINES){let p="",on=false;c[k].forEach((v,i)=>{if(v==null){on=false;return}p+=(on?"L":"M")+x(i).toFixed(1)+" "+y(v).toFixed(1);on=true});if(p)g.append(svg("path",{d:p,fill:"none",stroke:col,"stroke-width":2,"stroke-linejoin":"round"}))}
+  const tags=[...f.supports.map(l=>({...l,s:"S"})),...f.resistances.map(l=>({...l,s:"R"}))].filter(l=>l.price>=lo&&l.price<=hi).map(l=>({...l,yy:y(l.price)})).sort((a,b)=>a.yy-b.yy);
+  for(let i=1;i<tags.length;i++)if(tags[i].yy-tags[i-1].yy<14)tags[i].yy=tags[i-1].yy+14;
+  for(const l of tags){g.append(svg("line",{x1:L,x2:W-R,y1:y(l.price),y2:y(l.price),stroke:"var(--ink2)","stroke-width":Math.min(2.5,.6+l.touches*.3),opacity:.75}));const t=svg("text",{x:W-R+6,y:l.yy+4});t.textContent=l.s+" "+fmt(l.price,dg)+" ×"+l.touches;t.style.fill="var(--ink)";g.append(t)}
+  const cross=svg("line",{y1:T,y2:H-B,stroke:"var(--axis)",visibility:"hidden"});g.append(cross);const hit=svg("rect",{x:L,y:T,width:W-L-R,height:H-T-B,fill:"transparent"});
+  hit.addEventListener("pointermove",ev=>{const r=g.getBoundingClientRect(),i=Math.max(0,Math.min(n-1,Math.floor(((ev.clientX-r.left)/r.width*W-L)/(W-L-R)*n)));cross.setAttribute("x1",x(i));cross.setAttribute("x2",x(i));cross.setAttribute("visibility","visible");showTip(ev,el("span",{class:"muted"},c.t[i]),el("strong",null,price(c.c[i])),el("div",{class:"muted"},"apertura "+price(c.o[i])+" · massimo "+price(c.h[i])+" · minimo "+price(c.l[i])),...LINES.filter(([k])=>c[k][i]!=null).map(([k,n,col])=>el("div",null,el("em",{style:`background:${col}`}),price(c[k][i])+" "+n)))});
+  hit.addEventListener("pointerleave",()=>{cross.setAttribute("visibility","hidden");hideTip()});g.append(hit);box.append(g);
+  box.append(el("div",{class:"legend"},el("span",null,el("i",{style:"background:var(--s1)"}),"candela in salita"),el("span",null,el("i",{style:"background:var(--s2)"}),"candela in discesa"),...LINES.map(([,n,col])=>el("span",null,el("i",{class:"line",style:`background:${col}`}),n)),el("span",null,el("i",{class:"line",style:"background:var(--ink2)"}),"S supporto, R resistenza, ×tocchi")));return box}
+function taCards(f){const r=f.rsi,bb=f.bollinger,dist=v=>v==null?"–":sgn((f.price/v-1)*100,1)+"%";return el("div",{class:"grid g3",style:"margin-top:14px"},
+  el("div",{class:"card"},el("h3",{class:"small"},"Trend"),el("div",{class:"big",style:"font-size:24px"},TREND_ICON[f.trend]||f.trend),el("div",{class:"small muted"},"Prezzo, EMA 20 e SMA 50 in ordine. Trend di fondo (SMA 50): "+(f.slow_trend||"n.d.")+".")),
+  el("div",{class:"card"},el("h3",{class:"small"},"RSI 14"),el("div",{class:"big",style:"font-size:24px"},fmt(r)),el("div",{class:"small muted"},f.reset?(f.reset==="ipervenduto"?"🔄 Reset: ipervenduto in un trend di fondo al rialzo (soglia "+f.reset_low+").":"🔄 Reset: ipercomprato in un trend di fondo al ribasso (soglia "+(100-f.reset_low)+")."):r>=70?"Ipercomprato: sopra 70.":r<=30?"Ipervenduto: sotto 30.":"In zona normale.")),
+  el("div",{class:"card"},el("h3",{class:"small"},"MACD"),el("div",{class:"big",style:"font-size:24px"},f.macd_hist>0?"▲ sopra il segnale":"▼ sotto il segnale"),el("div",{class:"small muted"},f.macd_rising?"Lo slancio sta aumentando.":"Lo slancio sta diminuendo.")),
+  el("div",{class:"card"},el("h3",{class:"small"},"Distanza dalle medie"),el("div",{style:"font-size:15px;font-weight:600;margin-top:6px"},"EMA 20 "+dist(f.ema20)+" · SMA 50 "+dist(f.sma50)+" · SMA 200 "+dist(f.sma200)),el("div",{class:"small muted"},"Quanto il prezzo è lontano da ciascuna media.")),
+  el("div",{class:"card"},el("h3",{class:"small"},"Bande di Bollinger"),el("div",{class:"big",style:"font-size:24px"},bb==null?"–":bb>=1?"sopra la banda":bb<=-1?"sotto la banda":"dentro le bande"),el("div",{class:"small muted"},"Posizione "+sgn(bb,2)+": ±1 sono le bande, a 2 deviazioni standard.")),
+  el("div",{class:"card"},el("h3",{class:"small"},"Volatilità (ATR 14)"),el("div",{class:"big",style:"font-size:24px"},fmt(f.atr_pct,1)+"%"),el("div",{class:"small muted"},"Movimento medio di una candela su questo timeframe.")),
+  el("div",{class:"card",style:"grid-column:1/-1"},el("h3",{class:"small"},"Supporti e resistenze su questo timeframe"),el("div",{class:"grid g2",style:"margin-top:6px"},[["Resistenze",[...f.resistances].reverse()],["Supporti",f.supports]].map(([n,ls])=>el("div",null,el("b",null,n),ls.length?ls.map(l=>el("div",{class:"small"},price(l.price)+" · "+sgn((l.price/f.price-1)*100,1)+"% · "+l.touches+" tocchi, ultimo "+l.last)):el("div",{class:"small muted"},"Nessun livello ripetuto in questa direzione.")))),el("div",{class:"small muted",style:"margin-top:8px"},"Sono gli stessi livelli disegnati sul grafico, calcolati dai massimi e minimi che si ripetono.")))}
+let TA={market:null,tf:"1d",data:null};
+async function openTA(m){TA.market=m;TA.data=null;drawTA();const r=await fetch("/api/technical?market="+encodeURIComponent(m));if(TA.market!==m)return;TA.data=r.ok?await r.json():{error:true};if(TA.data.frames&&!TA.data.frames[TA.tf])TA.tf="1d";drawTA()}
+function drawTA(){const box=$("#ta");if(!box)return;document.querySelectorAll(".rows").forEach(r=>r.classList.toggle("on",r.dataset.m===TA.market));const d=TA.data;if(!d){box.replaceChildren(el("p",{class:"muted"},"Carico il grafico…"));return}if(d.error||!d.frames[TA.tf]){box.replaceChildren(el("p",{class:"notice bad"},"Dati non disponibili per questo mercato."));return}
+  const f=d.frames[TA.tf];box.replaceChildren(el("div",{style:"display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px"},el("h2",{style:"font-size:19px"},d.label+" · "+price(f.price)),el("div",{class:"seg"},Object.keys(TF).map(k=>el("button",{"aria-pressed":String(k===TA.tf),disabled:d.frames[k]?null:"disabled",style:d.frames[k]?null:"opacity:.35;cursor:default",onclick:()=>{if(d.frames[k]){TA.tf=k;drawTA()}}},TF[k])))),
+    candles(f.chart,f),el("h3",{style:"margin:14px 0 2px"},"RSI 14"),el("p",{class:"sub",style:"margin:0 0 2px"},"Sopra 70 ipercomprato, sotto 30 ipervenduto. Un reset è l'RSI che torna a un estremo mentre il trend di fondo resta quello."),lineChart([{name:"RSI",values:f.chart.rsi,dates:f.chart.t.map(x=>x.slice(0,10)),color:"var(--s1)"}],{height:150,digits:0,W:900,domain:[0,100],refs:[30,50,70]}),taCards(f))}
+function planView(p){const u=x=>x==null?"–":(Math.abs(x)>=100?fmt(x):fmt(x,2))+" $";const sign=p.side==="long";
+  const grid=el("div",{class:"grid g3"},
+    el("div",{class:"card"},el("h3",{class:"small"},"Quanto"),el("div",{class:"big"},u(p.notional)),el("div",{class:"small muted"},fmt(p.size,p.decimals)+" · "+p.label+" · "+p.side.toUpperCase()+" da "+price(p.entry))),
+    el("div",{class:"card"},el("h3",{class:"small"},"Stop"),el("div",{class:"big"},price(p.stop)),el("div",{class:"small muted"},(sign?"−":"+")+fmt(p.stop_share*100,1)+"% · perdi circa "+u(p.loss_at_stop)+". "+p.stop_source)),
+    el("div",{class:"card"},el("h3",{class:"small"},"Obiettivo "+fmt(p.target_r,p.target_r%1?1:0)+"R"),el("div",{class:"big"},price(p.target)),el("div",{class:"small muted"},(sign?"+":"−")+fmt(p.target_share*100,1)+"% · guadagni circa "+u(p.gain_at_target)+". Chiudi tutto lì.")),
+    el("div",{class:"card"},el("h3",{class:"small"},"Leva"),el("div",{class:"big"},fmt(p.leverage,p.leverage%1?1:0)+"x"),el("div",{class:"small muted"},"Margine isolato "+u(p.margin)+(p.liquidation>0?" · liquidazione "+price(p.liquidation):""))),
+    el("div",{class:"card"},el("h3",{class:"small"},"Tempo"),el("div",{class:"big"},p.time_exit),el("div",{class:"small muted"},"Se non hai toccato né stop né obiettivo, esci.")),
+    el("div",{class:"card"},el("h3",{class:"small"},"Funding, ai tassi di ora"),el("div",{class:"big"},u(Math.abs(p.funding_per_day))),el("div",{class:"small muted"},p.funding_side+" al giorno")));
+  return el("div",null,grid,el("div",{style:"margin-top:12px"},[...p.warnings,...p.notes].map(w=>el("div",{class:"notice"+(w.startsWith("❌")?" bad":"")},w.startsWith("❌")?w:"▲ "+w))),
+    el("p",{class:"small muted"},"Nel test sul panico cripto, stop + 3R ha tagliato il peggior 10% dei casi (−1,11R contro −3,88R), ma ha reso meno del tenere senza stop (−0,02R contro +0,31R). È una scelta contro i disastri e contro il greed, non per guadagnare di più. Calcolo, non consulenza finanziaria."))}
+async function detail(m){const d=$("#dlg");hideTip();const parts=Object.entries(m.parts||{}).sort((a,b)=>b[1]-a[1]);const chart=el("div",null,el("p",{class:"muted"},"Carico il grafico…"));
+  d.replaceChildren(el("div",{style:"display:flex;justify-content:space-between;align-items:baseline"},el("h2",{style:"font-size:19px"},m.label),el("button",{class:"btn",onclick:()=>d.close()},"Chiudi")),
+    el("div",{class:"kv"},el("div",null,el("b",null,fmt(m.heat)),el("span",null,"calore · "+(m.band||"").replace(/^\S+\s/,""))),el("div",null,el("b",null,sgn(m.heat_change_7d)),el("span",null,"in 7 giorni")),m.position?el("div",null,el("b",null,m.position.label),el("span",null,"rispetto all'ultimo anno")):null,m.position?el("div",null,el("b",null,sgn(m.position.from_high)+"%"),el("span",null,"dal massimo di 1 anno")):null),
+    chart,el("h3",{style:"margin-top:14px"},"Cosa compone il calore"),el("p",{class:"sub"},"Ogni voce è un percentile rispetto al passato: sopra 60 scalda, sotto 40 raffredda."),
+    ...parts.map(([k,v])=>el("div",{class:"bar",style:"grid-template-columns:170px 1fr 54px"},el("span",null,PARTS[k]||k),el("div",{class:"t"},el("u",{style:`width:${v}%`}),el("s",{style:"left:50%"})),el("span",{class:"num"},fmt(v)))));d.showModal();
+  const r=await fetch("/api/price?market="+encodeURIComponent(m.market));if(r.ok){const j=await r.json();if(j)chart.replaceChildren(lineChart([{name:"Prezzo",values:j.close,dates:j.dates,color:"var(--s1)"}],{height:220,digits:m.price>=100?0:m.price>=1?2:4}))}else chart.replaceChildren(el("p",{class:"muted"},"Grafico non disponibile."))}
+function render(){if(!VIEWS[tab])tab="oggi";$("#nav").replaceChildren(...TABS.map(([k,n])=>el("button",{role:"tab","aria-selected":String(k===tab),onclick:()=>{tab=k;location.hash=k;render()}},n)));
+  const m=$("#main");const parts=[];if(Object.keys(D.errors||{}).length)parts.push(el("div",{class:"notice bad"},"▲ Parti non disponibili: "+Object.keys(D.errors).join(", ")));parts.push(...[VIEWS[tab]()].flat());parts.push(el("p",{class:"foot"},"Descrive e non prevede. Non è consulenza finanziaria. L'app legge i dati salvati e non fa trading."));m.replaceChildren(...parts);scrollTo(0,0)}
+async function load(){$("#fresh").textContent="Carico…";try{const r=await fetch("/api/snapshot");D=await r.json();const f=D.freshness;$("#fresh").textContent=(f.ok?"● Dati vivi, ":"▲ Raccolta ferma, ")+(f.recorder_minutes==null?"nessun dato":"ultimo salvataggio "+f.recorder_minutes+" min fa");render()}catch(e){$("#main").replaceChildren(el("p",{class:"notice bad"},"Non riesco a leggere i dati: l'app è accesa?"))}}
+const saved=localStorage.getItem("bzd-theme");if(saved)document.documentElement.dataset.theme=saved;
+$("#theme").onclick=()=>{const n=document.documentElement.dataset.theme==="light"?"dark":"light";document.documentElement.dataset.theme=n;localStorage.setItem("bzd-theme",n)};
+$("#reload").onclick=load;addEventListener("keydown",e=>{if(e.key==="Escape")hideTip()});load();setInterval(load,300000);
+</script>
+</body>
+</html>

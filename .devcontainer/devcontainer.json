@@ -1,0 +1,8 @@
+{
+  "name": "BZD",
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "postCreateCommand": "npm install -g @anthropic-ai/claude-code && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt && sudo ln -sf /workspaces/fin-apps/scripts/gl /usr/local/bin/gl",
+  "postStartCommand": "bash scripts/start-services.sh",
+  "forwardPorts": [8787],
+  "portsAttributes": {"8787": {"label": "BZD app", "onAutoForward": "notify"}}
+}
