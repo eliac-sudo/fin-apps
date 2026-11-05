@@ -113,6 +113,9 @@ class Handler(BaseHTTPRequestHandler):
             elif url.path == "/api/technical":
                 m = q.get("market", [""])[0]
                 self.send(*((200, json.dumps(S.clean(S.technical_market(m))).encode()) if S.known_market(m) else (404, b'{"error":"mercato sconosciuto"}')))
+            elif url.path == "/api/sentiment":
+                m = q.get("market", [""])[0]
+                self.send(*((200, json.dumps(S.clean(S.sentiment_market(m))).encode()) if S.known_market(m) else (404, b'{"error":"mercato sconosciuto"}')))
             elif url.path == "/api/options":
                 key = q.get("market", [""])[0]
                 if key not in L.BY_KEY:

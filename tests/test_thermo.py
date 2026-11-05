@@ -103,14 +103,9 @@ class TestThermo(unittest.TestCase):
         self.assertEqual(Th.heat_from({"a": None}), (None, {}))
 
     def test_bands(self):
-        self.assertIn("molto caldo", Th.band(95))
-        self.assertIn("neutro", Th.band(50))
-        self.assertIn("molto freddo", Th.band(3))
-
-    def test_mood_counts_only_topic_and_period(self):
-        items = [{"time": "2026-11-03T20:00:00+00:00", "text": "bitcoin crash panic"}, {"time": "2026-11-03T21:00:00+00:00", "text": "bitcoin to the moon"},
-                 {"time": "2026-11-03T22:00:00+00:00", "text": "cake recipe"}, {"time": "2026-10-01T00:00:00+00:00", "text": "bitcoin crash"}]
-        self.assertEqual(Th.mood(items, "crypto", NOW), {"texts": 2, "fear": 1, "greed": 1})
+        self.assertIn("molto tirato in alto", Th.band(95))
+        self.assertIn("in equilibrio", Th.band(50))
+        self.assertIn("molto tirato in basso", Th.band(3))
 
     def rows(self):
         return [{"market": "BTC", "class": "crypto", "heat": 90.0, "heat_change_7d": 12.0, "parts": {"funding": 95, "slancio": 85, "oi": 30}},
@@ -123,23 +118,23 @@ class TestThermo(unittest.TestCase):
                 mock.patch.object(Th, "market_position", return_value=None):
             t, _ = Th.build_digest(NOW)
         self.assertNotIn("GEX", t)
-        self.assertIn("0 = mercato scarico", t)
-        self.assertIn("Caldi: Cripto. Freddi: Azioni.", t)
+        self.assertIn("0 tirato in basso", t)
+        self.assertIn("Tirati in alto: Cripto. Tirati in basso: Azioni.", t)
         self.assertIn("Cripto (+10)", t)
         self.assertIn("+10 in 7 giorni", t)
-        self.assertIn("Più caldo BTC 90 · più freddo ETH 70", t)
+        self.assertIn("Più in alto BTC 90 · più in basso ETH 70", t)
         self.assertIn("Spinge: funding, slancio. Frena: leva (OI).", t)
         self.assertIn("Frena: volatilità alta.", t)
         self.assertIn("S&amp;P 500 30", t)
 
     def test_quiet_markets_say_so(self):
         s = {"crypto": {"band": Th.band(50), "change_7d": 1.0}}
-        self.assertEqual(Th.overview(s), "Nessun mercato caldo. Nessun mercato freddo.")
+        self.assertEqual(Th.overview(s), "Nessun gruppo tirato in alto. Nessun gruppo tirato in basso.")
 
     def test_reading_compares_with_a_week_ago(self):
         import pandas as pd
         up, c = pd.Series([40.0] * 6 + [60.0]), pd.Series([1.0] * 7)
-        r = Th.reading("X", "fx", c, up, {"slancio": up}, c.index[-1] if False else pd.Timestamp("2026-11-04"), 5, {})
+        r = Th.reading("X", "fx", c, up, {"slancio": up}, pd.Timestamp("2026-11-04"), 5, {})
         self.assertEqual(r["heat_change_7d"], 20)
 
 
@@ -191,7 +186,6 @@ class TestCheapOrDear(unittest.TestCase):
         from unittest import mock
         from bzd import options_report as R
         s = pd.Series(100 * np.exp(np.cumsum(np.random.default_rng(1).normal(0, .01, 60))))
-        self.assertAlmostEqual(R.realized_vol(s, 252), .16, delta=.08)
         b = {"underlying": ("tradfi", "X", 252)}
         with mock.patch.object(R, "index_series", return_value=s), mock.patch.object(R, "forecast_vol", return_value=.2):
             self.assertEqual(R.price_of_options(b, {"iv_30d": .4})["label"], "care")

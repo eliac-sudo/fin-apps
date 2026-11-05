@@ -14,7 +14,6 @@ import pandas as pd
 
 from . import option_models as M
 from .events import crypto_daily, daily, read
-from .history import safe
 from .recorder import BASE, UA
 
 CBOE_URL = "https://cdn.cboe.com/api/global/delayed_quotes/options/{}.json"
@@ -136,7 +135,7 @@ def analyze_chain(market, rows, spot, multiplier, snapshot, fit, realized, year_
         fc = forecast_at(fit, days, year_days) if fit is not None else None
         scale = fc / atm if fc else None
         straddle = float(M.black76(fwd, fwd, years, atm, True, disc) + M.black76(fwd, fwd, years, atm, False, disc))
-        expiries.append({"expiry": exp.strftime("%Y-%m-%d"), "days": round(days, 1), "forward": fwd, "atm": atm, "forecast": fc, "move_pct": 100 * straddle / fwd, "points": len(tight)})
+        expiries.append({"expiry": exp.strftime("%Y-%m-%d"), "days": round(days, 1), "forward": fwd, "atm": atm, "forecast": fc, "move_pct": 100 * straddle / fwd, "points": len(tight), "svi": svi, "discount": disc})
         for p in (x for x in pts if abs(x["k"]) <= MAX_LOG_MONEYNESS):
             curve = float(M.svi_vol(p["k"], svi, years))
             delta = float(M.delta_gamma(fwd, p["strike"], years, p["iv"], p["is_call"])[0])
@@ -163,7 +162,22 @@ def analyze_chain(market, rows, spot, multiplier, snapshot, fit, realized, year_
     smile_rows = [c for c in contracts if c["expiry"] == near["expiry"]]
     return {"key": market["key"], "name": market["name"], "ticker": market["ticker"], "group": market["group"], "spot": spot, "snapshot": snapshot.isoformat(timespec="seconds"), "source": source_of(market),
             "note": FX_NOTE if market["key"] == "FXE" else None, "near": near, "ratio": ratio, "label": label, "realized": realized, "expiries": expiries, "cheap": cheap[:15], "dear": dear[:15], "n_cheap": len(cheap), "n_dear": len(dear), "n_tradable": len(tradable),
-            "smile": sorted(smile_rows, key=lambda c: c["strike"]), "gex": gex_part(rows, spot, multiplier, now, contracts)}
+            "smile": sorted(smile_rows, key=lambda c: c["strike"]), "gex": gex_part(rows, spot, multiplier, now, contracts), "model": worked_example(cheap, dear, contracts, expiries, fit, year_days, rate)}
+
+
+def worked_example(cheap, dear, contracts, expiries, returns, year_days, rate):
+    """One real contract through every step of the model, using the same numbers the tables use. The app shows this as the method's proof."""
+    near = min(expiries, key=lambda e: abs(e["days"] - 30))
+    usable = [c for c in contracts if c.get("fair") is not None]
+    pick = (cheap or dear or sorted((c for c in usable if c["expiry"] == near["expiry"]), key=lambda c: abs(abs(c["delta"]) - .3)) or usable or [None])[0]
+    if pick is None:
+        return {"rate": rate, "year_days": year_days, "example": None}
+    e = next(x for x in expiries if x["expiry"] == pick["expiry"])
+    years, k = e["days"] / 365, math.log(pick["strike"] / e["forward"])
+    sq = pick["fair_iv"] * math.sqrt(years)
+    d1 = (math.log(e["forward"] / pick["strike"]) + .5 * sq * sq) / sq
+    har = M.har_detail(returns, e["days"] if year_days == 365 else e["days"] * 252 / 365, year_days) if returns is not None else None
+    return {"rate": rate, "year_days": year_days, "har": har, "example": {**pick, "forward": e["forward"], "atm": e["atm"], "forecast": e["forecast"], "discount": e["discount"], "years": years, "k": k, "svi": dict(zip(("a", "b", "rho", "m", "sigma"), e["svi"])), "scale": e["forecast"] / e["atm"], "d1": d1, "d2": d1 - sq}}
 
 
 def gex_part(rows, spot, multiplier, now, contracts):
@@ -196,7 +210,7 @@ def gex_part(rows, spot, multiplier, now, contracts):
 
 def source_of(m):
     if m["kind"] == "deribit":
-        return {"name": "Deribit", "url": f"https://www.deribit.com/options/{m['ticker']}", "delay": "prezzi in tempo reale al momento del salvataggio", "buy": f"Si comprano su Deribit, dove il codice è quello in tabella. Non si comprano su Hyperliquid."}
+        return {"name": "Deribit", "url": f"https://www.deribit.com/options/{m['ticker']}", "delay": "prezzi in tempo reale al momento del salvataggio", "buy": "Si comprano su Deribit, dove il codice è quello in tabella. Non si comprano su Hyperliquid."}
     return {"name": "Cboe", "url": f"https://www.cboe.com/delayed_quotes/{m['ticker'].lower()}/quote_table", "delay": "prezzi ritardati di circa 15 minuti", "buy": f"Opzioni USA su {m['ticker']}: si comprano da un broker con accesso alle opzioni americane, cercando {m['ticker']}, scadenza, strike e tipo. Non si comprano su Hyperliquid."}
 
 

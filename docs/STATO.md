@@ -8,7 +8,7 @@ BZD raccoglie dati gratuiti su cripto, azioni, bond, materie prime e forex. Li m
 
 ## Cosa gira adesso
 
-Tutto nel Codespace: se si spegne si ferma tutto, e `scripts/start-services.sh` riavvia i servizi all'accensione.
+Tutto nel Codespace: se si spegne si ferma tutto. `scripts/start-services.sh` dovrebbe riavviare i servizi all'accensione, ma alla riaccensione del 5 novembre alle 12:17 UTC non sono ripartiti, con un buco nei dati dalle 02:42. La causa non è stata verificata: controllare `pgrep -f bzd` dopo ogni riaccensione.
 
 | Servizio | Comando | Note |
 |---|---|---|
@@ -21,13 +21,16 @@ Agenti LLM spenti (`BZD_AGENTS`), spesa totale finora 0,24 $. I servizi girano c
 
 ## Cosa esiste
 
-- **App** (`bzd/app.py`, `app.html`, `snapshot.py`): Oggi, Opzioni, Analisi tecnica, Sentiment, Alert, Piano, Test. Ricerca unica, tabelle ordinabili, stile Cyberpunk.
+- **App** (`bzd/app.py`, `app.html`, `snapshot.py`): Oggi, Opzioni, Analisi tecnica, Sentiment, Alert, Piano, Test. Ricerca unica, tabelle ordinabili, tasto Layout con 4 stili (BZD Neon, Arasaka, Militech, Kang Tao).
+- **Tensione** (`bzd/thermo.py`): il vecchio «calore», da 0 a 100 con 50 come norma del mercato. Parole: tirato in basso, in equilibrio, tirato in alto, anche su Telegram.
+- **Sentiment storico** (`bzd/sentiment.py`): estremi sul grafico del prezzo. Cripto da Fear & Greed; gli altri da speculatori COT e indice di volatilità. Soglie non testate, nessun test su cosa succede dopo. I conteggi di parole partono dal 4 novembre e i giorni chiusi restano in `data/sentiment/days.json`.
 - **Tag BYZ e SZT** (`bzd/zones.py`, `docs/ZONE_BYZ_SZT.md`): 70% indicatori, 30% sentiment, su 4h, 1d, 1w, 1M, 12M.
-- **Opzioni** (`bzd/option_models.py`, `option_lab.py`, `docs/OPZIONI_MODELLI.md`): Black-76, SVI, previsione HAR, GEX, contratti economici e cari.
-- **Tecnica** (`bzd/technicals.py`): indicatori, supporti e resistenze calcolati dal codice, reset RSI.
+- **Opzioni** (`bzd/option_models.py`, `option_lab.py`, `docs/OPZIONI_MODELLI.md`): Black-76, SVI, previsione HAR, GEX, contratti economici e cari. Nell'app: il modello passo per passo su un contratto vero e un glossario con i numeri del mercato scelto.
+- **Tecnica** (`bzd/technicals.py`): indicatori, reset RSI, supporti e resistenze calcolati dal codice. Un livello di un timeframe lento resta alla stessa quota su quelli veloci, e larghezza e ampiezza minima usano l'ATR mediano.
 - **Alert su Telegram:** forti movimenti (`bzd/moves.py`), setup, reset, termometro e opzioni ogni giorno.
 - **Piano** (`bzd/plan.py`, `docs/A3_REGOLE.md`): `/piano` sul bot e sezione nell'app.
 - **Test** (`bzd/b3.py`, `docs/B3_RISULTATI.md`): eseguito una sola volta, non si rifà.
+- **Archivio** (`docs/archivio/`): l'idea iniziale, il primo progetto degli agenti con le sue fonti e il calcolo di potenza. Superati, non guidano il codice.
 
 ## Cosa sappiamo
 

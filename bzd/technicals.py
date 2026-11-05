@@ -4,6 +4,9 @@ A reset is the RSI back at an extreme while the slow trend holds: oversold in a 
 
 Support and resistance are drawn by code: swing highs and lows that repeat at about the same price form a level, and more touches mean a
 stronger level. A swing needs bars on both sides to be confirmed, so the newest bars can't form one yet.
+
+Levels are built to stay put. Their width and the size a swing must have come from the median ATR of the window, so one violent bar moves
+nothing. Each timeframe also inherits the swings of the slower ones and keeps their price, so a weekly level is the same line on the daily chart.
 """
 import numpy as np
 import pandas as pd
@@ -14,6 +17,9 @@ from .history import CRYPTO, MARKETS, safe
 
 FRAMES = {"4h": {"bars": 360, "swing": 5}, "1d": {"bars": 400, "swing": 5}, "1w": {"bars": 200, "swing": 3}, "1M": {"bars": 120, "swing": 2}}
 LEVEL_WIDTH_ATR = .25  # swings closer than this are one level
+SWING_SIZE_ATR = 1.0  # a swing smaller than this is noise
+FRAME_ORDER = ("4h", "1d", "1w", "1M")
+LEVELS_PER_SIDE, LEVEL_CANDIDATES = 3, 6
 CHART_BARS = 140
 TREND_BARS = 10
 RESET_RSI = {"1M": 40, "1w": 40, "1d": 30}  # about 1.3 alerts a week across 30 markets; 30 on weekly and monthly would almost never fire. Chosen for frequency, not tested
@@ -63,13 +69,13 @@ def atr(d, n=14):
     return pd.concat([d.high - d.low, (d.high - prev).abs(), (d.low - prev).abs()], axis=1).max(axis=1).rolling(n).mean()
 
 
-def swings(d, k):
-    """Confirmed swing highs and lows as (bar position, price)."""
+def swings(d, k, size=0.0):
+    """Confirmed swing highs and lows as (bar position, price). With `size`, the price must also have moved that much on both sides of the swing."""
     hi, lo, out = d.high.values, d.low.values, []
     for i in range(k, len(d) - k):
-        if hi[i] == hi[i - k:i + k + 1].max():
+        if hi[i] == hi[i - k:i + k + 1].max() and hi[i] - lo[i - k:i].min() >= size and hi[i] - lo[i + 1:i + k + 1].min() >= size:
             out.append((i, float(hi[i])))
-        if lo[i] == lo[i - k:i + k + 1].min():
+        if lo[i] == lo[i - k:i + k + 1].min() and hi[i - k:i].max() - lo[i] >= size and hi[i + 1:i + k + 1].max() - lo[i] >= size:
             out.append((i, float(lo[i])))
     return out
 
@@ -85,13 +91,64 @@ def find_levels(d, k, width):
     return [{"price": float(np.mean([x[1] for x in g])), "touches": len(g), "last": d.index[max(x[0] for x in g)].strftime("%Y-%m-%d")} for g in groups if len(g) >= 2]
 
 
+def typical_atr(d, tf):
+    """The median ATR of the window: unlike the last bar's, it barely moves when one bar goes wild."""
+    a = atr(d).tail(FRAMES[tf]["bars"]).dropna()
+    return float(a.median()) if len(a) else None
+
+
+def swing_pool(all_frames):
+    """Every timeframe's swings and level width, so that all of them can share one set of prices."""
+    pool = {}
+    for tf, d in all_frames.items():
+        size = typical_atr(d, tf)
+        if size and tf in FRAMES:
+            w = d.tail(FRAMES[tf]["bars"])
+            pool[tf] = {"width": LEVEL_WIDTH_ATR * size, "swings": [(p, w.index[i].strftime("%Y-%m-%d")) for i, p in swings(w, FRAMES[tf]["swing"], SWING_SIZE_ATR * size)]}
+    return pool
+
+
+def shared_levels(pool, tf):
+    """Levels for one timeframe, built from the slowest down. A level found on a slow timeframe keeps its price on every faster one; a faster swing near it only adds a touch."""
+    rank, levels = FRAME_ORDER.index(tf), []
+    for f in sorted((x for x in pool if FRAME_ORDER.index(x) >= rank), key=FRAME_ORDER.index, reverse=True):
+        groups, width = [], pool[f]["width"]
+        for price, last in sorted(pool[f]["swings"]):
+            if groups and price - groups[-1][0][0] <= width:
+                groups[-1].append((price, last))
+            else:
+                groups.append([(price, last)])
+        for g in groups:
+            price, last = float(np.mean([x[0] for x in g])), max(x[1] for x in g)
+            known = min(levels, key=lambda x: abs(x["price"] - price), default=None)
+            if known and abs(known["price"] - price) <= width:
+                known.update(touches=max(known["touches"], len(g)), last=max(known["last"], last))
+            else:
+                levels.append({"price": price, "touches": len(g), "last": last, "frame": f})
+    return levels
+
+
+def pick_levels(levels, px, tf):
+    """The nearest level on each side, then the strongest of the next few, so a small move doesn't reshuffle the list. A lone swing counts only from a slower timeframe, or where a side would be empty."""
+    rank = FRAME_ORDER.index(tf)
+    solid = lambda x: x["touches"] >= 2 or FRAME_ORDER.index(x["frame"]) > rank
+    strength = lambda x: (FRAME_ORDER.index(x["frame"]) + x["touches"], x["touches"])
+
+    def side(rows):
+        near = [x for x in rows if solid(x)][:LEVEL_CANDIDATES] or rows[:1]
+        return near[:1] + sorted(near[1:], key=strength, reverse=True)[:LEVELS_PER_SIDE - 1]
+    below = side(sorted((x for x in levels if x["price"] < px), key=lambda x: -x["price"]))
+    above = side(sorted((x for x in levels if x["price"] >= px), key=lambda x: x["price"]))
+    return sorted(below, key=lambda x: -x["price"]), sorted(above, key=lambda x: x["price"])
+
+
 def trend_of(close, ema20, sma50):
     if any(pd.isna(x) for x in (close, ema20, sma50)):
         return "n.d."
     return "rialzo" if close > ema20 > sma50 else "ribasso" if close < ema20 < sma50 else "laterale"
 
 
-def read_frame(d, tf):
+def read_frame(d, tf, pool=None):
     """Indicators and levels for one timeframe."""
     c = d.close  # averages use all the history, so a 200-bar average exists across the whole chart
     ema20, sma50, sma200 = c.ewm(span=20, adjust=False, min_periods=20).mean(), c.rolling(50).mean(), c.rolling(200).mean()
@@ -100,9 +157,7 @@ def read_frame(d, tf):
     a, rs = atr(d), I.rsi(c)
     mid, sd = c.rolling(20).mean(), c.rolling(20).std()
     px, width = float(c.iloc[-1]), float(a.iloc[-1]) if a.notna().any() else None
-    levels = find_levels(d.tail(FRAMES[tf]["bars"]), FRAMES[tf]["swing"], LEVEL_WIDTH_ATR * width) if width else []
-    below = sorted((x for x in levels if x["price"] < px), key=lambda x: -x["price"])[:3]
-    above = sorted((x for x in levels if x["price"] >= px), key=lambda x: x["price"])[:3]
+    below, above = pick_levels(shared_levels(swing_pool({tf: d}) if pool is None else pool, tf), px, tf)
     bb = (px - mid.iloc[-1]) / (2 * sd.iloc[-1]) if sd.iloc[-1] else None
     tail = d.tail(CHART_BARS)
     series = lambda s: [None if pd.isna(x) else float(x) for x in s.reindex(tail.index).values]
@@ -121,7 +176,9 @@ def read_frame(d, tf):
 
 
 def analyze(market):
-    return {tf: read_frame(d, tf) for tf, d in frames(market).items() if len(d) >= 30}
+    f = frames(market)
+    pool = swing_pool(f)
+    return {tf: read_frame(d, tf, pool) for tf, d in f.items() if len(d) >= 30}
 
 
 def summary(market, full=None):

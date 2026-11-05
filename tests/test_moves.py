@@ -1,4 +1,4 @@
-import gzip, json, math, os, tempfile, unittest
+import gzip, json, os, tempfile, unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock

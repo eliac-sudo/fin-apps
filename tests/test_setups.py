@@ -1,9 +1,9 @@
-import inspect, json, unittest
+import inspect, unittest
 
 import numpy as np
 import pandas as pd
 
-from bzd import events as E, setups as S
+from bzd import setups as S
 
 CFG = S.load_config()
 
@@ -123,7 +123,7 @@ class TestFrozen(unittest.TestCase):
 
     def test_every_class_has_scored_conditions(self):
         for cls, v in CFG["scored"].items():
-            for setup in S.SETUPS:
+            for setup in ("panic", "squeeze", "overheating"):
                 self.assertTrue(v[setup], (cls, setup))
 
 

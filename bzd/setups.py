@@ -17,7 +17,6 @@ from .history import CRYPTO, ETF_CHECK, MARKETS, root, safe
 from .recorder import BASE
 
 CONFIG = BASE / "config" / "setups_v1.json"
-SETUPS = ("panic", "squeeze", "overheating")
 VOL_INDEX = {"ES=F": "VIX", "NQ=F": "VIX", "RTY=F": "VIX", "ZT=F": "MOVE", "ZF=F": "MOVE", "ZN=F": "MOVE", "ZB=F": "MOVE",
              "CL=F": "OVX", "GC=F": "GVZ", "SI=F": "GVZ", "EURUSD=X": "EVZCLS", "USDJPY=X": "EVZCLS", "GBPUSD=X": "EVZCLS",
              "AUDUSD=X": "EVZCLS", "USDCHF=X": "EVZCLS", "USDCAD=X": "EVZCLS"}

@@ -1,7 +1,6 @@
 """Everything the app shows, read from saved data. No orders, no paid calls, nothing written."""
-import gzip, json, math, os, re, xml.etree.ElementTree as ET
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
+import gzip, json, math, re, xml.etree.ElementTree as ET
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
@@ -9,6 +8,7 @@ import pandas as pd
 from . import indicators as I
 from . import option_lab as L
 from . import options_report as O
+from . import sentiment as SM
 from . import technicals as K
 from . import texts as T
 from . import thermo as Z
@@ -20,14 +20,7 @@ from .moves import NAMES as MOVE_NAMES, snapshot_files, snapshot_time
 from .recorder import BASE
 
 PLAN_KEY = {**{c: c for c in CRYPTO}, "ES=F": "sp500", "NQ=F": "nasdaq", "GC=F": "oro", "SI=F": "argento", "HG=F": "rame", "CL=F": "petrolio", "EURUSD=X": "eur", "USDJPY=X": "jpy", "GBPUSD=X": "gbp", "ZB=F": "tlt"}
-SENTIMENT_GROUPS = (
-    ("Cripto", "Cripto", T.TOPICS["crypto"]), ("Azioni", "Azioni", T.TOPICS["equities"]),
-    ("Bond", "USA", r"treasur|\bt-bill|u\.?s\.? (bond|yield)|10-year yield|2-year yield"), ("Bond", "Europa", r"\bbunds?\b|\bbtps?\b|\bgilts?\b|euro(zone|pe\w*) (bond|yield)|\becb\b"),
-    ("Bond", "Giappone", r"\bjgbs?\b|japan\w* (bond|yield)|\bboj\b|bank of japan"), ("Bond", "Cina", r"chin\w+ (government )?(bond|yield)|\bpboc\b"),
-    ("Materie prime", "Energia", r"\boil\b|crude|\bwti\b|brent|opec|natural gas|\blng\b|gasoline|refiner"), ("Materie prime", "Metalli preziosi", r"\bgold\b|silver|platinum|palladium|bullion|precious metal"),
-    ("Materie prime", "Metalli rari e industriali", r"copper|alumini?um|lithium|nickel|cobalt|rare earth|uranium|\bzinc\b"), ("Materie prime", "Agricoli", r"\bcorn\b|wheat|soybean|\bgrains?\b|\bcocoa\b|\bcoffee\b|\bsugar\b"),
-    ("Forex", "Dollaro", r"\bdollar\b|\bdxy\b|\busd\b"), ("Forex", "Euro", r"\beuro\b|\beur\b|eurusd"), ("Forex", "Yen", r"\byen\b|\bjpy\b"), ("Forex", "Sterlina", r"\bsterling\b|\bpound\b|\bgbp\b"), ("Forex", "Franco svizzero", r"swiss franc|\bchf\b"), ("Forex", "Yuan", r"\byuan\b|\brenminbi\b|\bcny\b"),
-)
+SENTIMENT_GROUPS = SM.GROUPS
 MIN_MOOD_SIGNALS = 10
 CLASS_ORDER = ("crypto", "equities", "bonds", "commodities", "fx")
 
@@ -161,6 +154,15 @@ def options_part():
     return blocks
 
 
+def top_words(picked, pattern, n=5):
+    """The words behind a count, so you can judge it: "rally" on bonds isn't euphoria."""
+    seen = {}
+    for x in picked:
+        for w in {m.group(0).lower() for m in re.finditer(pattern, x["text"], re.I)}:
+            seen[w] = seen.get(w, 0) + 1
+    return [{"word": w, "n": c} for w, c in sorted(seen.items(), key=lambda kv: -kv[1])[:n]]
+
+
 def sentiment_part(now):
     items, errors = T.load_items(now=now, hours=24)
     classes = []
@@ -173,7 +175,7 @@ def sentiment_part(now):
                 seen[source] = seen.get(source, 0) + 1
                 sample.append({"source": x["source"], "time": x["time"], "url": x["url"], "text": x["text"][:220]})
         tilt = "pochi segnali" if m["fear"] + m["greed"] < MIN_MOOD_SIGNALS else "prevale la paura" if m["fear"] / (m["fear"] + m["greed"]) > .65 else "prevale l'euforia" if m["fear"] / (m["fear"] + m["greed"]) < .35 else "equilibrio"
-        classes.append({"family": family, "name": name, "full": name if family == name else f"{family}: {name}", "tilt": tilt, **m, "texts_sample": sample})
+        classes.append({"family": family, "name": name, "full": name if family == name else f"{family}: {name}", "tilt": tilt, **m, "fear_words": top_words(picked, Z.FEAR), "greed_words": top_words(picked, Z.GREED), "texts_sample": sample})
     return {"classes": classes, "fear_greed": Z.fear_greed(), "attention": Z.attention(), "trends": part(trends_part, errors, "trends", []), "total": len(items), "source_errors": sorted(errors)}
 
 
@@ -272,6 +274,11 @@ def lab_market(key, fresh=False):
     return {**r, "text": lab_text(r)} if r else None
 
 
+def sentiment_market(market):
+    view = SM.market_view(market)
+    return {**view, "label": label(market), "plan_key": PLAN_KEY.get(market)} if view else None
+
+
 def technical_part():
     return [{**K.summary(m), "label": label(m), "plan_key": PLAN_KEY.get(m)} for m in K.all_markets()]
 
@@ -357,7 +364,7 @@ def briefing(markets, classes, lab, tech, alerts):
     change = [(c, s) for c, s in classes.items() if s.get("change_7d") is not None]
     if change:
         c, s = max(change, key=lambda x: abs(x[1]["change_7d"]))
-        verb = "si è scaldato" if s["change_7d"] > 0 else "si è raffreddato"
+        verb = "si è spostato verso l'alto" if s["change_7d"] > 0 else "si è spostato verso il basso"
         out.append({"tone": "hot" if s["change_7d"] > 0 else "cold", "text": f"Il gruppo che cambia di più è {s['name']}: {verb} di {abs(s['change_7d']):.0f} punti in 7 giorni. {s['why']}"})
     extreme = [t for t in tech if (t["rsi"].get("1d") or 50) <= 30]
     high = [t for t in tech if (t["rsi"].get("1d") or 50) >= 70]

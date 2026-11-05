@@ -2,10 +2,9 @@ import json, os, tempfile, unittest
 from pathlib import Path
 from unittest import mock
 
-import numpy as np
 import pandas as pd
 
-from bzd import alerts as A, history as H, setups as S
+from bzd import alerts as A, history as H
 
 NOW = pd.Timestamp("2026-11-04 12:00", tz="UTC")
 

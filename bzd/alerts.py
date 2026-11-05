@@ -175,10 +175,6 @@ def history_line(cls, setup):
     return f"In passato, dopo {after}: in salita il {100 * t['share_up']:.0f}% delle volte, {100 * t['mean']:+.2f}% rispetto a ingressi casuali ({t['clusters']} episodi)."
 
 
-def fmt_price(x):
-    return f"{x:,.2f}" if x >= 100 else f"{x:.4f}" if x >= 1 else f"{x:.6f}"
-
-
 def format_item(a):
     """What moved and whether it's cheap or dear. Entries, stops and targets are logged, and shown only where you ask for them."""
     name = THERMO_LABELS.get(a["market"], a["market"])
@@ -332,7 +328,7 @@ def telegram_ready():
 
 
 def sending_enabled():
-    """Off until the agents review alerts first: the user wants nothing raw on Telegram, so it takes an explicit switch."""
+    """Telegram needs both the bot settings and an explicit switch."""
     return telegram_ready() and os.environ.get("BZD_ALERTS_TELEGRAM") == "on"
 
 

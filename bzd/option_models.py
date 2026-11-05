@@ -4,8 +4,6 @@ Black-76 prices an option on its forward, the market standard, and the forward c
 SVI (Gatheral) is the usual smooth curve through a smile. HAR forecasts volatility from past returns.
 US ETF options are American, but on out-of-the-money contracts the early-exercise premium is small, so only those are used.
 """
-import math
-
 import numpy as np
 import pandas as pd
 from scipy.optimize import brentq, least_squares
@@ -81,8 +79,8 @@ def svi_vol(k, p, years):
     return np.sqrt(np.maximum(svi_total_variance(np.asarray(k, float), p), 1e-10) / years)
 
 
-def har_forecast(returns, days, year_days, min_history=400):
-    """Annualized volatility expected over the next `days` trading days, or None with too little history.
+def har_detail(returns, days, year_days, min_history=400):
+    """The HAR forecast with its workings, or None with too little history.
 
     HAR (Corsi, 2009): future volatility, in logs, explained by volatility of the last 5, 22 and 66 days. It's refitted for each horizon,
     using only periods whose outcome is already known. Out of sample on 7 markets it beat GARCH, EWMA and last month's volatility, with little bias.
@@ -101,7 +99,15 @@ def har_forecast(returns, days, year_days, min_history=400):
     if len(known) < 100:
         return None
     b = np.linalg.lstsq(np.c_[np.ones(len(known)), known.values], target.values, rcond=None)[0]
-    return float(np.exp(np.r_[1.0, x.iloc[-1].values] @ b))
+    last = x.iloc[-1]
+    return {"forecast": float(np.exp(np.r_[1.0, last.values] @ b)), "intercept": float(b[0]), "b_week": float(b[1]), "b_month": float(b[2]), "b_quarter": float(b[3]),
+            "vol_week": float(np.exp(last["week"])), "vol_month": float(np.exp(last["month"])), "vol_quarter": float(np.exp(last["quarter"])), "samples": len(known), "horizon": h}
+
+
+def har_forecast(returns, days, year_days, min_history=400):
+    """Annualized volatility expected over the next `days` trading days, or None with too little history."""
+    d = har_detail(returns, days, year_days, min_history)
+    return d["forecast"] if d else None
 
 
 def gex_by_strike(strikes, is_call, oi, vols, years, spot, multiplier):

@@ -70,11 +70,6 @@ RV_DAYS = 20
 CHEAP_BELOW, DEAR_ABOVE = .9, 1.25  # chosen by judgment, not tested: implied usually sits a little above what follows
 
 
-def realized_vol(close, year_days):
-    r = np.log(close.dropna().tail(RV_DAYS + 1)).diff().dropna()
-    return float(r.std() * np.sqrt(year_days)) if len(r) == RV_DAYS else None
-
-
 def forecast_vol(close, year_days, days=30):
     """HAR forecast for about a month, from option_models."""
     r = np.log(close.dropna()[lambda x: x > 0]).diff().dropna().values

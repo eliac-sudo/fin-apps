@@ -94,7 +94,7 @@ class TestToday(unittest.TestCase):
 
     def test_briefing_says_what_matters_in_words(self):
         t = " ".join(x["text"] for x in S.briefing(self.MARKETS, self.CLASSES, [{"name": "Petrolio", "ratio": 1.4}, {"name": "Bitcoin", "ratio": .9}], self.TECH, {}))
-        for word in ("BTC (+3,1%)", "Oro (-5,2%)", "Cripto: si è scaldato di 12 punti", "ipervenduto su Mais", "Reset in corso su Oro", "Petrolio (1,4 volte"):
+        for word in ("BTC (+3,1%)", "Oro (-5,2%)", "Cripto: si è spostato verso l'alto di 12 punti", "ipervenduto su Mais", "Reset in corso su Oro", "Petrolio (1,4 volte"):
             self.assertIn(word, t)
 
     def test_empty_day_says_nothing_rather_than_breaking(self):

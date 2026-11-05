@@ -1,6 +1,6 @@
 # BZD
 
-Research tools for short-term trading setups across crypto, equities, commodities, FX and bonds. Plan: `ROADMAP.md`. Framework: `bzd-agenti-framework.md`.
+Research tools for short-term trading setups across crypto, equities, commodities, FX and bonds. Where it stands: `docs/STATO.md`. Plan: `ROADMAP.md`. The first design and the original idea are in `docs/archivio/`.
 
 Not financial advice.
 
@@ -45,9 +45,9 @@ python3 -m bzd.telegram status
 
 ## Alerts
 
-`python -m bzd.alerts` runs the frozen setups on fresh data and logs every alert to `data/alerts/log.jsonl`. Sending is off until the agents review alerts: with `BZD_ALERTS_TELEGRAM=on` in `.env`, every trigger also goes to Telegram as insight: what moved, whether the price is cheap or dear against its own last year, what the B3 test said, and the options context for that market. Entries, stops and targets are logged but not sent: they belong in the app. Strong price moves (`bzd/moves.py`) go out too, within about 15 minutes, and are logged to `data/alerts/moves.jsonl`: they are large against the market's own volatility, on the Hyperliquid snapshots, and aren't tested as a signal. RSI resets (`bzd/technicals.py`) go out as well on monthly, weekly and daily bars: the RSI back at an extreme while the slow trend holds. They aren't tested either, and 4h stays in the app. The module never places orders.
+`python -m bzd.alerts` runs the frozen setups on fresh data and logs every alert to `data/alerts/log.jsonl`. With `BZD_ALERTS_TELEGRAM=on` in `.env`, every trigger also goes to Telegram as insight: what moved, whether the price is cheap or dear against its own last year, what the B3 test said, and the options context for that market. Entries, stops and targets are logged but not sent: they belong in the app. Strong price moves (`bzd/moves.py`) go out too, within about 15 minutes, and are logged to `data/alerts/moves.jsonl`: they are large against the market's own volatility, on the Hyperliquid snapshots, and aren't tested as a signal. RSI resets (`bzd/technicals.py`) go out as well on monthly, weekly and daily bars: the RSI back at an extreme while the slow trend holds. They aren't tested either, and 4h stays in the app. The module never places orders.
 
-`python -m bzd.app` opens the read-only desktop app on port 8787: the picture across markets, options and volatility explained, option contracts that look cheap or dear with gamma exposure (`docs/OPZIONI_MODELLI.md`), technical analysis per market with levels drawn by code, sentiment with Google's public trending searches, alerts with their levels, the calculator and the test results. It serves saved data, holds no keys and places no orders. In a Codespace, open it from the Ports tab and keep the port private.
+`python -m bzd.app` opens the read-only desktop app on port 8787: the picture across markets, options and volatility explained, option contracts that look cheap or dear with gamma exposure (`docs/OPZIONI_MODELLI.md`), technical analysis per market with levels drawn by code, sentiment with Google's public trending searches and a price chart marked with past mood extremes (`bzd/sentiment.py`), alerts with their levels, the calculator and the test results. It serves saved data, holds no keys and places no orders. It writes one file, `data/sentiment/days.json`, which keeps daily word counts after the raw social files are deleted. The Layout button switches between four looks: BZD Neon, Arasaka, Militech and Kang Tao. In a Codespace, open it from the Ports tab and keep the port private.
 
 The home page tags each asset BYZ or SZT on 4h, daily, weekly, monthly and 12-month views, from 70% indicators and 30% sentiment (`docs/ZONE_BYZ_SZT.md`). The tag describes a state and isn't tested as a signal.
 
@@ -59,7 +59,7 @@ The home page tags each asset BYZ or SZT on 4h, daily, weekly, monthly and 12-mo
 
 ## Thermometer
 
-`python -m bzd.thermo` shows how hot each market looks against its own past, from 0 to 100, plus option metrics and a word-count mood. With Telegram on it goes out once a day. It is descriptive, unvalidated and costs nothing, since it uses no LLM.
+`python -m bzd.thermo` shows how stretched each market looks against its own past, from 0 to 100 with 50 as its norm, plus option metrics and a word-count mood. The app calls this number tension. With Telegram on it goes out once a day. It is descriptive, unvalidated and costs nothing, since it uses no LLM.
 
 ## Agents
 

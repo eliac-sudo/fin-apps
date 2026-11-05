@@ -230,7 +230,6 @@ def review_alerts(alerts, client=None, items=None, now=None, force=False):
     `force` is for a review the user asked for by hand. A test passing its own client spends nothing.
     """
     now = now or datetime.now(timezone.utc)
-    a0 = alerts[0]
     if items is None:
         all_items, errors = T.load_items(now=now)
     else:
