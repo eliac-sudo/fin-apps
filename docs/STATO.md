@@ -38,6 +38,7 @@ Agenti LLM spenti (`BZD_AGENTS`), spesa totale finora 0,24 $. I servizi girano c
 - **Uscite:** stop + 3R taglia le perdite peggiori ma rende meno del tenere.
 - **Tag:** va nella direzione del nome solo sul mensile. Sui timeframe brevi SZT ha continuato a salire. Misura descrittiva, non un test.
 - **Previsione di volatilità:** HAR batte GARCH ed EWMA, ma su BTC ed ETH la volatilità implicita prevede meglio.
+- **Segno COT sui setup v1:** su USD/JPY, USD/CHF e USD/CAD il dato COT riguarda la valuta estera, ma i setup congelati lo leggono come se riguardasse la coppia. Su 558 eventi cambierebbe la conferma in 191 (34%). L'esito di B3 non cambia, perché il test usa tutti gli eventi qualunque sia il punteggio. Cambia solo il legame tra punteggio e risultato sul forex, che è secondario. Con il segno giusto le stesse condizioni restano nel punteggio (regola 5-60%). Misura del 5 novembre 2026, senza calcolare rendimenti e senza toccare i file congelati.
 - **Google Trends:** lo storico per parola blocca le richieste automatiche e non va forzato. Si usa solo il feed pubblico delle tendenze.
 - **Storico FXE:** non c'è su DoltHub, e EVZ è fermo a marzo 2025. L'euro ha poche opzioni liquide e oggi non compare tra i mercati delle opzioni.
 - **Sentiment:** è un conteggio di parole grezzo e non validato. Cina, Yuan e metalli rari hanno ancora pochi testi.
@@ -65,6 +66,7 @@ Agenti LLM spenti (`BZD_AGENTS`), spesa totale finora 0,24 $. I servizi girano c
 - Sui timeframe brevi, tag con filtro del trend? Va misurato con una nuova pre-registrazione su dati futuri.
 - Rimettere l'ordinamento per variazione degli indicatori? L'utente ha tolto le colonne Δ.
 - Prezzi di bond non USA, per calore e tecnica? Oggi quella divisione esiste solo nel sentiment.
+- Segno COT dal vivo: oggi le conferme e la soglia per la revisione dell'agente su quelle tre coppie restano sbagliate. Correggerle ora o solo nella v2? Finora nessun alert su queste coppie.
 - Portare il lavoro su `main` con una pull request.
 
 ## Per dopo
