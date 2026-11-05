@@ -139,10 +139,17 @@ class TestTestPage(unittest.TestCase):
 class TestCache(unittest.TestCase):
     def test_stale_data_comes_back_at_once_and_refreshes_behind(self):
         import threading
-        ran = threading.Event()
-        with mock.patch.object(App, "_cache", {"at": 0, "data": b"old"}), mock.patch.object(App.S, "build", side_effect=lambda: (ran.set(), {"new": 1})[1]):
-            self.assertEqual(App.snapshot(), b"old")
-            self.assertTrue(ran.wait(5))
+        release, done = threading.Event(), threading.Event()
+
+        def slow_build():
+            release.wait(5)
+            done.set()
+            return {"new": 1}
+
+        with mock.patch.object(App, "_cache", {"at": 0, "data": b"old"}), mock.patch.object(App.S, "build", side_effect=slow_build):
+            self.assertEqual(App.snapshot(), b"old")  # returned while the rebuild is still waiting
+            release.set()
+            self.assertTrue(done.wait(5))
 
     def test_failed_refresh_keeps_the_old_data(self):
         with mock.patch.object(App, "_cache", {"at": 0, "data": b"old"}), mock.patch.object(App.S, "build", side_effect=ValueError):
