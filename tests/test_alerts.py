@@ -79,6 +79,19 @@ class TestMessages(unittest.TestCase):
             for word in ("95.0000", "115.0000", "stop", "Ingresso", "/piano", "3R", "valuta di ridurla"):
                 self.assertNotIn(word, t.lower() if word == "stop" else t)
 
+    def test_alert_says_which_way_it_leans_and_how_far_the_test_backs_it(self):
+        self.assertIn("Potenziale long", A.format_group([alert()]))
+        self.assertIn("presa di profitto", A.format_group([alert(setup="overheating")]))
+        self.assertIn("non lo confermano", A.bias_line("commodities", "panic"))
+        self.assertIn("supporto debole", A.bias_line("crypto", "panic"))
+        self.assertIn("in salita il 46%", A.history_line("commodities", "panic"))
+        self.assertIn("5 sedute", A.history_line("commodities", "panic"))
+        self.assertIn("24 ore", A.history_line("crypto", "panic"))
+
+    def test_context_failure_never_loses_an_alert(self):
+        with mock.patch.object(A.K, "analyze", side_effect=ValueError):
+            self.assertIn("PANICO", A.format_group([alert()]))
+
     def test_position_failure_never_loses_an_alert(self):
         with mock.patch.object(A, "market_position", side_effect=ValueError):
             self.assertIn("PANICO", A.format_group([alert()]))

@@ -153,6 +153,28 @@ def test_verdict(cls, setup):
     return f"❓ Test non informativo: troppi pochi episodi per dirlo ({t['clusters']})."
 
 
+def tested(cls, setup):
+    p = BASE / "config" / "validation_v1.json"
+    return json.loads(p.read_text())["tests"].get(f"{cls}/{setup}") if p.exists() else None
+
+
+def bias_line(cls, setup):
+    """The way this setup leans, and how far the test backs it. It's a reading, not an instruction."""
+    lean = {"panic": "📈 <b>Potenziale long</b>", "squeeze": "📈 <b>Potenziale long</b>", "overheating": "📉 <b>Potenziale presa di profitto</b>"}[setup]
+    t = tested(cls, setup)
+    outcome = t["outcome"] if t else None
+    return lean + {"supportata": ", con un supporto debole dai test.", "non supportata": ", ma i test non lo confermano.", "non informativa": ", ma i casi sono troppo pochi per dirlo."}.get(outcome, ".")
+
+
+def history_line(cls, setup):
+    """What followed similar cases in the test period."""
+    t = tested(cls, setup)
+    if not t or t.get("share_up") is None or t.get("mean") is None:
+        return None
+    after = "24 ore" if cls == "crypto" else "5 sedute"
+    return f"In passato, dopo {after}: in salita il {100 * t['share_up']:.0f}% delle volte, {100 * t['mean']:+.2f}% rispetto a ingressi casuali ({t['clusters']} episodi)."
+
+
 def fmt_price(x):
     return f"{x:,.2f}" if x >= 100 else f"{x:.4f}" if x >= 1 else f"{x:.6f}"
 
@@ -167,6 +189,9 @@ def format_item(a):
     f = a.get("fresh") or {}
     if f.get("bars_since_trigger"):
         out.append(f"  Da allora: {f['move_since_trigger_pct']:+.1f}%")
+    context = K.context_line(a["market"])
+    if context:
+        out.append(context)
     if a["met"]:
         out.append("  Conferme: " + ", ".join(COND_IT[n] for n in a["met"]))
     if a["unknown"]:
@@ -178,10 +203,13 @@ def format_group(alerts, review=None):
     """One message per class and setup, so a market-wide move doesn't send nine."""
     a0 = alerts[0]
     setup = a0["setup"]
-    lines = [f"🧪 <b>{SETUP_IT[setup]}</b> · {CLASS_IT.get(a0['class'], a0['class'])}", SETUP_MEANS[setup], f"Trigger {a0['trigger'][:16].replace('T', ' ')} UTC", ""]
+    lines = [f"🧪 <b>{SETUP_IT[setup]}</b> · {CLASS_IT.get(a0['class'], a0['class'])}", SETUP_MEANS[setup], bias_line(a0["class"], setup), f"Trigger {a0['trigger'][:16].replace('T', ' ')} UTC", ""]
     lines += [format_item(a) for a in alerts] + [""]
     if review:
         lines += [format_review(review), ""]
+    history = history_line(a0["class"], setup)
+    if history:
+        lines.append(history)
     lines.append(test_verdict(a0["class"], setup))
     options = safe_options([(a["class"], a["market"]) for a in alerts])
     if options:
@@ -215,6 +243,7 @@ def check_moves(st, telegram_on, now=None, root=None, sigma=M.market_sigma):
     for m in moves:
         pos = safe_position(m["market"])
         m["position"] = position_text(pos) if pos else None
+        m["context"] = K.context_line(m["market"])
     if moves:
         alert_dir().mkdir(parents=True, exist_ok=True)
         with open(alert_dir() / "moves.jsonl", "a") as f:

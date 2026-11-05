@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 
 from . import indicators as I
+from . import option_lab as L
 from . import options_report as O
 from . import technicals as K
 from . import texts as T
@@ -199,6 +200,43 @@ def alerts_part(prices):
     return {"setups": out, "moves": moves, "resets": resets}
 
 
+def lab_text(r):
+    """The whole picture of one market's options, in plain sentences."""
+    out = []
+    n = r.get("near")
+    if n and n.get("forecast"):
+        out.append(f"Il mercato delle opzioni si aspetta una volatilità del {100 * n['atm']:.0f}% annuo, pari a circa ±{str(round(n['move_pct'], 1)).replace('.', ',')}% entro {n['days']:.0f} giorni. Il nostro modello prevede il {100 * n['forecast']:.0f}%.")
+        out.append({"care": "Le opzioni costano più di quanto il modello giustifichi: chi le compra paga un premio, chi le vende lo incassa ma si prende il rischio.",
+                    "economiche": "Le opzioni costano meno di quanto il modello giustifichi: per chi compra è il momento relativamente più favorevole, ma il modello può sbagliare.",
+                    "nella norma": "Il prezzo è in linea con il movimento previsto: nel complesso né care né economiche."}.get(r.get("label"), ""))
+    g = r.get("gex")
+    if g:
+        if g["regime"] == "positiva":
+            out.append("Gamma positiva: se l'ipotesi sui dealer è giusta, le loro coperture tendono a frenare i movimenti del prezzo.")
+        else:
+            out.append("Gamma negativa: se l'ipotesi sui dealer è giusta, le loro coperture tendono ad amplificare i movimenti del prezzo.")
+    return [x for x in out if x]
+
+
+def lab_summary(r):
+    """What the overview needs: the heavy parts stay for when a market is opened."""
+    if r.get("error"):
+        return r
+    g = r.get("gex") or {}
+    return {**{k: r.get(k) for k in ("key", "name", "ticker", "group", "spot", "snapshot", "source", "near", "ratio", "label", "realized", "n_cheap", "n_dear", "n_tradable", "note")},
+            "cheap": r["cheap"][:6], "dear": r["dear"][:6], "gex": {k: g.get(k) for k in ("total", "regime", "flip", "call_wall", "put_wall", "max_pain", "put_call_oi")}, "text": lab_text(r)}
+
+
+def lab_part():
+    return [lab_summary(r) for r in L.all_markets()]
+
+
+def lab_market(key, fresh=False):
+    m = L.BY_KEY[key]
+    r = L.fetch_live(m) if fresh else L.from_saved(m)
+    return {**r, "text": lab_text(r)} if r else None
+
+
 def technical_part():
     return [{**K.summary(m), "label": label(m)} for m in K.all_markets()]
 
@@ -240,6 +278,6 @@ def build(now=None):
     errors = {}
     markets, summaries, overview = part(markets_part, errors, "markets", ([], {}, ""))
     return clean({"at": now.isoformat(timespec="seconds"), "markets": markets, "classes": summaries, "overview": overview,
-                  "options": part(options_part, errors, "options", []), "sentiment": part(lambda: sentiment_part(now), errors, "sentiment", None),
+                  "options": part(options_part, errors, "options", []), "lab": part(lab_part, errors, "lab", []), "sentiment": part(lambda: sentiment_part(now), errors, "sentiment", None),
                   "alerts": part(lambda: alerts_part({m["market"]: m["price"] for m in markets}), errors, "alerts", {"setups": [], "moves": [], "resets": []}), "tests": part(tests_part, errors, "tests", None), "technical": part(technical_part, errors, "technical", []),
                   "freshness": part(lambda: freshness(now), errors, "freshness", {"recorder_minutes": None, "ok": False}), "errors": errors})

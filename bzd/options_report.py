@@ -12,6 +12,7 @@ import numpy as np
 
 from . import indicators as I
 from .events import crypto_daily, daily, read
+from .option_models import har_forecast
 from .recorder import load_env
 
 BLOCKS = (
@@ -66,7 +67,7 @@ def iv_line(sym):
 
 
 RV_DAYS = 20
-CHEAP_BELOW, DEAR_ABOVE = .9, 1.25  # chosen by judgment, not tested: implied usually sits a little above realized
+CHEAP_BELOW, DEAR_ABOVE = .9, 1.25  # chosen by judgment, not tested: implied usually sits a little above what follows
 
 
 def realized_vol(close, year_days):
@@ -74,17 +75,23 @@ def realized_vol(close, year_days):
     return float(r.std() * np.sqrt(year_days)) if len(r) == RV_DAYS else None
 
 
+def forecast_vol(close, year_days, days=30):
+    """HAR forecast for about a month, from option_models."""
+    r = np.log(close.dropna()[lambda x: x > 0]).diff().dropna().values
+    return har_forecast(r, days if year_days == 365 else 21, year_days)
+
+
 def price_of_options(block, chain):
-    """Are options dear or cheap? Implied volatility at 30 days against how much the market has really moved lately."""
+    """Are options dear or cheap? Implied volatility at 30 days against how much the market is forecast to move."""
     if not (chain and chain.get("iv_30d") and block.get("underlying")):
         return None
     group, name, year_days = block["underlying"]
     s = close_series(group, name)
-    rv = realized_vol(s, year_days) if s is not None else None
-    if not rv:
+    fc = forecast_vol(s, year_days) if s is not None else None
+    if not fc:
         return None
-    ratio = chain["iv_30d"] / rv
-    return {"iv": chain["iv_30d"], "rv": rv, "ratio": ratio, "label": "economiche" if ratio < CHEAP_BELOW else "care" if ratio > DEAR_ABOVE else "nella norma"}
+    ratio = chain["iv_30d"] / fc
+    return {"iv": chain["iv_30d"], "rv": fc, "ratio": ratio, "label": "economiche" if ratio < CHEAP_BELOW else "care" if ratio > DEAR_ABOVE else "nella norma"}
 
 
 def term_line(block, chain):
@@ -136,7 +143,7 @@ def block_lines(b):
         lines.append(f"Attesa contro realizzata: {gap} (IV {iv['iv']:.0%}, realizzata {iv['hv']:.0%}, dato del {iv['date']:%d/%m})")
     cost = price_of_options(b, chain)
     if cost:
-        lines.append(f"Prezzo opzioni: <b>{cost['label']}</b> (attesa {cost['iv']:.0%} contro realizzata a {RV_DAYS} giorni {cost['rv']:.0%}, {cost['ratio']:.1f}x)")
+        lines.append(f"Prezzo opzioni: <b>{cost['label']}</b> (attesa {cost['iv']:.0%} contro prevista {cost['rv']:.0%}, {cost['ratio']:.1f}x)")
     for extra in (term_line(b, chain), skew_line(b, chain)):
         if extra:
             lines.append(extra)
@@ -179,7 +186,7 @@ def build_report(now=None):
         head.append(f"Più tesa: {ranks[-1][1]}. Più calma: {ranks[0][1]}.")
     if costs:
         costs.sort()
-        head.append(f"Opzioni più care rispetto al movimento reale: {costs[-1][1]}. Più economiche: {costs[0][1]}.")
+        head.append(f"Opzioni più care rispetto al movimento previsto: {costs[-1][1]}. Più economiche: {costs[0][1]}.")
     return "\n".join(head + out + ["", "Solo descrittivo: non è testato come segnale e non è consulenza finanziaria."])
 
 

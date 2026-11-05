@@ -16,9 +16,11 @@ FRAMES = {"4h": {"bars": 360, "swing": 5}, "1d": {"bars": 400, "swing": 5}, "1w"
 LEVEL_WIDTH_ATR = .25  # swings closer than this are one level
 CHART_BARS = 140
 TREND_BARS = 10
+CHANGE_BARS = 5  # how far back the "change" of each indicator looks, in bars of that timeframe
 RESET_RSI = {"1M": 40, "1w": 40, "1d": 30}  # about 1.3 alerts a week across 30 markets; 30 on weekly and monthly would almost never fire. Chosen for frequency, not tested
 APP_RESET_RSI = {**RESET_RSI, "4h": 30}
 MAX_STALE_DAYS = 4
+TREND_IT = {"rialzo": "in rialzo", "ribasso": "in ribasso", "laterale": "laterale"}
 FRAME_IT = {"4h": "4 ore", "1d": "giornaliero", "1w": "settimanale", "1M": "mensile"}
 
 
@@ -108,7 +110,11 @@ def read_frame(d, tf):
     slow = long_trend(c).iloc[-1]
     low = APP_RESET_RSI[tf]
     in_reset = "ipervenduto" if slow == "rialzo" and rs.iloc[-1] < low else "ipercomprato" if slow == "ribasso" and rs.iloc[-1] > 100 - low else None
-    return {"tf": tf, "price": px, "bar": d.index[-1].isoformat(), "trend": trend_of(px, ema20.iloc[-1], sma50.iloc[-1]), "slow_trend": slow if isinstance(slow, str) else None, "reset": in_reset, "reset_low": low, "rsi": rs.iloc[-1], "ema20": ema20.iloc[-1], "sma50": sma50.iloc[-1],
+    hist = macd - signal
+    metric = lambda x: {"value": None if pd.isna(x.iloc[-1]) else float(x.iloc[-1]), "change": None if len(x) <= CHANGE_BARS or pd.isna(x.iloc[-1 - CHANGE_BARS]) or pd.isna(x.iloc[-1]) else float(x.iloc[-1] - x.iloc[-1 - CHANGE_BARS])}
+    metrics = {"rsi": metric(rs), "macd": metric(100 * hist / c), "dist20": metric(100 * (c / ema20 - 1)), "dist50": metric(100 * (c / sma50 - 1)), "dist200": metric(100 * (c / sma200 - 1)),
+               "atr": metric(100 * atr(d) / c), "bollinger": metric((c - mid) / (2 * sd.where(sd > 0)))}
+    return {"tf": tf, "price": px, "bar": d.index[-1].isoformat(), "metrics": metrics, "trend": trend_of(px, ema20.iloc[-1], sma50.iloc[-1]), "slow_trend": slow if isinstance(slow, str) else None, "reset": in_reset, "reset_low": low, "rsi": rs.iloc[-1], "ema20": ema20.iloc[-1], "sma50": sma50.iloc[-1],
             "sma200": sma200.iloc[-1], "macd_hist": float(macd.iloc[-1] - signal.iloc[-1]), "macd_rising": bool(macd.iloc[-1] - signal.iloc[-1] > macd.iloc[-2] - signal.iloc[-2]) if len(d) > 2 else None,
             "atr_pct": 100 * width / px if width else None, "bollinger": bb, "supports": below, "resistances": above,
             "chart": {"t": [x.strftime("%Y-%m-%d %H:%M" if tf == "4h" else "%Y-%m-%d") for x in tail.index], "o": tail.open.tolist(), "h": tail.high.tolist(), "l": tail.low.tolist(), "c": tail.close.tolist(),
@@ -123,7 +129,7 @@ def summary(market, full=None):
     """One row for the table: trend per timeframe, and the nearest levels on the weekly."""
     a = full if full is not None else analyze(market)
     wk = a.get("1w") or {}
-    return {"market": market, "trend": {tf: a[tf]["trend"] for tf in a}, "rsi": {tf: a[tf]["rsi"] for tf in a}, "reset": {tf: a[tf]["reset"] for tf in a}, "price": (a.get("1d") or {}).get("price"),
+    return {"market": market, "trend": {tf: a[tf]["trend"] for tf in a}, "rsi": {tf: a[tf]["rsi"] for tf in a}, "reset": {tf: a[tf]["reset"] for tf in a}, "metrics": {tf: a[tf]["metrics"] for tf in a}, "slow": {tf: a[tf]["slow_trend"] for tf in a}, "price": (a.get("1d") or {}).get("price"),
             "support": (wk.get("supports") or [None])[0], "resistance": (wk.get("resistances") or [None])[0]}
 
 
@@ -181,10 +187,35 @@ def check_resets(st, now):
     return found
 
 
+def price_text(x):
+    return f"{x:,.2f}" if x >= 100 else f"{x:.4f}" if x >= 1 else f"{x:.6f}"
+
+
+def context_line(market):
+    """The picture around an alert: trend and nearest weekly levels. Empty if the data can't say, so it never holds an alert back."""
+    try:
+        a = analyze(market)
+    except Exception:
+        return ""
+    wk, dy = a.get("1w"), a.get("1d")
+    if not wk or not dy:
+        return ""
+    px = dy["price"]
+    level = lambda lv: f"{price_text(lv['price'])} ({100 * (lv['price'] / px - 1):+.1f}%)"
+    bits = [f"Trend: settimanale {TREND_IT.get(wk['trend'], wk['trend'])}, giornaliero {TREND_IT.get(dy['trend'], dy['trend'])}, RSI giornaliero {dy['rsi']:.0f}"]
+    if wk["supports"] or wk["resistances"]:
+        bits.append("Livelli settimanali: " + ", ".join(([f"supporto {level(wk['supports'][0])}"] if wk["supports"] else []) + ([f"resistenza {level(wk['resistances'][0])}"] if wk["resistances"] else [])))
+    return "\n".join(f"  {x}" for x in bits)
+
+
 def format_resets(found, now, name=lambda m: m):
     order = {"1M": 0, "1w": 1, "1d": 2}
     lines = [f"🔄 <b>RESET</b> · {now:%d/%m %H:%M} UTC", "L'RSI è tornato a un estremo mentre il trend di fondo resta quello.", ""]
     for r in sorted(found, key=lambda x: order[x["tf"]]):
-        lines.append(f"• <b>{name(r['market'])}</b> · {FRAME_IT[r['tf']]}: RSI {r['rsi']:.0f} (soglia {r['threshold']}), {r['kind']}. Prezzo {r['price']:,.4g}")
+        bias = "📈 potenziale long a favore del trend" if r["trend"] == "rialzo" else "📉 potenziale short a favore del trend"
+        lines.append(f"• <b>{name(r['market'])}</b> · {FRAME_IT[r['tf']]}: RSI {r['rsi']:.0f} (soglia {r['threshold']}), {r['kind']}. Prezzo {r['price']:,.4g}\n  {bias}")
+        context = context_line(r["market"])
+        if context:
+            lines.append(context)
     lines += ["", "Grafico e livelli sono nell'app, in Analisi tecnica. Soglie scelte da noi: non è testato come segnale e non è consulenza finanziaria."]
     return "\n".join(lines)

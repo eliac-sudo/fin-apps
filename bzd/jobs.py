@@ -46,7 +46,7 @@ def hl(name, every, **body):
 def all_jobs():
     j = []
     # Option chains: no free history found
-    for t in ("SPY", "_SPX", "GLD", "TLT", "USO", "FXE"):
+    for t in ("SPY", "_SPX", "QQQ", "IWM", "GLD", "SLV", "TLT", "USO", "FXE"):
         j.append(Job(f"opt_cboe_{t.strip('_').lower()}", f"https://cdn.cboe.com/api/global/delayed_quotes/options/{t}.json", 6 * HOUR))
     for c in ("BTC", "ETH"):
         j.append(Job(f"opt_deribit_{c.lower()}", f"https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency={c}&kind=option", HOUR))

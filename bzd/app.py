@@ -7,14 +7,16 @@ import json, os, sys, threading, time, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from . import option_lab as L
 from . import plan as P
 from . import snapshot as S
 from .recorder import load_env
 
 PORT = 8787
 CACHE_SECONDS = 120
+LIVE_SECONDS = 300
 PAGE = Path(__file__).with_name("app.html")
-_cache, _lock = {"at": 0, "data": None}, threading.Lock()
+_cache, _lock, _live = {"at": 0, "data": None}, threading.Lock(), {}
 
 
 def snapshot():
@@ -22,6 +24,28 @@ def snapshot():
         if _cache["data"] is None or time.time() - _cache["at"] > CACHE_SECONDS:
             _cache.update(data=json.dumps(S.build()).encode(), at=time.time())
         return _cache["data"]
+
+
+def option_market(key, fresh):
+    """Fresh prices are fetched at most once per market every few minutes, however often the button is pressed."""
+    if not fresh:
+        return S.lab_market(key)
+    with _lock:
+        hit = _live.get(key)
+    if hit and time.time() - hit[0] < LIVE_SECONDS:
+        return hit[1]
+    data = S.lab_market(key, fresh=True)
+    with _lock:
+        _live[key] = (time.time(), data)
+    return data
+
+
+def warm():
+    """The first reading takes a while, so it happens before anyone waits for it."""
+    try:
+        snapshot()
+    except Exception as e:
+        print(f"warm-up failed: {type(e).__name__}", flush=True)
 
 
 def plan_reply(q):
@@ -64,6 +88,12 @@ class Handler(BaseHTTPRequestHandler):
             elif url.path == "/api/technical":
                 m = q.get("market", [""])[0]
                 self.send(*((200, json.dumps(S.clean(S.technical_market(m))).encode()) if S.known_market(m) else (404, b'{"error":"mercato sconosciuto"}')))
+            elif url.path == "/api/options":
+                key = q.get("market", [""])[0]
+                if key not in L.BY_KEY:
+                    self.send(404, b'{"error":"mercato sconosciuto"}')
+                else:
+                    self.send(200, json.dumps(S.clean(option_market(key, q.get("fresh", [""])[0] == "1"))).encode())
             elif url.path == "/api/plan":
                 code, reply = plan_reply(q)
                 self.send(code, json.dumps(S.clean(reply)).encode())
@@ -82,6 +112,7 @@ def main(argv):
     load_env()
     host = os.environ.get("BZD_APP_HOST", "127.0.0.1")
     print(f"BZD app on http://{host}:{PORT}", flush=True)
+    threading.Thread(target=warm, daemon=True).start()
     ThreadingHTTPServer((host, PORT), Handler).serve_forever()
     return 0
 

@@ -161,8 +161,8 @@ def class_summary(rows):
 
 
 def why_text(s):
-    bits = ([f"scalda: {', '.join(s['hot'])}"] if s["hot"] else []) + ([f"raffredda: {', '.join(s['cold'])}"] if s["cold"] else [])
-    return " · ".join(bits) or "nessun fattore estremo"
+    bits = ([f"Spinge: {', '.join(s['hot'])}."] if s["hot"] else []) + ([f"Frena: {', '.join(s['cold'])}."] if s["cold"] else [])
+    return " ".join(bits) or "Nessun fattore estremo."
 
 
 def overview(summaries):
@@ -173,7 +173,7 @@ def overview(summaries):
     moved = max(((c, s) for c, s in summaries.items() if s["change_7d"] is not None), key=lambda x: abs(x[1]["change_7d"]), default=None)
     text = (f"Caldi: {', '.join(hot)}. " if hot else "Nessun mercato caldo. ") + (f"Freddi: {', '.join(cold)}." if cold else "Nessun mercato freddo.")
     if moved and abs(moved[1]["change_7d"]) >= 5:
-        text += f" Il cambiamento più forte in 7 giorni è {CLASS_IT[moved[0]]} ({moved[1]['change_7d']:+.0f})."
+        text += f" Il cambiamento più forte degli ultimi 7 giorni riguarda {CLASS_IT[moved[0]]} ({moved[1]['change_7d']:+.0f})."
     return text
 
 

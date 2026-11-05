@@ -128,8 +128,8 @@ class TestThermo(unittest.TestCase):
         self.assertIn("Cripto (+10)", t)
         self.assertIn("+10 in 7 giorni", t)
         self.assertIn("Più caldo BTC 90 · più freddo ETH 70", t)
-        self.assertIn("scalda: funding, slancio · raffredda: leva (OI)", t)
-        self.assertIn("raffredda: volatilità alta", t)
+        self.assertIn("Spinge: funding, slancio. Frena: leva (OI).", t)
+        self.assertIn("Frena: volatilità alta.", t)
         self.assertIn("S&amp;P 500 30", t)
 
     def test_quiet_markets_say_so(self):
@@ -186,19 +186,17 @@ class TestCheapOrDear(unittest.TestCase):
         self.assertIsNone(Z.price_position(up.head(10), 100))
         self.assertIn("rispetto all'ultimo anno", Z.position_text(p))
 
-    def test_options_cost_compares_implied_with_realized(self):
+    def test_options_cost_compares_implied_with_forecast(self):
         import numpy as np, pandas as pd
         from unittest import mock
         from bzd import options_report as R
-        np.random.seed(1)
-        s = pd.Series(100 * np.exp(np.cumsum(np.random.normal(0, .01, 60))))
-        rv = R.realized_vol(s, 252)
-        self.assertAlmostEqual(rv, .16, delta=.08)
+        s = pd.Series(100 * np.exp(np.cumsum(np.random.default_rng(1).normal(0, .01, 60))))
+        self.assertAlmostEqual(R.realized_vol(s, 252), .16, delta=.08)
         b = {"underlying": ("tradfi", "X", 252)}
-        with mock.patch.object(R, "index_series", return_value=s):
-            self.assertEqual(R.price_of_options(b, {"iv_30d": rv * 2})["label"], "care")
-            self.assertEqual(R.price_of_options(b, {"iv_30d": rv * .5})["label"], "economiche")
-            self.assertEqual(R.price_of_options(b, {"iv_30d": rv})["label"], "nella norma")
+        with mock.patch.object(R, "index_series", return_value=s), mock.patch.object(R, "forecast_vol", return_value=.2):
+            self.assertEqual(R.price_of_options(b, {"iv_30d": .4})["label"], "care")
+            self.assertEqual(R.price_of_options(b, {"iv_30d": .1})["label"], "economiche")
+            self.assertEqual(R.price_of_options(b, {"iv_30d": .2})["label"], "nella norma")
         self.assertIsNone(R.price_of_options({}, {"iv_30d": .2}))
         self.assertIsNone(R.price_of_options(b, None))
 
