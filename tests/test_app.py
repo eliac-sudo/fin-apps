@@ -1,4 +1,5 @@
-import json, unittest
+import gzip, json, tempfile, unittest
+from pathlib import Path
 from unittest import mock
 
 from bzd import app as App
@@ -19,7 +20,7 @@ class TestApp(unittest.TestCase):
         dear = {"iv": .5, "rv": .3, "ratio": 1.6, "label": "care"}
         t = " ".join(S.explain("X", {"pct": 95.0}, dear, {"inverted": True}, .05))
         self.assertIn("molto alta", t)
-        self.assertIn("±14.4%", t)
+        self.assertIn("±14,4%", t)
         self.assertIn("prossimi giorni", t)
         self.assertIn("Proteggersi", t)
         self.assertEqual(S.explain("X", None, None, None, None), [])
@@ -52,3 +53,27 @@ class TestApp(unittest.TestCase):
     def test_unknown_market_is_refused(self):
         self.assertFalse(S.known_market("../../etc/passwd"))
         self.assertTrue(S.known_market("BTC"))
+
+
+class TestTrends(unittest.TestCase):
+    FEED = b"""<rss xmlns:ht="https://trends.google.com/trending/rss"><channel><title>Daily Search Trends</title>
+    <item><title>cavaliers vs thunder</title><ht:approx_traffic>1000+</ht:approx_traffic></item>
+    <item><title>bitcoin price</title><ht:approx_traffic>500+</ht:approx_traffic></item></channel></rss>"""
+
+    def test_feed_is_parsed_and_market_queries_are_found(self):
+        rows = S.parse_trending(self.FEED)
+        self.assertEqual(rows[0], {"query": "cavaliers vs thunder", "traffic": "1000+"})
+        self.assertEqual([r["query"] for r in rows if S.TOPIC_ALL.search(r["query"])], ["bitcoin price"])
+
+    def test_no_files_means_nothing_not_an_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(S.trends_part(tmp), [])
+
+    def test_latest_file_is_read(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp) / "raw" / "trends_google_us" / "2026-11-05"
+            d.mkdir(parents=True)
+            with gzip.open(d / "120000Z.json.gz", "wb") as f:
+                f.write(self.FEED)
+            r = S.trends_part(tmp)[0]
+            self.assertEqual((r["geo"], r["total"], r["market"][0]["query"]), ("USA", 2, "bitcoin price"))

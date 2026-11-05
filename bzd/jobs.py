@@ -134,4 +134,6 @@ def macro_jobs():
             f"https://api.stlouisfed.org/fred/series/observations?series_id={s}&api_key={{FRED_API_KEY}}&file_type=json&sort_order=desc&limit=30",
             DAY, needs=("FRED_API_KEY",),
         ))
+    for geo in ("US", "IT"):
+        j.append(Job(f"trends_google_{geo.lower()}", f"https://trends.google.com/trending/rss?geo={geo}", 2 * HOUR))
     return j

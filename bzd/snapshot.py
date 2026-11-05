@@ -1,5 +1,5 @@
 """Everything the app shows, read from saved data. No orders, no paid calls, nothing written."""
-import json, math, os
+import gzip, json, math, os, re, xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -78,7 +78,8 @@ def explain(name, level, cost, term, skew):
         side = {"care": "Chi compra opzioni paga più di quanto il mercato si sia mosso di recente: gli serve un movimento più grande di quello visto finora.",
                 "economiche": "Chi compra opzioni paga meno di quanto il mercato si sia mosso di recente. Può guadagnare se quel ritmo continua, ma se il mercato si calma perde comunque valore col tempo.",
                 "nella norma": "Il prezzo è vicino a quanto il mercato si è mosso di recente. Di solito l'attesa sta un po' sopra la realizzata."}[cost["label"]]
-        out.append(f"Le opzioni prezzano circa ±{100 * one_month(cost['iv']):.1f}% in un mese. {side}")
+        move = f"{100 * one_month(cost['iv']):.1f}".replace(".", ",")
+        out.append(f"Le opzioni prezzano circa ±{move}% in un mese. {side}")
     if term:
         out.append("La paura è concentrata sui prossimi giorni: spesso capita attorno a un evento o durante uno scossone." if term["inverted"] else "La paura a breve non supera quella a più lungo termine: è la situazione normale.")
     if skew is not None:
@@ -137,7 +138,33 @@ def sentiment_part(now):
         m = Z.mood(items, c, now)
         picks = T.select_for(items, c, None, until, per_source=2, total=6)
         classes.append({"class": c, "name": Z.CLASS_IT[c], **m, "texts_sample": [{"source": x["source"], "time": x["time"], "url": x["url"], "text": x["text"][:220]} for x in picks]})
-    return {"classes": classes, "fear_greed": Z.fear_greed(), "attention": Z.attention(), "total": len(items), "source_errors": sorted(errors)}
+    return {"classes": classes, "fear_greed": Z.fear_greed(), "attention": Z.attention(), "trends": part(trends_part, errors, "trends", []), "total": len(items), "source_errors": sorted(errors)}
+
+
+TOPIC_ALL = re.compile("|".join(T.TOPICS.values()), re.I)
+TRENDS_JOBS = {"trends_google_us": "USA", "trends_google_it": "Italia"}
+
+
+def parse_trending(body):
+    """Queries from Google's public trending feed, with their rough traffic."""
+    out, ns = [], "{https://trends.google.com/trending/rss}"
+    for it in ET.fromstring(body).iter("item"):
+        title = (it.findtext("title") or "").strip()
+        if title:
+            out.append({"query": title[:120], "traffic": (it.findtext(ns + "approx_traffic") or "").strip()})
+    return out
+
+
+def trends_part(root=None):
+    """Which searches are rising now, and whether any is about markets. It's a snapshot of today: keyword history isn't open to automated reading."""
+    out = []
+    for job, geo in TRENDS_JOBS.items():
+        files = snapshot_files(job, root)
+        if not files:
+            continue
+        rows = parse_trending(gzip.open(files[-1]).read())
+        out.append({"geo": geo, "at": snapshot_time(files[-1]).isoformat(), "total": len(rows), "market": [r for r in rows if TOPIC_ALL.search(r["query"])][:6], "top": rows[:5]})
+    return out
 
 
 def read_jsonl(path, limit):
