@@ -27,7 +27,7 @@ Revisione degli alert con l'LLM **accesa**: `.env` ha `BZD_AGENTS=on` dalle 12:3
 - **Chi compra** (`bzd/flows.py`, `docs/CHI_COMPRA.md`): chi compra il dip e chi vende il top, con l'intensità, se è oltre il riflesso, e se apre o chiude. Cripto da Binance e Bybit più il denaro; gli altri dal COT (piccoli contro leveraged funds o managed money). Non testato, solo nell'app.
 - **Catalogo** (`bzd/literature.py`, `docs/CATALOGO.md`): 334 lavori da OpenAlex e arXiv su 12 temi, nessuno letto. `check` dice se un titolo esiste davvero.
 - **Report Gemini** (`docs/letteratura/REPORT_GEMINI.md`): la letteratura caricata dall'utente il 5 novembre. Tutti i 17 lavori citati esistono (`VERIFICA_REPORT_GEMINI.md`). Il report è quasi tutto su azioni USA, poco utile per cripto e posizionamento.
-- **Agenti di ricerca** (`bzd/research.py`): il lettore scrive note sugli abstract e controlla le affermazioni di Gemini, il suggeritore scrive bozze di setup v2 «non testate». Il codice scarta citazioni e numeri senza fonte. Costruiti e provati senza spendere: il primo uso a pagamento aspetta il via dell'utente.
+- **Agenti di ricerca** (`bzd/research.py`): il lettore scrive note sugli abstract e controlla le affermazioni di Gemini, il suggeritore scrive bozze di setup v2 «non testate». Il codice scarta citazioni e numeri senza fonte. Il lettore gira su Haiku 5.5 (`BZD_READER_MODEL` per cambiarlo), il suggeritore e le revisioni degli alert restano su Opus 5.5. Primo uso del lettore il 6 novembre, con il via dell'utente: 18 lavori, 13 note e 5 senza abstract, circa 0,01 $. Pertinenza: 1 alta, 6 media, 6 bassa. Le note sono in `docs/letteratura/NOTE.md`. Il suggeritore non è ancora partito.
 - **Backup e server** (`scripts/backup.sh`, `scripts/server-*.sh`, `deploy/`, `docs/SERVER.md`): backup provato. Il kit per il server è pronto ma mai provato su un server vero.
 - **Tag BYZ e SZT** (`bzd/zones.py`, `docs/ZONE_BYZ_SZT.md`): 70% indicatori, 30% sentiment, su 4h, 1d, 1w, 1M, 12M.
 - **Opzioni** (`bzd/option_models.py`, `option_lab.py`, `docs/OPZIONI_MODELLI.md`): Black-76, SVI, previsione HAR, GEX, contratti economici e cari. Nell'app: il modello passo per passo su un contratto vero e un glossario con i numeri del mercato scelto.
@@ -67,7 +67,7 @@ Revisione degli alert con l'LLM **accesa**: `.env` ha `BZD_AGENTS=on` dalle 12:3
 
 L'utente ha deciso il 5 novembre: **prima l'app, gli alert e le indicazioni devono avere senso, poi il server.**
 
-1. **Agenti di ricerca:** `python -m bzd.research stima`, poi `leggi --paga` e `idee --paga` quando l'utente dà il via. Circa 1,40 $ con il modello predefinito, più del tetto attuale di 0,80 $: senza alzarlo il lettore si ferma a metà e toglie spazio alle revisioni degli alert.
+1. **Agenti di ricerca:** il lettore ha girato. L'utente propone un supervisore su un modello più capace, chiamato di rado: da decidere insieme. Il suggeritore (`idee --paga`, circa 0,28 $ su Opus) aspetta quella decisione.
 2. **App e alert:** rivedere che ogni indicazione sia chiara e coerente con i test.
 3. **Server, poi backup fuori dal Codespace:** il kit è pronto (`docs/SERVER.md`). `data/` e `.env` non sono su GitHub.
 

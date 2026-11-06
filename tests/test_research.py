@@ -103,11 +103,20 @@ class TestReading(Base):
 
     def test_the_call_uses_structured_output_and_fallbacks(self):
         client, create = client_with(note())
-        R.read_paper(client, PAPER, ABSTRACT, [])
+        with mock.patch.dict(os.environ, {"BZD_READER_MODEL": "claude-opus-5-5"}):
+            R.read_paper(client, PAPER, ABSTRACT, [])
         kw = create.call_args.kwargs
         self.assertEqual(kw["output_config"]["format"]["type"], "json_schema")
         self.assertEqual(kw["fallbacks"], "default")
         self.assertNotIn("thinking", kw)
+
+    def test_the_reader_runs_on_the_cheap_model(self):
+        client, create = client_with(note())
+        with mock.patch.dict(os.environ, {"BZD_READER_MODEL": ""}):
+            R.read_paper(client, PAPER, ABSTRACT, [])
+            self.assertEqual(R.model_for("ideas"), R.G.model_name())
+        self.assertEqual(client.messages.create.call_args.kwargs["model"], "claude-haiku-5-5")
+        self.assertIn("claude-haiku-5-5", R.estimate([PAPER])["reader"])
 
 
 def stored(key="p1", **kw):

@@ -26,6 +26,12 @@ EFFORT = {"read": "medium", "ideas": "high"}
 # A rough guess for `stima`, overstated on purpose: thinking counts as output and its length isn't known in advance
 GUESS_OUT = {"read": 4000, "ideas": 12000}
 CHARS_PER_TOKEN = 3.5
+# Reading abstracts is simple work, so the reader runs on the cheapest model. Drafts and alert reviews keep the default (BZD_MODEL).
+READER_MODEL = "claude-haiku-5-5"
+
+
+def model_for(purpose):
+    return (os.environ.get("BZD_READER_MODEL") or READER_MODEL) if purpose == "read" else G.model_name()
 
 # Every paper the report names, as the report names it. `claims` are its sentences about that paper, copied word for word.
 GEMINI_REFS = [
@@ -275,7 +281,7 @@ def verification_page(rows, today=None):
 def call_json(client, system, schema, content, purpose):
     """One structured call through the same path as the alert reviews: fallback on refusal, cost logged. Returns (dict or None, error or None)."""
     import anthropic
-    model = G.model_name()
+    model = model_for(purpose)
     params = dict(model=model, max_tokens=MAX_TOKENS, system=system, messages=[{"role": "user", "content": content}],
                   output_config={"effort": EFFORT[purpose], "format": {"type": "json_schema", "schema": schema}})
     try:
@@ -334,7 +340,7 @@ def check_note(n, paper, abstract, claims):
 def read_paper(client, paper, abstract, claims):
     """A checked note, or a record of why there isn't one. One retry at most, since each attempt costs money."""
     rec = {"key": paper["key"], "title": paper["title"], "year": paper.get("year"), "url": paper.get("url"), "source": paper.get("source"), "claims": claims, "abstract": abstract,
-           "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"), "model": G.model_name(), "problems": []}
+           "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"), "model": model_for("read"), "problems": []}
     note = None
     for _ in range(2):
         n, err = call_json(client, READER_SYSTEM, READER_SCHEMA, reader_prompt(paper, abstract, claims, note), "read")
@@ -427,13 +433,14 @@ def to_read(extra=0):
 
 
 def estimate(papers, abstracts_chars=1500, n_ideas_notes=None):
-    i_price, o_price = G.PRICES.get(G.model_name(), G.HIGHEST)
+    i_price, o_price = G.PRICES.get(model_for("read"), G.HIGHEST)
     sys_tokens = len(READER_SYSTEM) / CHARS_PER_TOKEN + len(json.dumps(READER_SCHEMA)) / CHARS_PER_TOKEN
     per_read = ((sys_tokens + (abstracts_chars + 400) / CHARS_PER_TOKEN) * i_price + GUESS_OUT["read"] * o_price) / 1e6
     n = n_ideas_notes if n_ideas_notes is not None else len(papers)
     ideas_in = (len(IDEAS_SYSTEM) + len(KNOWN) + 3000 + n * 1500) / CHARS_PER_TOKEN
+    i_price, o_price = G.PRICES.get(model_for("ideas"), G.HIGHEST)
     per_ideas = (ideas_in * i_price + GUESS_OUT["ideas"] * o_price) / 1e6
-    return {"model": G.model_name(), "papers": len(papers), "read_each": per_read, "read_total": per_read * len(papers), "ideas": per_ideas, "retry_worst": 2 * (per_read * len(papers) + per_ideas)}
+    return {"reader": model_for("read"), "model": model_for("ideas"), "papers": len(papers), "read_each": per_read, "read_total": per_read * len(papers), "ideas": per_ideas, "retry_worst": 2 * (per_read * len(papers) + per_ideas)}
 
 
 def notes_page(rows):
@@ -454,7 +461,7 @@ def notes_page(rows):
         if n["idea"]:
             lines.append(f"Idea da misurare: {n['idea']}")
         if n["limiti"]:
-            lines.append("Limiti: " + "; ".join(n["limiti"]) + ".")
+            lines.append("Limiti: " + "; ".join(x.rstrip(" .;") for x in n["limiti"]) + ".")
         lines.append("")
     return "\n".join(lines)
 
@@ -498,7 +505,7 @@ def main(argv, client=None, sleep=time.sleep):
     extra = next((int(a) for a in argv[1:] if a.isdigit()), 0)
     if cmd == "stima":
         e = estimate(to_read(extra))
-        print(f"Modello {e['model']}. Lettura: {e['papers']} lavori, circa {e['read_each']:.3f} $ l'uno, {e['read_total']:.2f} $ in tutto. Bozze di setup: circa {e['ideas']:.2f} $.")
+        print(f"Lettura con {e['reader']}: {e['papers']} lavori, circa {e['read_each']:.3f} $ l'uno, {e['read_total']:.2f} $ in tutto. Bozze di setup con {e['model']}: circa {e['ideas']:.2f} $.")
         print(f"Caso peggiore, con un nuovo tentativo per ogni chiamata: {e['retry_worst']:.2f} $. Speso questo mese: {G.spent_this_month():.2f} $ su {G.budget():.2f} $.")
         return 0
     if cmd in ("leggi", "idee"):
