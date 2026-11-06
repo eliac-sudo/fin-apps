@@ -92,6 +92,17 @@ class TestContext(unittest.TestCase):
         for word in ("settimanale in rialzo", "RSI giornaliero 40", "supporto 90.0000 (-10.0%)", "resistenza 110.00 (+10.0%)"):
             self.assertIn(word, t)
 
+    def test_levels_follow_the_live_price(self):
+        frame = {"price": 100.0, "trend": "ribasso", "rsi": 30.0, "supports": [{"price": 95.0}, {"price": 80.0}], "resistances": [{"price": 110.0}]}
+        with mock.patch.object(K, "analyze", return_value={"1d": frame, "1w": frame}):
+            broken = K.context_line("NQ=F", 90.0)
+            frame["supports"] = [{"price": 95.0}]
+            proxy = K.context_line("ZB=F", 50.0)
+            bare = K.context_line("ADA", 87.0)
+        self.assertIn("supporto 80.0000 (-11.1%), resistenza 95.0000 (+5.6%)", broken)
+        self.assertIn("del future (dalla chiusura a 100.00): supporto 95.0000 (-5.0%)", proxy)
+        self.assertIn("nessun supporto sotto", bare)
+
     def test_no_data_means_no_context(self):
         with mock.patch.object(K, "analyze", return_value={}):
             self.assertEqual(K.context_line("X"), "")

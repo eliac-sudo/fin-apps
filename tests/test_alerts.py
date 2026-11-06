@@ -162,6 +162,29 @@ class TestVerdict(unittest.TestCase):
         self.assertIn("non informativo", A.test_verdict("bonds", "panic"))
         self.assertIn("NON VALIDATO", A.test_verdict("crypto", "other"))
 
+    def test_number_shown_once(self):
+        self.assertIn("rispetto a ingressi casuali", A.test_verdict("crypto", "panic"))
+        self.assertNotIn("%", A.test_verdict("crypto", "panic", number=False))
+
+
+class TestItem(unittest.TestCase):
+    def item(self, setup, label):
+        a = {"market": "X", "setup": setup, "z": 2.0, "met": ["volume_high"], "not_met": ["spec_low"], "unknown": ["oi_rising"]}
+        pos = {"label": label, "from_high": -5.0, "from_low": 30.0}
+        with mock.patch.object(A, "safe_position", return_value=pos), mock.patch.object(A.K, "context_line", return_value=""):
+            return A.format_item(a)
+
+    def test_counts_and_names_what_is_missing(self):
+        t = self.item("squeeze", "nella media")
+        self.assertIn("Conferme: 1 su 3: volume alto", t)
+        self.assertIn("Mancano: speculatori poco esposti", t)
+        self.assertNotIn("In contrasto", t)
+
+    def test_warns_when_lean_and_price_disagree(self):
+        self.assertIn("long, ma il prezzo è già molto caro", self.item("squeeze", "molto caro"))
+        self.assertIn("presa di profitto, ma il prezzo è economico", self.item("overheating", "economico"))
+        self.assertNotIn("In contrasto", self.item("panic", "economico"))
+
 
 class TestDelivery(unittest.TestCase):
     def setUp(self):

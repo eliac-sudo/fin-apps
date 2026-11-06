@@ -1,6 +1,6 @@
 # Stato del progetto
 
-Aggiornato al 5 novembre 2026. Da leggere per primo quando si riprende il lavoro. Branch `roadmap-v0.3`: `main` non contiene questo lavoro.
+Aggiornato al 6 novembre 2026. Da leggere per primo quando si riprende il lavoro. Branch `roadmap-v0.3`: `main` non contiene questo lavoro.
 
 ## Cos'è
 
@@ -8,7 +8,7 @@ BZD raccoglie dati gratuiti su cripto, azioni, bond, materie prime e forex. Li m
 
 ## Cosa gira adesso
 
-Tutto nel Codespace: se si spegne si ferma tutto. `scripts/start-services.sh` dovrebbe riavviare i servizi all'accensione, ma alle riaccensioni del 5 novembre delle 12:17 e delle 17:33 UTC non sono ripartiti, con buchi nei dati dalle 02:42 e dalle 14:25. Il log di creazione della riaccensione delle 17:33 mostra solo il `postStartCommand` della feature Copilot, non il nostro: il comando non è partito, ma il perché non è chiarito. Dopo ogni riaccensione lanciare `bash scripts/ensure-services.sh` come utente `codespace`. L'avvio automatico da `~/.bashrc` è una scelta dell'utente, ancora da prendere.
+Tutto nel Codespace: se si spegne si ferma tutto. `scripts/start-services.sh` dovrebbe riavviare i servizi all'accensione, ma alle riaccensioni del 5 novembre delle 12:17 e delle 17:33 UTC non sono ripartiti, con buchi nei dati dalle 02:42 e dalle 14:25. È successo di nuovo il 6 novembre: dati fermi dalle 00:09 alle 11:57 UTC. Il log di creazione della riaccensione delle 17:33 mostra solo il `postStartCommand` della feature Copilot, non il nostro: il comando non è partito, ma il perché non è chiarito. Dopo ogni riaccensione lanciare `bash scripts/ensure-services.sh` come utente `codespace`. L'avvio automatico da `~/.bashrc` è una scelta dell'utente, ancora da prendere.
 
 | Servizio | Comando | Note |
 |---|---|---|
@@ -36,6 +36,9 @@ Revisione degli alert con l'LLM **accesa**: `.env` ha `BZD_AGENTS=on` dalle 12:3
 - **Piano** (`bzd/plan.py`, `docs/A3_REGOLE.md`): `/piano` sul bot e sezione nell'app.
 - **Test** (`bzd/b3.py`, `docs/B3_RISULTATI.md`): eseguito una sola volta, non si rifà.
 - **Archivio** (`docs/archivio/`): l'idea iniziale, il primo progetto degli agenti con le sue fonti e il calcolo di potenza. Superati, non guidano il codice.
+
+- **Livelli negli alert (6 novembre):** nei «forte movimento» le distanze da supporto e resistenza partivano dalla chiusura di ieri, non dal prezzo live. Dopo un calo forte un supporto poteva risultare sotto il prezzo quando era già rotto (Nasdaq il 5 novembre). Ora partono dal prezzo live. Se il prezzo live è di un altro strumento (TLT per il future sui bond), i livelli restano quelli del future, e il messaggio lo dice.
+- **Alert più chiari (6 novembre):** ogni mercato dice quante conferme ha su quante («Conferme: 0 su 3») e quali mancano. Il risultato del test compare una volta sola. Se la direzione e il prezzo si contraddicono (un long su un mercato già caro, una presa di profitto su uno economico), l'alert lo segnala con «⚠️ In contrasto». Quale dei due pesi di più non è stato testato.
 
 ## Cosa sappiamo
 

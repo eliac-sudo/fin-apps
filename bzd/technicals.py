@@ -247,8 +247,15 @@ def price_text(x):
     return f"{x:,.2f}" if x >= 100 else f"{x:.4f}" if x >= 1 else f"{x:.6f}"
 
 
-def context_line(market):
-    """The picture around an alert: trend and nearest weekly levels. Empty if the data can't say, so it never holds an alert back."""
+SAME_INSTRUMENT = 0.15  # a live price this close to the last close is the same instrument; further off it's a proxy, such as TLT for the bond future
+
+
+def context_line(market, live=None):
+    """The picture around an alert: trend and nearest weekly levels. Empty if the data can't say, so it never holds an alert back.
+
+    With a live price of the same instrument, levels are measured from it: after a big move the last close is stale, and a support
+    can already be broken. A proxy's price can't be compared with the future's levels, so those stay measured from the last close.
+    """
     try:
         a = analyze(market)
     except Exception:
@@ -256,11 +263,17 @@ def context_line(market):
     wk, dy = a.get("1w"), a.get("1d")
     if not wk or not dy:
         return ""
-    px = dy["price"]
+    px, label = dy["price"], "Livelli settimanali"
+    if live and abs(live / px - 1) < SAME_INSTRUMENT:
+        px = live
+    elif live:
+        label += f" del future (dalla chiusura a {price_text(px)})"
     level = lambda lv: f"{price_text(lv['price'])} ({100 * (lv['price'] / px - 1):+.1f}%)"
+    sup = [lv for lv in [*wk["supports"], *wk["resistances"]] if lv["price"] < px]
+    res = [lv for lv in [*wk["supports"], *wk["resistances"]] if lv["price"] > px]
     bits = [f"Trend: settimanale {TREND_IT.get(wk['trend'], wk['trend'])}, giornaliero {TREND_IT.get(dy['trend'], dy['trend'])}, RSI giornaliero {dy['rsi']:.0f}"]
-    if wk["supports"] or wk["resistances"]:
-        bits.append("Livelli settimanali: " + ", ".join(([f"supporto {level(wk['supports'][0])}"] if wk["supports"] else []) + ([f"resistenza {level(wk['resistances'][0])}"] if wk["resistances"] else [])))
+    if sup or res:
+        bits.append(f"{label}: " + ", ".join(([f"supporto {level(max(sup, key=lambda lv: lv['price']))}"] if sup else ["nessun supporto sotto"]) + ([f"resistenza {level(min(res, key=lambda lv: lv['price']))}"] if res else ["nessuna resistenza sopra"])))
     return "\n".join(f"  {x}" for x in bits)
 
 

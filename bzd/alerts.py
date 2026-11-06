@@ -138,8 +138,8 @@ def build_alert(cls, market, setup, trigger, price_df, conds, config, bar, now):
     }
 
 
-def test_verdict(cls, setup):
-    """What the one pre-registered test said about this class and setup."""
+def test_verdict(cls, setup, number=True):
+    """What the one pre-registered test said about this class and setup. Without the number when the history line already gives it."""
     p = BASE / "config" / "validation_v1.json"
     if not p.exists():
         return "⚠️ NON VALIDATO: il test finale non è ancora stato fatto."
@@ -147,7 +147,8 @@ def test_verdict(cls, setup):
     if not t:
         return "⚠️ NON VALIDATO: questo setup non è nel test."
     if t["outcome"] == "supportata":
-        return f"✅ Test superato di poco: {100 * t['mean']:+.2f}% su ingressi casuali, media di {t['clusters']} episodi. Effetto piccolo, non regge alla soglia più severa, e può essere un falso positivo."
+        gain = f": {100 * t['mean']:+.2f}% rispetto a ingressi casuali," if number else ","
+        return f"✅ Test superato di poco{gain} su {t['clusters']} episodi. Effetto piccolo, non regge alla soglia più severa, e può essere un falso positivo."
     if t["outcome"] == "non supportata":
         return f"❌ Test NON superato: nessun vantaggio dimostrato su ingressi casuali ({t['clusters']} episodi)."
     return f"❓ Test non informativo: troppi pochi episodi per dirlo ({t['clusters']})."
@@ -175,6 +176,21 @@ def history_line(cls, setup):
     return f"In passato, dopo {after}: in salita il {100 * t['share_up']:.0f}% delle volte, {100 * t['mean']:+.2f}% rispetto a ingressi casuali ({t['clusters']} episodi)."
 
 
+LEAN_UP = {"panic": True, "squeeze": True, "overheating": False}
+
+
+def price_clash(setup, pos):
+    """A warning when the lean and the price point opposite ways, such as a long on a market already dear. The test didn't measure which matters more."""
+    if not pos:
+        return None
+    up, label = LEAN_UP[setup], pos["label"]
+    if up and label in ("caro", "molto caro"):
+        return f"  ⚠️ In contrasto: spinge verso un long, ma il prezzo è già {label} rispetto all'ultimo anno. Il test non dice quale dei due pesa di più."
+    if not up and label in ("economico", "molto economico"):
+        return f"  ⚠️ In contrasto: spinge verso una presa di profitto, ma il prezzo è {label} rispetto all'ultimo anno. Il test non dice quale dei due pesa di più."
+    return None
+
+
 def format_item(a):
     """What moved and whether it's cheap or dear. Entries, stops and targets are logged, and shown only where you ask for them."""
     name = THERMO_LABELS.get(a["market"], a["market"])
@@ -188,8 +204,14 @@ def format_item(a):
     context = K.context_line(a["market"])
     if context:
         out.append(context)
-    if a["met"]:
-        out.append("  Conferme: " + ", ".join(COND_IT[n] for n in a["met"]))
+    clash = price_clash(a["setup"], pos)
+    if clash:
+        out.append(clash)
+    total = len(a["met"]) + len(a["not_met"]) + len(a["unknown"])
+    if total:
+        out.append(f"  Conferme: {len(a['met'])} su {total}" + (": " + ", ".join(COND_IT[n] for n in a["met"]) if a["met"] else ""))
+    if a["not_met"]:
+        out.append("  Mancano: " + ", ".join(COND_IT[n] for n in a["not_met"]))
     if a["unknown"]:
         out.append("  Non ancora noto: " + ", ".join(COND_IT[n] for n in a["unknown"]))
     return "\n".join(out)
@@ -206,7 +228,7 @@ def format_group(alerts, review=None):
     history = history_line(a0["class"], setup)
     if history:
         lines.append(history)
-    lines.append(test_verdict(a0["class"], setup))
+    lines.append(test_verdict(a0["class"], setup, number=not history))
     options = safe_options([(a["class"], a["market"]) for a in alerts])
     if options:
         lines += ["", options, ""]
@@ -239,7 +261,7 @@ def check_moves(st, telegram_on, now=None, root=None, sigma=M.market_sigma):
     for m in moves:
         pos = safe_position(m["market"])
         m["position"] = position_text(pos) if pos else None
-        m["context"] = K.context_line(m["market"])
+        m["context"] = K.context_line(m["market"], m["mark"])
     if moves:
         alert_dir().mkdir(parents=True, exist_ok=True)
         with open(alert_dir() / "moves.jsonl", "a") as f:
