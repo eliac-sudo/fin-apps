@@ -120,7 +120,14 @@ class TestReading(Base):
 
 
 def stored(key="p1", **kw):
-    return {"key": key, "title": "Retail Dip Buying", "year": 2021, "status": "ok", "note": note(**kw)}
+    return {"key": key, "title": "Retail Dip Buying", "year": 2021, "status": "ok", "abstract": ABSTRACT, "note": note(**kw)}
+
+
+HOLDS = [{"nota": "p1", "esito": "regge", "problema": "", "quote": ""}]
+
+
+def answer(idee=(), why="", review=HOLDS):
+    return {"revisione": list(review), "idee": list(idee), "nessuna_idea_perche": why}
 
 
 def idea(**kw):
@@ -131,26 +138,61 @@ def idea(**kw):
 
 class TestIdeas(Base):
     def test_a_good_idea_passes(self):
-        self.assertEqual(R.check_ideas({"idee": [idea()], "nessuna_idea_perche": ""}, [stored()]), [])
+        self.assertEqual(R.check_ideas(answer([idea()]), [stored()]), [])
 
     def test_a_variable_missing_on_a_market_is_refused(self):
-        p = R.check_ideas({"idee": [idea(mercati=["fx"], regola=[{"variabile": "funding", "condizione": ">=", "soglia": 80}])], "nessuna_idea_perche": ""}, [stored()])
+        p = R.check_ideas(answer([idea(mercati=["fx"], regola=[{"variabile": "funding", "condizione": ">=", "soglia": 80}])]), [stored()])
         self.assertIn("funding non esiste", p[0])
 
     def test_an_unknown_note_and_a_free_number_are_refused(self):
-        p = R.check_ideas({"idee": [idea(note=["nope"], ipotesi="Rende il 12% in meno.")], "nessuna_idea_perche": ""}, [stored()])
+        p = R.check_ideas(answer([idea(note=["nope"], ipotesi="Rende il 12% in meno.")]), [stored()])
         self.assertTrue(any("note inesistenti" in x for x in p))
         self.assertTrue(any("numeri senza fonte" in x for x in p))
 
     def test_numbers_from_the_rule_and_the_notes_are_allowed(self):
         ok = idea(ipotesi="Con pressione 80 e 20 giorni come nel lavoro.", falsificazione="Sotto +0,75% come il panico B3.")
-        self.assertEqual(R.check_ideas({"idee": [ok], "nessuna_idea_perche": ""}, [stored(risultati=[{"punto": "x", "quote": "Returns over the next 20 days"}])]), [])
+        self.assertEqual(R.check_ideas(answer([ok]), [stored(risultati=[{"punto": "x", "quote": "Returns over the next 20 days"}])]), [])
 
     def test_no_idea_is_a_valid_answer(self):
-        client, _ = client_with({"idee": [], "nessuna_idea_perche": "Le note non reggono un setup."})
+        client, _ = client_with(answer(why="Le note non reggono un setup."))
         rec = R.draft_ideas(client, [stored()])
         self.assertEqual(rec["status"], "ok")
         self.assertIn("Nessuna idea", R.ideas_page(rec))
+
+    def test_a_flag_needs_a_real_quote_and_no_new_numbers(self):
+        good = [{"nota": "p1", "esito": "forzata", "problema": "L'abstract parla solo di azioni.", "quote": "retail investors buy after price declines"}]
+        self.assertEqual(R.check_review(answer(review=good), [stored()]), [])
+        made_up = [{"nota": "p1", "esito": "da correggere", "problema": "Il rendimento è il 9%.", "quote": "retail investors sell"}]
+        p = R.check_review(answer(review=made_up), [stored()])
+        self.assertTrue(any("citazione non presente" in x for x in p))
+        self.assertTrue(any("numeri senza fonte" in x for x in p))
+        self.assertTrue(any("riviste: 0" in x for x in R.check_review(answer(review=[]), [stored()])))
+
+    def test_ideas_only_from_notes_that_hold(self):
+        flagged = [{"nota": "p1", "esito": "forzata", "problema": "Va oltre l'abstract.", "quote": "retail investors buy after price declines"}]
+        self.assertTrue(any("nessuna delle note citate regge" in x for x in R.check_ideas(answer([idea()], review=flagged), [stored()])))
+
+    def test_the_supervisor_sees_the_abstract_and_its_verdict_reaches_the_notes(self):
+        self.assertIn(f"<abstract>{ABSTRACT}</abstract>", R.ideas_prompt([stored()]))
+        flagged = [{"nota": "p1", "esito": "forzata", "problema": "Va oltre l'abstract.", "quote": "retail investors buy after price declines"}]
+        client, _ = client_with(answer(review=flagged, why="Nessuna nota regge."))
+        rec = R.draft_ideas(client, [stored()])
+        self.assertIn("forzata", R.ideas_page(rec))
+        with open(R.store() / "ideas.jsonl", "w") as f:
+            f.write(json.dumps(rec) + "\n")
+        self.assertIn("**Supervisore:** forzata.", R.notes_page([stored()], R.last_verdicts()))
+
+    def test_the_supervisor_runs_rarely(self):
+        from datetime import datetime, timedelta, timezone
+        now = datetime(2026, 12, 1, tzinfo=timezone.utc)
+        with open(R.store() / "notes.jsonl", "w") as f:
+            for i in range(12):
+                f.write(json.dumps(stored(key=f"p{i}")) + "\n")
+        self.assertTrue(R.supervisor_due(now)[0])
+        with open(R.store() / "ideas.jsonl", "w") as f:
+            f.write(json.dumps({"ts": (now - timedelta(days=5)).isoformat(), "notes": [f"p{i}" for i in range(10)]}) + "\n")
+        self.assertFalse(R.supervisor_due(now)[0])
+        self.assertTrue(R.supervisor_due(now + timedelta(days=30))[0])
 
 
 class TestCommands(Base):
