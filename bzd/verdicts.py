@@ -74,8 +74,27 @@ def short(rid):
 
 
 def all_lines():
-    return {rid: {"line": line(rid), "short": short(rid), "outcome": (outcome(rid) or {}).get("outcome")} for rid in TEXT}
+    out = {rid: {"line": line(rid), "short": short(rid), "outcome": (outcome(rid) or {}).get("outcome")} for rid in TEXT}
+    out["momentum"] = {"line": momentum_line(), "short": "v4", "outcome": None}
+    return out
 
 
 def unconditional():
     return (results() or {}).get("options_unconditional", {})
+
+
+RESULTS_V4 = BASE / "config" / "validation_v4_storico.json"
+
+
+def momentum_line():
+    """What v4 said about reading BYZ and SZT the other way round, on 50 markets the program never used."""
+    if not RESULTS_V4.exists():
+        return ""
+    r = json.loads(RESULTS_V4.read_text())["results"]
+    n1, n2 = r["N1"], r["N2"]
+    if n1["outcome"] != "supportata" or n2["outcome"] != "supportata":
+        return "Letti al contrario, su 50 mercati mai usati, il test v4 non conferma un effetto momentum."
+    it = lambda x, sign=False: (f"{100 * x:+.2f}" if sign else f"{100 * x:.2f}").replace(".", ",") + "%"
+    return (f"Letti al contrario, su 50 mercati mai usati dal programma (test v4), reggono: in 10 sedute dopo BYZ il prezzo ha fatto {it(n1['mean'])} "
+            f"peggio di un giorno qualsiasi, dopo SZT {it(n2['mean'])} meglio. È un vantaggio relativo e piccolo: tolti i costi, uno short dopo BYZ "
+            f"ha perso in media ({it(n1['mean_net'], True)}) e un long dopo SZT è rimasto in pari ({it(n2['mean_net'], True)}). Più severi (3 sedute di fila, soglia ±70) non vanno meglio.")
