@@ -12,6 +12,7 @@ from . import lookup as LK
 from . import option_lab as L
 from . import plan as P
 from . import snapshot as S
+from . import wiki as WK
 from .recorder import load_env
 
 PORT = 8787
@@ -142,6 +143,11 @@ class Handler(BaseHTTPRequestHandler):
                     self.send(200, json.dumps(S.clean(option_market(key, q.get("fresh", [""])[0] == "1"))).encode())
             elif url.path == "/api/labels":
                 self.send(200, json.dumps(LB.next_text()).encode())
+            elif url.path == "/api/wiki":
+                self.send(200, json.dumps(WK.pages()).encode())
+            elif url.path in ("/api/source", "/api/data"):
+                view = (WK.source if url.path == "/api/source" else WK.data_view)(q.get("path", [""])[0][:300])
+                self.send(*((200, json.dumps(view).encode()) if view else (404, b'{"error":"non disponibile"}')))
             elif url.path == "/api/plan":
                 code, reply = plan_reply(q)
                 self.send(code, json.dumps(S.clean(reply)).encode())

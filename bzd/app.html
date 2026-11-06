@@ -288,6 +288,28 @@ html[data-theme=kangtao] .heroCard{box-shadow:0 0 50px -18px rgba(224,181,74,.5)
 html[data-theme=kangtao] h2{text-shadow:0 0 12px rgba(224,181,74,.35)}
 html[data-theme=kangtao] tbody tr:hover td{background:rgba(82,220,199,.07)}
 html[data-theme=kangtao] nav button[aria-selected=true]{box-shadow:0 0 16px -4px var(--ui2)}
+.whocols{display:grid;grid-template-columns:1fr 1fr;gap:18px}.whocol h3{margin:0 0 8px;font:700 15px var(--head);letter-spacing:.04em}
+.whogrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
+.whocard{all:unset;cursor:pointer;display:flex;flex-direction:column;justify-content:flex-start;padding:8px 10px;background:var(--surface2);border:1px solid var(--line);border-radius:var(--radius)}.whocard:hover,.whocard.on{border-color:var(--y)}
+.whohead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:3px}.whohead b{font:700 15px var(--head)}
+.whonow{display:grid;gap:3px;margin:2px 0 8px}.whonow .lead{margin:0 0 2px}
+.wgraph{display:block;margin-top:6px}.wgraph text{font:12px var(--body,sans-serif);fill:var(--ink)}.wgraph .wcolhead{font:700 11px var(--head);letter-spacing:.14em}
+.wnode{cursor:pointer}.wnode rect{fill:var(--surface2);stroke-width:1}.wnode:hover rect,.wnode.on rect{fill:color-mix(in srgb,var(--y) 18%,var(--surface2))}.wnode.dim{opacity:.3}
+.wedge{fill:none;stroke:var(--axis);stroke-width:1;opacity:.55}.wedge.on{stroke:var(--y);opacity:1;stroke-width:1.6}.wedge.dim{opacity:.08}
+.wlayout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:14px;align-items:start;margin-top:14px}
+.windex{position:sticky;top:70px;max-height:calc(100vh - 90px);overflow:auto;padding-right:4px}.windex input{width:100%;margin-bottom:8px}
+.wlabel{font:700 11px var(--head);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:10px 0 4px}
+.wi{all:unset;cursor:pointer;display:block;padding:3px 8px;font-size:13px;color:var(--ink2);border-left:2px solid transparent}.wi:hover{color:var(--ink)}.wi.on{color:var(--ink);border-left-color:var(--y);background:var(--surface2)}
+.whead{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.wkind{font:700 11px var(--head);letter-spacing:.12em;text-transform:uppercase;border:1px solid;padding:1px 7px}.wstatus{font-size:12px;color:var(--ink2)}
+.wtitle{margin:8px 0 0}.wcols{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;margin-top:8px}
+.wbody .wh{margin:14px 0 4px}.wbody .wp{margin:6px 0;line-height:1.55;font-size:14px}.wlist{font-size:14px}
+.wlink{color:var(--y);text-decoration:none;border-bottom:1px dotted}.wcite{font:12.5px var(--mono,monospace);color:var(--s2);text-decoration:none;background:var(--surface2);padding:0 4px}.wcite.data{color:var(--s1)}.wbad{color:var(--crit)}
+.wside{margin-bottom:8px}.wref{all:unset;cursor:pointer;display:block;padding:4px 8px;margin:3px 0;background:var(--surface2);font:12px var(--mono,monospace);border-left:2px solid var(--axis);word-break:break-all}.wref:hover{border-left-color:var(--y)}.wref.bad{color:var(--crit);cursor:default}
+.wchips{display:flex;flex-wrap:wrap;gap:4px}.linkish{all:unset;cursor:pointer;color:var(--s2);text-decoration:underline}
+.wcode{max-height:65vh;overflow:auto;font:12px/1.45 var(--mono,monospace);background:var(--surface2);padding:6px 0;white-space:pre;min-width:min(900px,80vw)}.wcode .ln{display:inline-block;width:46px;text-align:right;padding-right:12px;color:var(--muted);user-select:none}.wcode .hl{background:color-mix(in srgb,var(--y) 22%,transparent)}
+.wfiles{display:grid;gap:2px;max-height:60vh;overflow:auto;min-width:min(700px,80vw)}.wfile{all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:12px;padding:3px 8px;font:12.5px var(--mono,monospace)}.wfile:hover{background:var(--surface2)}
+.wmods{columns:2;margin-top:6px}
+@media (max-width:1100px){.wcols,.wlayout,.whocols{grid-template-columns:1fr}.windex{position:static;max-height:none}}
 </style>
 </head>
 <body>
@@ -302,17 +324,84 @@ html[data-theme=kangtao] nav button[aria-selected=true]{box-shadow:0 0 16px -4px
 <dialog id="dlg"></dialog>
 <script>
 "use strict";
+function whoLine(who,g,state){if(!g||g.pressure==null)return el("div",{class:"small muted"},who+": nessun dato");const many=who.startsWith("I "),verb=g.action==="fermo"?(many?"non si muovono":"non si muove")+" più del solito":(many?{compra:"comprano",vende:"vendono"}[g.action]:g.action)+(g.intensity>=80?" forte":"");
+  const good=state&&((state==="dip"&&g.action==="compra")||(state==="top"&&g.action==="vende"));
+  return el("div",{class:"small"},el("span",{style:g.action==="fermo"?"color:var(--muted)":`color:${flowAct(g)};font-weight:650`},(g.action==="compra"?"▲ ":g.action==="vende"?"▼ ":"· ")+who+" "+verb),good?el("span",{class:"tiny muted"}," · "+(state==="dip"?"compra il dip":"vende il top")):null)}
 function walletSection(){
   const W=D.wallets;if(!W)return el("section",{class:"card"},el("h2",null,"Portafogli su Hyperliquid"),el("p",{class:"muted"},"Il primo giro di posizioni non è ancora stato registrato."));
   const usd=v=>v==null?"–":(v>=0?"+":"−")+"$"+(Math.abs(v)>=1e9?(Math.abs(v)/1e9).toFixed(2)+"B":(Math.abs(v)/1e6).toFixed(1)+"M");
-  const cell=g=>g.long||g.short?el("span",{title:g.long+" long, "+g.short+" short"},el("b",null,usd(g.net)),el("span",{class:"tiny muted"}," "+g.long+"L/"+g.short+"S")):el("span",{class:"muted"},"–");
+  const side=v=>v==null||!v?el("span",{class:"muted"},"–"):el("span",{style:`color:${v>0?"var(--good)":"var(--crit)"};font-weight:650`},(v>0?"long ":"short ")+usd(Math.abs(v)).slice(1));
+  const cell=g=>g.long||g.short?el("span",{title:g.long+" conti long, "+g.short+" short"},side(g.net)):el("span",{class:"muted"},"–");
   const cols=[{k:"market",label:"Mercato",val:r=>r.market,cell:r=>r.market.replace(/^xyz:/,"")+(r.market.startsWith("xyz:")?" (xyz)":"")},
     ...W.groups.map(g=>({k:g,label:g[0].toUpperCase()+g.slice(1),num:true,val:r=>r.groups[g].net,cell:r=>cell(r.groups[g]),title:W.wallets[g]+" portafogli"})),
     {k:"chg",label:"Vincenti storici, 24 ore",num:true,val:r=>r.groups["vincenti storici"].change_24h,cell:r=>usd(r.groups["vincenti storici"].change_24h),title:"Quanto è cambiato il netto dei vincenti storici rispetto a 24 ore prima"}];
-  const rows=W.rows.filter(r=>hitName(r.market));
+  const size=r=>Math.abs(r.groups["vincenti storici"].net||0)+Math.abs(r.groups["perdenti storici"].net||0);
+  const rows=W.rows.filter(r=>hitName(r.market)).sort((a,b)=>size(b)-size(a)),top=rows.slice(0,10);
+  const vs=top.slice(0,4).map(r=>{const w=r.groups["vincenti storici"].net,l=r.groups["perdenti storici"].net;return r.market.replace(/^xyz:/,"")+": vincenti "+(w>0?"long":"short")+", perdenti "+(l>0?"long":"short")+(Math.sign(w)!==Math.sign(l)?" (opposti)":"")});
   return el("section",{class:"card"},el("h2",null,"Portafogli su Hyperliquid: vincenti e perdenti"),
-    el("p",{class:"sub",style:"margin:2px 0 6px"},"Posizioni aperte, in dollari: + è long, − è short. I vincenti e i perdenti storici sono i 150 conti con più e meno profitti di sempre, quelli del mese i 50 dell'ultimo mese. Esclusi i conti sotto $100.000, i market maker e i conti che non fanno trading. Il profitto passato non prova bravura, e i vincenti del mese dopo un calo sono soprattutto chi era short. Descrive e non è testato. Giro del "+when(W.at)+(W.has_24h?".":"; il confronto a 24 ore arriva domani.")),
-    Table(cols,rows))}
+    el("p",{class:"lead",style:"margin:2px 0 6px"},vs.length?vs.join(" · ")+".":"Nessuna posizione registrata."),
+    el("p",{class:"sub",style:"margin:2px 0 6px"},"Quanto tengono in dollari, long o short, i conti più e meno profittevoli. Giro del "+when(W.at)+". Il profitto passato non prova bravura: descrive, non è un segnale."),
+    Table(cols,top),
+    rows.length>10?el("details",{style:"margin-top:8px"},el("summary",null,"Tutti i "+rows.length+" mercati"),el("div",{style:"margin-top:6px"},Table(cols,rows))):null,
+    el("details",{style:"margin-top:8px"},el("summary",null,"Chi sono questi conti"),el("p",{class:"small"},"I vincenti e i perdenti storici sono i 150 conti con più e meno profitti di sempre, quelli del mese i 50 dell'ultimo mese. Esclusi i conti sotto $100.000, i market maker e i conti che non fanno trading. Dopo un calo i vincenti del mese sono soprattutto chi era short."+(W.has_24h?"":" Il confronto a 24 ore arriva domani."))))}
+let WK={data:null,page:null,q:"",hover:null};
+const KIND_COL={fonte:"var(--s2)",raccolta:"var(--s1)",calcolo:"var(--y)",verifica:"var(--s4)",uscita:"var(--good)"};
+const ago=t=>{if(!t)return"mai";const m=(Date.now()/1000-t)/60;return m<1?"adesso":m<60?Math.round(m)+" min fa":m<2880?Math.round(m/60)+" ore fa":Math.round(m/1440)+" giorni fa"};
+const bytes=b=>b==null?"":b>=1e9?(b/1e9).toFixed(1)+" GB":b>=1e6?(b/1e6).toFixed(1)+" MB":b>=1e3?Math.round(b/1e3)+" kB":b+" B";
+function openWiki(slug){WK.page=slug;tab="motore";location.hash="motore";render();scrollTo(0,0)}
+async function loadWiki(){try{const r=await fetch("/api/wiki");WK.data=r.ok?await r.json():{error:true}}catch(e){WK.data={error:true}}if(tab==="motore")render()}
+function wikiInline(text,cites){const out=[],re=/\[\[([\w-]+)(?:\|([^\]]+))?\]\]|`([^`]+)`|\*\*([^*]+)\*\*/g;let i=0,m;const P=WK.data.pages;
+  while((m=re.exec(text))){if(m.index>i)out.push(text.slice(i,m.index));
+    if(m[1]){const p=P[m[1]];out.push(p?el("a",{href:"#motore",class:"wlink",onclick:e=>{e.preventDefault();WK.page=m[1];render();scrollTo(0,0)}},m[2]||p.title):el("span",{class:"wbad"},m[1]))}
+    else if(m[3]){const c=cites&&cites[m[3]],isData=/^data(\/|$)/.test(m[3]);out.push(c&&c.viewable?el("a",{href:"#motore",class:"wcite",title:"Apri "+c.path+(c.line?" alla riga "+c.line:""),onclick:e=>{e.preventDefault();showSource(c.path,c.line)}},m[3]):isData&&!/[*<]/.test(m[3])?el("a",{href:"#motore",class:"wcite data",onclick:e=>{e.preventDefault();showData(m[3].replace(/\/$/,""))}},m[3]):el("code",null,m[3]))}
+    else out.push(el("b",null,m[4]));i=re.lastIndex}
+  if(i<text.length)out.push(text.slice(i));return out}
+function wikiBody(md,cites){const out=[];let list=null;
+  for(const raw of md.split("\n")){const line=raw.trimEnd();const h=line.match(/^(#{1,3})\s+(.*)/),li=line.match(/^\s*(?:-|\d+\.)\s+(.*)/);
+    if(li&&list&&/^\s{2,}/.test(line)&&list.lastChild){let sub=list.lastChild.querySelector("ul");if(!sub){sub=el("ul",{class:"plain wlist"});list.lastChild.append(sub)}sub.append(el("li",null,wikiInline(li[1],cites)));continue}
+    if(li){if(!list){list=el(/^\s*\d/.test(line)?"ol":"ul",{class:"plain wlist"});out.push(list)}list.append(el("li",null,wikiInline(li[1],cites)));continue}
+    list=null;if(!line)continue;if(h){out.push(el(h[1].length===1?"h2":"h3",{class:"wh"},h[2]));continue}
+    out.push(el("p",{class:"wp"},wikiInline(line,cites)))}return out}
+function wikiGraph(){const W=WK.data,K=W.kinds,P=W.pages,cols=K.map(([k])=>Object.values(P).filter(p=>p.kind===k).sort((a,b)=>a.title.localeCompare(b.title)));
+  const rowH=24,top=30,width=1000,colW=width/K.length,H=top+Math.max(...cols.map(c=>c.length))*rowH+8,pos={};
+  cols.forEach((c,ci)=>c.forEach((p,ri)=>pos[p.slug]={x:ci*colW+8,y:top+ri*rowH,w:colW-34}));
+  const g=svg("svg",{viewBox:`0 0 ${width} ${H}`,width:"100%",class:"wgraph",role:"img","aria-label":"Mappa del motore: da sinistra le fonti, a destra le uscite"});
+  K.forEach(([k,n],ci)=>{const t=svg("text",{x:ci*colW+8,y:16,class:"wcolhead"});t.textContent=n.toUpperCase();t.style.fill=KIND_COL[k];g.append(t)});
+  const edges=[];for(const p of Object.values(P))for(const t of p.feeds)if(pos[t]&&pos[p.slug])edges.push([p.slug,t]);
+  const lines=edges.map(([a,b])=>{const A=pos[a],B=pos[b],x1=A.x+A.w,y1=A.y+9,x2=B.x,y2=B.y+9,back=x2<=x1,mx=back?Math.max(x1,x2)+40:(x1+x2)/2;
+    const path=svg("path",{d:back?`M${x1} ${y1}C${mx} ${y1},${mx} ${y2},${B.x+B.w} ${y2}`:`M${x1} ${y1}C${mx} ${y1},${mx} ${y2},${x2} ${y2}`,class:"wedge"});path.dataset.a=a;path.dataset.b=b;g.append(path);return path});
+  const light=s=>{for(const l of lines){const on=s&&(l.dataset.a===s||l.dataset.b===s);l.classList.toggle("on",!!on);l.classList.toggle("dim",!!s&&!on)}g.querySelectorAll(".wnode").forEach(n=>{const s2=n.dataset.slug,near=!s||s2===s||edges.some(([a,b])=>(a===s&&b===s2)||(b===s&&a===s2));n.classList.toggle("dim",!near)})};
+  for(const p of Object.values(P)){const q=pos[p.slug],stale=p.data_facts.some(d=>d.age_h!=null&&p.fresh&&d.age_h>({live:3,daily:30}[p.fresh]||1e9)),bad=W.lint.some(x=>x.page===p.slug&&x.kind!=="fermo");
+    const n=svg("g",{class:"wnode"+(p.slug===WK.page?" on":""),transform:`translate(${q.x} ${q.y})`,tabindex:"0",role:"button"});n.dataset.slug=p.slug;
+    n.append(svg("rect",{width:q.w,height:19,rx:3,style:`stroke:${KIND_COL[p.kind]}`}));const t=svg("text",{x:7,y:13.5});t.textContent=p.title.length>27?p.title.slice(0,26)+"…":p.title;n.append(t);
+    if(p.fresh||bad){const c=svg("circle",{cx:q.w-8,cy:9.5,r:3.5,fill:bad||stale?"var(--crit)":"var(--good)"});const tt=svg("title");tt.textContent=bad?"Citazione rotta":stale?"Dati fermi":"Dati freschi";c.append(tt);n.append(c)}
+    n.addEventListener("mouseenter",()=>light(p.slug));n.addEventListener("mouseleave",()=>light(null));n.addEventListener("click",()=>{WK.page=p.slug;render();$("#wpage").scrollIntoView({behavior:"smooth",block:"start"})});n.addEventListener("keydown",e=>{if(e.key==="Enter")n.dispatchEvent(new Event("click"))});g.append(n)}
+  return g}
+function refChip(r){const label=r.path+(r.sym?" › "+r.sym:"");return r.viewable&&(r.line||!r.sym)?el("button",{class:"wref",title:"Apri il file"+(r.line?" alla riga "+r.line:""),onclick:()=>showSource(r.path,r.line)},el("span",null,label),r.line?el("span",{class:"tiny muted"}," :"+r.line):null):el("span",{class:"wref bad",title:"Non trovato"},label)}
+function wikiPage(p){const W=WK.data,P=W.pages,kn=Object.fromEntries(W.kinds),probs=W.lint.filter(x=>x.page===p.slug);
+  const facts=p.data_facts.map(d=>el("button",{class:"wref",onclick:()=>showData(d.path)},el("span",null,d.path),el("div",{class:"tiny muted"},d.exists?fmt(d.files)+" file · "+bytes(d.bytes)+" · aggiornata "+ago(d.newest):"non esiste")));
+  const chips=(list,title)=>list.length?el("div",{class:"wside"},el("div",{class:"wlabel"},title),el("div",{class:"wchips"},list.map(s=>el("button",{class:"chip",style:`border-left:3px solid ${KIND_COL[P[s].kind]}`,onclick:()=>{WK.page=s;render()}},P[s].title)))):null;
+  const TABNAME=Object.fromEntries(TABS);
+  return el("section",{class:"card",id:"wpage"},el("div",{class:"whead"},el("span",{class:"wkind",style:`color:${KIND_COL[p.kind]};border-color:${KIND_COL[p.kind]}`},kn[p.kind]),p.status?el("span",{class:"wstatus"},p.status):null,p.tab&&TABNAME[p.tab]?el("button",{class:"ghost",onclick:()=>{tab=p.tab;location.hash=p.tab;render();scrollTo(0,0)}},"Apri «"+TABNAME[p.tab]+"» →"):null),
+    el("h2",{class:"wtitle"},p.title),p.brief?el("p",{class:"lead",style:"margin-top:2px"},p.brief):null,
+    probs.length?el("div",{class:"notice bad"},"Da controllare: "+probs.map(x=>x.text).join("; ")+"."):null,
+    el("div",{class:"wcols"},el("div",{class:"wbody"},wikiBody(p.body,p.inline)),
+      el("aside",null,p.code_refs.length?el("div",{class:"wside"},el("div",{class:"wlabel"},"Codice"),p.code_refs.map(refChip)):null,facts.length?el("div",{class:"wside"},el("div",{class:"wlabel"},"Cartelle dati"),facts):null,
+        p.doc_refs.length?el("div",{class:"wside"},el("div",{class:"wlabel"},"Documenti"),p.doc_refs.map(refChip)):null,chips(p.feeds,"Porta a →"),chips(p.backlinks,"← Arriva da"),
+        el("div",{class:"tiny muted",style:"margin-top:10px"},"Pagina: ",el("button",{class:"linkish",onclick:()=>showSource("docs/wiki/"+p.slug+".md",1)},"docs/wiki/"+p.slug+".md")))))}
+async function showSource(path,line){const d=$("#dlg");hideTip();d.replaceChildren(el("p",{class:"muted"},"Apro "+path+"…"));if(!d.open)d.showModal();
+  let j=null;try{const r=await fetch("/api/source?path="+encodeURIComponent(path));j=r.ok?await r.json():null}catch(e){}
+  if(!j){d.replaceChildren(el("p",{class:"notice bad"},"Questo file non si può mostrare."),el("button",{class:"btn",onclick:()=>d.close()},"Chiudi"));return}
+  const lines=j.text.split("\n"),pre=el("div",{class:"wcode"},lines.map((l,i)=>el("div",{class:i+1===line?"hl":null,id:"L"+(i+1)},el("span",{class:"ln"},String(i+1)),l||" ")));
+  d.replaceChildren(el("div",{class:"selectline"},el("h2",null,path+(line>1?" · riga "+line:"")),el("button",{class:"btn",onclick:()=>d.close()},"Chiudi")),el("p",{class:"tiny muted",style:"margin:2px 0 6px"},lines.length+" righe. Solo lettura."),pre);
+  if(line>1)requestAnimationFrame(()=>{const t=pre.querySelector("#L"+line);if(t)pre.scrollTop=t.offsetTop-pre.offsetTop-80})}
+async function showData(path){const d=$("#dlg");hideTip();d.replaceChildren(el("p",{class:"muted"},"Apro "+path+"…"));if(!d.open)d.showModal();
+  let j=null;try{const r=await fetch("/api/data?path="+encodeURIComponent(path));j=r.ok?await r.json():null}catch(e){}
+  const close=el("button",{class:"btn",onclick:()=>d.close()},"Chiudi"),up=path.includes("/")&&path!=="data"?el("button",{class:"ghost",onclick:()=>showData(path.slice(0,path.lastIndexOf("/")))},"↑ "+path.slice(0,path.lastIndexOf("/"))):null;
+  if(!j){d.replaceChildren(el("p",{class:"notice bad"},"Questa cartella o questo file non si può mostrare."),up,close);return}
+  if(j.dir){const f=j.facts;d.replaceChildren(el("div",{class:"selectline"},el("h2",null,path),el("div",null,up,close)),el("p",{class:"small",style:"margin:2px 0 8px"},fmt(f.files)+" file, "+bytes(f.bytes)+", ultimo aggiornamento "+ago(f.newest)+(j.total>j.items.length?". Mostro i "+j.items.length+" più recenti su "+j.total:"")+"."),
+    el("div",{class:"wfiles"},j.items.map(it=>el("button",{class:"wfile",onclick:()=>showData(path+"/"+it.name)},el("span",null,(it.dir?"📁 ":"📄 ")+it.name),el("span",{class:"tiny muted"},(it.bytes!=null?bytes(it.bytes)+" · ":"")+ago(it.mtime))))))}
+  else d.replaceChildren(el("div",{class:"selectline"},el("h2",null,path),el("div",null,up,close)),el("p",{class:"small",style:"margin:2px 0 8px"},bytes(j.bytes)+", aggiornato "+ago(j.mtime)+". Prime "+j.head.length+" righe:"),el("div",{class:"wcode"},j.head.map((l,i)=>el("div",null,el("span",{class:"ln"},String(i+1)),l||" "))))}
 let LK={q:"",res:[],timer:null};
 function lookupBox(){
   const res=el("div",{id:"lkRes",style:"max-height:260px;overflow:auto"});
@@ -335,7 +424,7 @@ function drawLabels(){const box=$("#lbBox");if(!box||!LB)return;if(LB.error){box
   box.replaceChildren(...head,el("p",{class:"sub",style:"margin:0 0 6px"},"Che umore esprime questo testo sul mercato di cui parla? Giudica il tono, non se la notizia è buona per i prezzi. «Non pertinente» se non parla di mercati. Servono per misurare se il sentiment dell'app legge i testi come te."),
     el("div",{class:"text",style:"font-size:1.05em;padding:10px 12px;border:1px solid var(--line);border-radius:8px"},t.text),el("div",{class:"tiny muted",style:"margin:4px 0 8px"},t.source.replace(/^(news|soc)_/,"")+" · "+when(t.time)+(/^https?:\/\//.test(t.url||"")?" · ":""),/^https?:\/\//.test(t.url||"")?el("a",{href:t.url,target:"_blank",rel:"noopener noreferrer"},"fonte"):null),
     el("div",{class:"chips"},LB.labels.map(l=>el("button",{class:"chip",onclick:()=>sendLabel(t.id,l)},names[l]||l))),LB.failed?el("p",{class:"notice bad"},"Non salvata, riprova."):null)}
-const TABS=[["oggi","Oggi"],["opzioni","Opzioni"],["tecnica","Analisi tecnica"],["sentiment","Sentiment"],["chi","Chi compra"],["alert","Alert"],["piano","Piano"],["test","Test"]];
+const TABS=[["oggi","Oggi"],["opzioni","Opzioni"],["tecnica","Analisi tecnica"],["sentiment","Sentiment"],["chi","Chi compra"],["alert","Alert"],["piano","Piano"],["test","Test"],["motore","Motore"]];
 const PARTS={slancio:"Slancio",rsi:"RSI",estensione:"Distanza dalla media",funding:"Funding",oi:"Leva (OI)",posizionamento:"Speculatori",calma:"Calma (volatilità bassa)"};
 const BANDS=[
   {word:"molto tirato in basso",short:"molto in basso",range:"0–19",brief:"Venduto forte e in fretta: quasi tutto è ai minimi della sua storia.",long:"Quasi tutti i fattori sono ai minimi rispetto alla storia di questo mercato: è stato venduto forte e in fretta, e chi usava la leva è già in buona parte uscito. Lo spazio per nuove vendite forzate si riduce, ma un mercato così può continuare a scendere: non è un segnale d'acquisto."},
@@ -546,21 +635,41 @@ sentiment(){
   ]},
 chi(){
   const all=D.flows||[];if(!all.length)return el("p",{class:"notice bad"},"Dati sulle posizioni non disponibili.");
-  const rows=all.filter(r=>hitName(r.label)),names=(st,act)=>all.filter(r=>r.state===st&&r.retail.action===act).map(r=>r.label),buy=names("dip","compra"),sell=names("top","vende"),chase=names("top","compra"),flee=names("dip","vende"),list=l=>l.slice(0,4).join(", ")+(l.length>4?" e altri "+(l.length-4):"");
-  const says=[buy.length?"Il retail compra il dip su "+list(buy):null,sell.length?"vende il top su "+list(sell):null].filter(Boolean).join(", "),also=[chase.length?"Compra il top su "+list(chase)+".":null,flee.length?"Vende il dip su "+list(flee)+".":null].filter(Boolean).join(" ");
-  const strength=r=>(r.state?1000:0)+Math.max(r.retail.intensity||0,r.big.intensity||0);
-  const cols=[{k:"strength",label:"Mercato",val:strength,cell:r=>r.label,title:"Prima gli estremi, poi chi si muove di più"},{k:"state",label:"Al dato",val:r=>r.score,cell:r=>r.state?el("span",{style:`color:${FLOW_STATE[r.state].col};font-weight:650`},FLOW_STATE[r.state].mark+" "+r.state):el("span",{class:"muted"},"–"),title:"Dip e top sono le zone BYZ e SZT sui soli indicatori di prezzo"},
-    {k:"retail",label:"Retail",val:r=>r.retail.pressure,cell:r=>flowCell(r.retail),title:"Pressione: da −100 a +100 rispetto al proprio passato. Compra o vende da 50 in su"},
-    {k:"big",label:"Grossi o fondi",val:r=>r.big.pressure,cell:r=>flowCell(r.big)},
-    {k:"money",label:"Denaro",val:r=>r.money?r.money.pressure:null,cell:r=>r.money?flowCell(r.money):el("span",{class:"muted"},"–"),title:"Dollari comprati meno venduti da chi attraversa lo spread, su spot e futures Binance. Solo cripto"},
-    {k:"oi_change",label:"OI",num:true,cell:r=>r.oi_change==null?"–":sgn(r.oi_change,1)+"%",title:"Variazione delle posizioni aperte nello stesso periodo: se sale entrano soldi nuovi, se scende si chiude"},
-    {k:"date",label:"Dato",cell:r=>el("span",{class:"tiny"},short(r.date.slice(0,10))+(r.tf==="1w"?", 1 sett.":", 3 g")),title:"Il COT è settimanale e arriva in ritardo"},
-    {k:"since_pct",label:"Da allora",num:true,cell:r=>r.since_pct==null?el("span",{class:"muted"},"–"):el("span",{title:r.state_today!==r.state?"Oggi il prezzo è "+(r.state_today||"fuori dagli estremi"):null},sgn(r.since_pct,1)+"%"+(r.state_today!==r.state?" ⚠":"")),title:"Quanto si è mosso il prezzo dalla data del report. ⚠: oggi non è più allo stesso estremo"}];
   queueMicrotask(()=>FLOW.data&&FLOW.data.market===FLOW.market?drawFlow():openFlow(FLOW.market));
+  const pick=m=>{FLOW.market=m;FLOW.tf=null;openFlow(m);const b=$("#flowCard");if(b)b.scrollIntoView({behavior:"smooth",block:"start"})};
+  const moving=r=>(r.retail.action!=="fermo")+(r.big.action!=="fermo"),ext=k=>all.filter(r=>r.state===k&&hitName(r.label)).sort((a,b)=>moving(b)-moving(a)),dips=ext("dip"),tops=ext("top"),big=r=>r.class==="crypto"?"I grossi":"I fondi";
+  const card=r=>el("button",{class:"whocard"+(r.market===FLOW.market?" on":""),onclick:()=>pick(r.market)},
+    el("div",{class:"whohead"},el("b",null,r.label),el("span",{class:"tiny muted"},r.tf==="1w"?"report del "+short(r.date.slice(0,10)):"ultimi 3 giorni")),
+    whoLine("Il retail",r.retail,r.state),whoLine(big(r),r.big,r.state),
+    r.since_pct!=null&&r.state_today!==r.state?el("div",{class:"tiny",style:"margin-top:3px"},"⚠ Da allora "+sgn(r.since_pct,1)+"%: oggi "+(r.state_today?"è in "+r.state_today:"non è più a un estremo")+"."):null);
+  const column=(list,k,title,empty)=>el("div",{class:"whocol"},el("h3",{style:`color:${FLOW_STATE[k].col}`},FLOW_STATE[k].mark+" "+title+" ("+list.length+")"),list.length?el("div",{class:"whogrid"},list.map(card)):el("p",{class:"muted small"},empty));
+  const word=g=>g.action==="fermo"?el("span",{class:"muted"},"fermo"):el("span",{style:`color:${flowAct(g)};font-weight:650`},g.action+(g.intensity>=80?" forte":""));
+  const cols=[{k:"label",label:"Mercato",val:r=>(r.state?"0":"1")+r.label,cell:r=>r.label},{k:"state",label:"Prezzo",val:r=>r.state||"z",cell:r=>r.state?el("span",{style:`color:${FLOW_STATE[r.state].col};font-weight:650`},FLOW_STATE[r.state].mark+" "+r.state):el("span",{class:"muted"},"normale")},
+    {k:"retail",label:"Retail",val:r=>r.retail.pressure,cell:r=>word(r.retail)},{k:"big",label:"Grossi o fondi",val:r=>r.big.pressure,cell:r=>word(r.big)},
+    {k:"date",label:"Dato del",val:r=>r.date,cell:r=>el("span",{class:"tiny"},short(r.date.slice(0,10))+(r.tf==="1w"?", COT":""))}];
   const groups=Object.entries(D.classes).map(([k,c])=>{const g=document.createElement("optgroup");g.label=c.name;all.filter(r=>r.class===k).forEach(r=>{const o=el("option",{value:r.market},r.label);if(r.market===FLOW.market)o.selected=true;g.append(o)});return g});
-  return [el("p",{class:"hero"},says?says+".":"Adesso il retail non compra né vende agli estremi"),el("p",{class:"sub"},also?also+" ":"","Chi cambia posizione quando il prezzo è tirato, e quanto forte rispetto al proprio passato. ✦ vuol dire più di quanto spiega il solo movimento del prezzo. Fuori dalle cripto il dato è quello dell'ultimo report COT. Descrive e non è testato."),
-    el("section",{class:"card"},el("h2",null,"Tutti i mercati, adesso"),el("div",{style:"margin-top:4px"},Table(cols,rows,{sort:"strength",on:r=>r.market===FLOW.market,onRow:r=>{FLOW.market=r.market;FLOW.tf=null;openFlow(r.market);$("#flowPick").scrollIntoView({block:"center"})}}))),
-    el("section",{class:"card"},el("div",{class:"selectline"},el("h2",null,"Chi ha comprato i dip e venduto i top"),el("div",{style:"display:flex;gap:8px;align-items:center;flex-wrap:wrap"},el("select",{id:"flowPick","aria-label":"Scegli il mercato",onchange:e=>{FLOW.market=e.target.value;FLOW.tf=null;openFlow(FLOW.market)}},groups),el("div",{class:"seg",id:"flowTf"}),el("div",{class:"seg",id:"flowWin"}))),el("div",{id:"flowBox",style:"margin-top:6px"},el("p",{class:"muted"},"Carico il grafico…"))),walletSection()]},
+  return [el("p",{class:"hero"},dips.length+tops.length?"Quando il prezzo è tirato, chi compra e chi vende?":"Adesso nessun mercato è a un estremo."),
+    el("p",{class:"sub"},"Due gruppi: il ",el("b",null,"retail")," (i piccoli) e i ",el("b",null,"grossi")," (top trader sulle cripto, fondi sugli altri mercati). «Compra» vuol dire che il gruppo è diventato più long del solito; sotto la soglia è «fermo». Descrive, non è testato come segnale. ",el("a",{href:"#motore",onclick:e=>{e.preventDefault();openWiki("chi-compra")}},"Come funziona →")),
+    el("section",{class:"card"},el("div",{class:"whocols",style:!dips.length!==!tops.length?`grid-template-columns:${dips.length?"3fr 1fr":"1fr 3fr"}`:null},column(dips,"dip","Sul dip","Nessun mercato al dip."),column(tops,"top","Sul top","Nessun mercato al top.")),
+      el("details",{style:"margin-top:10px"},el("summary",null,"Tutti i "+all.length+" mercati, anche fuori dagli estremi"),el("div",{style:"margin-top:6px"},Table(cols,all.filter(r=>hitName(r.label)),{sort:"label",dir:1,on:r=>r.market===FLOW.market,onRow:r=>pick(r.market)})))),
+    el("section",{class:"card",id:"flowCard"},el("div",{class:"selectline"},el("h2",null,"Un mercato nel tempo"),el("div",{style:"display:flex;gap:8px;align-items:center;flex-wrap:wrap"},el("select",{id:"flowPick","aria-label":"Scegli il mercato",onchange:e=>{FLOW.market=e.target.value;FLOW.tf=null;openFlow(FLOW.market)}},groups),el("div",{class:"seg",id:"flowTf"}),el("div",{class:"seg",id:"flowWin"}))),el("div",{id:"flowBox",style:"margin-top:6px"},el("p",{class:"muted"},"Carico il grafico…"))),walletSection()]},
+motore(){
+  if(!WK.data){loadWiki();return el("p",{class:"muted"},"Leggo il wiki…")}
+  if(WK.data.error)return el("p",{class:"notice bad"},"Il wiki non si legge.");
+  const W=WK.data,P=W.pages,K=W.kinds,hard=W.lint.filter(x=>x.kind!=="fermo"),stale=W.lint.filter(x=>x.kind==="fermo");
+  if(!P[WK.page])WK.page=P["chi-compra"]?"chi-compra":Object.keys(P)[0];
+  const q=WK.q.toLowerCase(),match=p=>!q||(p.title+" "+p.brief+" "+p.body+" "+p.code.join(" ")+" "+p.data.join(" ")).toLowerCase().includes(q);
+  const idx=el("div",{class:"windex",role:"navigation"},el("input",{type:"search",placeholder:"Cerca nel wiki: funding, COT, stop…",value:WK.q,"aria-label":"Cerca nel wiki",oninput:e=>{WK.q=e.target.value;const pos=e.target.selectionStart;render();const i=document.querySelector(".windex input");if(i){i.focus();i.setSelectionRange(pos,pos)}}}),
+    K.map(([k,n])=>{const ps=Object.values(P).filter(p=>p.kind===k&&match(p)).sort((a,b)=>a.title.localeCompare(b.title));return ps.length?el("div",null,el("div",{class:"wlabel",style:`color:${KIND_COL[k]}`},n),ps.map(p=>el("button",{class:"wi"+(p.slug===WK.page?" on":""),onclick:()=>{WK.page=p.slug;render()}},p.title))):null}));
+  return [el("p",{class:"hero"},"Il motore: come funziona tutto, con le fonti"),
+    el("div",{class:"sub"},wikiBody(W.intro||"",{})),el("p",{class:"small"},"Passa su un riquadro della mappa per vedere i collegamenti, cliccalo per la sua pagina. Ogni citazione apre il codice alla riga giusta o la cartella dati con l'ultimo aggiornamento."),
+    el("section",{class:"card"},el("div",{class:"selectline"},el("h2",null,"Mappa"),el("span",{class:"small "+(hard.length?"":"muted")},hard.length?"▲ "+hard.length+" citazioni o link da correggere":"✓ "+Object.keys(P).length+" pagine, ogni citazione porta a un file vero"+(stale.length?" · ▲ "+stale.length+" cartelle dati ferme":""))),wikiGraph(),
+      stale.length||hard.length?el("ul",{class:"plain small"},[...hard,...stale].map(x=>el("li",null,(x.page?P[x.page].title+": ":"")+x.text))):null),
+    el("div",{class:"wlayout"},idx,wikiPage(P[WK.page])),
+    el("section",{class:"card"},el("details",null,el("summary",null,"Registro delle modifiche"),el("div",{style:"margin-top:6px"},wikiBody(W.log.replace(/^# .*\n/,""),{}))),
+      el("details",{style:"margin-top:8px"},el("summary",null,"Chi importa chi, letto dal codice ("+W.modules.length+" collegamenti)"),el("p",{class:"tiny muted"},"Calcolato a ogni apertura dagli import dei file in bzd/, quindi non può restare indietro rispetto al codice."),
+        el("div",{class:"wmods"},[...new Set(W.modules.map(m=>m[0]))].map(a=>el("div",{class:"small"},el("button",{class:"linkish",onclick:()=>showSource("bzd/"+a+".py",1)},a)," → ",W.modules.filter(m=>m[0]===a).map(m=>m[1]).join(", ")))))),
+    el("p",{class:"tiny"},"Il wiki sta in docs/wiki/: una pagina per parte del motore. python -m bzd.wiki lint controlla che citazioni e link portino a qualcosa di vero.")]},
 alert(){
   const a=D.alerts,items=[...a.moves.map(m=>({kind:"movimenti",time:m.at,ic:m.down?"🔻":"🔺",name:m.label,title:m.label+" "+sgn(m.pct,1)+"% in "+m.window,line:m.position?"Prezzo "+m.position:"Soglia "+sgn(m.limit_pct,1)+"%",plan:m.plan_key?{key:m.plan_key,why:m.label+", forte movimento"}:null})),
     ...a.resets.map(r=>({kind:"reset",time:r.bar,ic:"🔄",name:r.label,title:r.label+", reset "+r.frame,line:"RSI "+fmt(r.rsi)+", "+r.kind,plan:r.plan_key?{key:r.plan_key,why:r.label+", reset "+r.frame,short:r.trend==="ribasso"}:null})),
@@ -659,10 +768,7 @@ function flowChart(f,tf,win,big){const cut=new Date(f.dates[f.dates.length-1].sl
   const path=(v,fy)=>{let p="",on=false;v.forEach((q,i)=>{if(q==null){on=false;return}p+=(on?"L":"M")+x(i).toFixed(1)+" "+fy(q).toFixed(1);on=true});return p};
   g.append(svg("path",{d:path(close,y),fill:"none",stroke:"var(--ink)","stroke-width":1.7,"stroke-linejoin":"round"}));
   const lt=svg("text",{x:W-R+7,y:y(close[n-1])+4});lt.textContent=fmt(close[n-1],dg);lt.style.fill="var(--ink)";g.append(lt);
-  const tri=(cx,cy,up,size,col,solid)=>svg("path",{d:up?`M${cx} ${cy-size}L${cx+size} ${cy+size*.8}L${cx-size} ${cy+size*.8}Z`:`M${cx} ${cy+size}L${cx+size} ${cy-size*.8}L${cx-size} ${cy-size*.8}Z`,fill:solid?col:"var(--surface)",stroke:solid?"var(--surface)":col,"stroke-width":solid?1:1.3});
-  st.forEach((s,i)=>{if(!s)return;const up=s==="dip",fits=q=>q!=null&&(up?q>=50:q<=-50);let off=11;
-    for(const[q,col,b]of[[re[i],"var(--s4)",reB[i]],[bi[i],"var(--s1)",biB[i]]]){if(!fits(q))continue;const size=3.5+3.5*(Math.abs(q)-50)/50;g.append(tri(x(i),y(close[i])+(up?off:-off),up,size,col,fits(b)));off+=2*size+2}});
-  for(const[v,col,name,top,bot]of PANELS){const yp=q=>top+(bot-top)*(1-(q+100)/200),head=svg("text",{x:L+4,y:top-6});head.textContent=name+": sopra +50 "+(name==="Denaro"?"spinge in acquisto, sotto −50 in vendita":"compra, sotto −50 vende");g.append(head);
+    for(const[v,col,name,top,bot]of PANELS){const yp=q=>top+(bot-top)*(1-(q+100)/200),head=svg("text",{x:L+4,y:top-6});head.textContent=name+": sopra +50 "+(name==="Denaro"?"spinge in acquisto, sotto −50 in vendita":"compra, sotto −50 vende");g.append(head);
     for(const[q,lab]of[[100,"+100"],[50,""],[0,"0"],[-50,""],[-100,"−100"]]){const ref=Math.abs(q)===50;g.append(svg("line",{x1:L,x2:W-R,y1:yp(q),y2:yp(q),stroke:ref||q===0?"var(--axis)":"var(--grid)","stroke-dasharray":ref?"3 3":""}));if(lab){const t=svg("text",{x:L-6,y:yp(q)+4,"text-anchor":"end"});t.textContent=lab;g.append(t)}}
     const barW=Math.max(1,Math.min(bw*.75,6));v.forEach((q,i)=>{if(q==null)return;const strong=Math.abs(q)>=50;g.append(svg("rect",{x:x(i)-barW/2,y:Math.min(yp(q),yp(0)),width:barW,height:Math.max(.5,Math.abs(yp(q)-yp(0))),fill:col,opacity:strong?1:.25}))})}
   const cross=svg("line",{y1:T,y2:GB,stroke:"var(--ink2)","stroke-width":1,visibility:"hidden"});g.append(cross);const hit=svg("rect",{x:L,y:T,width:W-L-R,height:GB-T,fill:"transparent"});
@@ -676,12 +782,17 @@ function drawFlow(){const box=$("#flowBox");if(!box)return;const pick=$("#flowPi
   const part=(n,many,g)=>n+" "+(g.action==="fermo"?(many?"non si muovono":"non si muove")+" più del solito":(many?{compra:"comprano",vende:"vendono"}[g.action]:g.action)+" con intensità "+fmt(g.intensity)+" ("+g.word+")")+", "+sgn(g.flow,1)+" punti"+(g.how?", "+(g.how_inferred?"probabilmente ":"")+g.how.replace(/^apre/,"aprendo").replace(/^chiude/,"chiudendo"):"")+(g.beyond?", oltre quanto spiega il prezzo":"");const usd=v=>sgn(v/1e6)+" M$";
   const hb=(h,word)=>h.bars?h.bars+" barre di "+word+": retail "+(word==="dip"?"compra":"vende")+" nel "+fmt(h.retail)+"%, "+big.toLowerCase()+" nel "+fmt(h.big)+"%":"nessuna barra di "+word;
   const rows=[...f.episodes].reverse(),cols=[{k:"from",label:"Dal",cell:e=>short(e.from.slice(0,10))+"/"+e.from.slice(0,4)},{k:"kind",label:"Estremo",cell:e=>el("span",{style:`color:${FLOW_STATE[e.kind].col};font-weight:600`},FLOW_STATE[e.kind].mark+" "+e.kind)},{k:"bars",label:"Barre",num:true},{k:"move",label:"Prezzo",num:true,cell:e=>sgn(e.move,1)+"%",title:"Dalla prima all'ultima barra dell'estremo"},{k:"retail",label:"Retail",num:true,cell:e=>sgn(e.retail),title:"Pressione più forte nel verso dell'estremo: acquisti sul dip, vendite sul top"},{k:"big",label:big,num:true,cell:e=>sgn(e.big)},{k:"verdict",label:"Chi",cell:e=>el("span",{class:"small"},e.verdict)}];
-  box.replaceChildren(el("p",{class:"lead",style:"margin:2px 0 6px"},el("b",null,v.label+". "),now.verdict?now.verdict+" ":"Il prezzo non è a un estremo. ",part("Il retail",false,now.retail)+". "+part("I "+big.toLowerCase(),true,now.big)+".",now.money?" Denaro "+(now.money.action==="fermo"?"senza spinta netta":now.money.action==="compra"?"in acquisto":"in vendita")+": spot "+usd(now.money.spot)+", futures "+usd(now.money.perp)+".":"",now.oi_change==null?"":" Posizioni aperte "+sgn(now.oi_change,1)+"%.",now.since_pct==null?"":" Il report è del "+short(now.date)+": da allora il prezzo ha fatto "+sgn(now.since_pct,1)+"%"+(now.state_today!==now.state?", e oggi "+(now.state_today?"è in "+now.state_today:"non è più a un estremo"):"")+"."),
+  const bigWho=v.big_label==="Grossi"?"I grossi":"I "+big.toLowerCase(),stateLine=now.state?el("span",{style:`color:${FLOW_STATE[now.state].col};font-weight:650`},FLOW_STATE[now.state].mark+" Il prezzo è al "+now.state):el("span",{class:"muted"},"Il prezzo non è a un estremo");
+  box.replaceChildren(el("div",{class:"whonow"},el("div",{class:"lead"},el("b",null,v.label+" · "),stateLine,now.since_pct==null?"":el("span",{class:"small muted"}," (report del "+short(now.date)+"; da allora "+sgn(now.since_pct,1)+"%"+(now.state_today!==now.state?", oggi "+(now.state_today?"al "+now.state_today:"fuori dagli estremi"):"")+")")),
+      whoLine("Il retail",now.retail,now.state),whoLine(bigWho,now.big,now.state),
+      now.money?el("div",{class:"small"},el("span",{style:now.money.action==="fermo"?"color:var(--muted)":`color:${flowAct(now.money)};font-weight:650`},"· Il denaro "+(now.money.action==="fermo"?"non spinge né in acquisto né in vendita":now.money.action==="compra"?"spinge in acquisto":"spinge in vendita")),el("span",{class:"tiny muted"}," · spot "+usd(now.money.spot)+", futures "+usd(now.money.perp))):null),
     flowChart(f,tf,win,big),
-    el("div",{class:"legend"},el("span",null,el("i",{class:"line",style:"background:var(--ink)"}),"prezzo"),el("span",null,el("i",{style:"background:var(--s4)"}),"retail"),el("span",null,el("i",{style:"background:var(--s1)"}),big.toLowerCase()),f.money?el("span",null,el("i",{style:"background:var(--s2)"}),"denaro"):null,el("span",null,el("i",{style:"background:var(--crit);opacity:.5"}),"dip"),el("span",null,el("i",{style:"background:var(--good);opacity:.5"}),"top"),el("span",null,"▲ compra il dip, ▼ vende il top: più è grande, più è forte. Pieno: oltre quanto spiega il prezzo. Vuoto: riflesso. Barre piene: oltre la soglia")),
-    el("p",{class:"hint"},el("b",null,"Di solito. "),hb(f.habit.dip,"dip")+"; "+hb(f.habit.top,"top")+". È il carattere del gruppo, non dice cosa è successo dopo."),
-    el("p",{class:"hint"},el("b",null,"Da dove viene. "),v.source+" «Compra» vuol dire che il gruppo è diventato più long. "+(now.since_pct==null?"Se apre o chiude si deduce dalle posizioni aperte di tutto il mercato, e sotto lo 0,5% non si può dire.":"Se apre o chiude lo dice il report, che separa long e short.")+" Le soglie sono scelte da noi e non testate.",now.available?" Ultimo report: "+short(now.date)+", disponibile dal "+short(now.available)+".":""),
-    rows.length?el("details",{style:"margin-top:8px;display:block"},el("summary",null,"Tutti gli estremi di questo mercato ("+rows.length+")"),el("div",{style:"margin-top:6px"},Table(cols,rows,{sort:"from",maxH:280}))):null,
+    el("div",{class:"legend"},el("span",null,el("i",{class:"line",style:"background:var(--ink)"}),"prezzo"),el("span",null,el("i",{style:"background:var(--crit);opacity:.5"}),"periodi di dip"),el("span",null,el("i",{style:"background:var(--good);opacity:.5"}),"periodi di top"),el("span",null,"Sotto: ogni barra è quanto il gruppo ha comprato (su) o venduto (giù) rispetto al suo solito. Piena = oltre la soglia.")),
+    el("details",{style:"margin-top:8px"},el("summary",null,"Dettagli, abitudini e fonti"),
+      el("ul",{class:"plain small"},el("li",null,part("Il retail",false,now.retail)+"."),el("li",null,part("I "+big.toLowerCase(),true,now.big)+"."),now.oi_change==null?null:el("li",null,"Posizioni aperte "+sgn(now.oi_change,1)+"%: se salgono entrano soldi nuovi, se scendono si chiude.")),
+      el("p",{class:"hint"},el("b",null,"Di solito. "),hb(f.habit.dip,"dip")+"; "+hb(f.habit.top,"top")+". È il carattere del gruppo, non dice cosa è successo dopo."),
+      el("p",{class:"hint"},el("b",null,"Da dove viene. "),v.source+" "+(now.since_pct==null?"Se apre o chiude si deduce dalle posizioni aperte di tutto il mercato, e sotto lo 0,5% non si può dire.":"Se apre o chiude lo dice il report, che separa long e short.")+" Le soglie sono scelte da noi e non testate.",now.available?" Ultimo report: "+short(now.date)+", disponibile dal "+short(now.available)+".":""),
+      rows.length?el("div",{style:"margin-top:6px"},el("div",{class:"small",style:"margin-bottom:4px"},"Tutti gli estremi di questo mercato ("+rows.length+")"),Table(cols,rows,{sort:"from",maxH:280})):null),
     el("p",{class:"tiny",style:"margin:6px 0 0"},"Mostra chi si è mosso, non cosa conviene fare. Non è stato testato come segnale."))}
 function testDetail(r){const d=$("#dlg");hideTip();const row=(n,v,h)=>el("div",{title:h||null},el("b",null,v),el("span",null,n));const[lo,hi]=(r.ci90||[0,0]).map(x=>x*100),m=r.mean*100,span=Math.max(Math.abs(lo),Math.abs(hi),Math.abs(m),.01)*1.25,pos=v=>50+v/span*50;
   const colors=r.outcome==="supportata"?"var(--good)":r.outcome==="non supportata"?"var(--crit)":"var(--muted)";
@@ -889,7 +1000,7 @@ async function load(){$("#fresh").textContent="Carico…";try{const r=await fetc
 function drawThemes(){const now=document.documentElement.dataset.theme,cur=THEMES.find(t=>t[0]===now)||THEMES[0],btn=$("#themeBtn"),box=$("#themes");btn.textContent="◐ Layout: "+cur[1];btn.title="Cambia layout";
   box.replaceChildren(...THEMES.map(([k,n,d,c])=>el("button",{"aria-pressed":String(k===now),onclick:()=>{document.documentElement.dataset.theme=k;localStorage.setItem("bzd-theme",k);box.classList.remove("open");btn.setAttribute("aria-expanded","false");drawThemes();if(D)render()}},el("span",{class:"swatch"},c.map(x=>el("i",{style:`background:${x}`}))),el("span",null,el("b",null,n),el("small",null,d)))))}
 $("#themeBtn").onclick=e=>{e.stopPropagation();const o=$("#themes").classList.toggle("open");$("#themeBtn").setAttribute("aria-expanded",String(o))};addEventListener("click",e=>{if(!e.target.closest(".themebox")){$("#themes").classList.remove("open");$("#themeBtn").setAttribute("aria-expanded","false")}});drawThemes();
-$("#reload").onclick=load;addEventListener("keydown",e=>{if(e.key==="Escape")hideTip()});load();setInterval(()=>{if(tab==="oggi"||tab==="sentiment")load()},300000);
+$("#reload").onclick=()=>{WK.data=null;load()};addEventListener("keydown",e=>{if(e.key==="Escape")hideTip()});load();setInterval(()=>{if(tab==="oggi"||tab==="sentiment")load()},300000);
 </script>
 </body>
 </html>
