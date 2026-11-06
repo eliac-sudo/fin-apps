@@ -50,6 +50,15 @@ Durata attesa, dai conteggi dal 2015: circa 27 cluster all'anno, quindi i 100 cl
 
 Con 100 cluster il test può dire «non supportata» per un effetto medio (d = 0,3), ma non vede un effetto piccolo. La soglia severa t ≥ 3 ha potenza del 50% anche a 100 cluster: per questo è riportata ma non decide l'esito.
 
+## Aggiunta del 6 novembre 2026: test storico, scritto prima di calcolare qualunque rendimento
+Su richiesta dell'utente, per non aspettare 3-4 anni, la stessa regola si testa anche sulla storia: `python -m bzd.v2 storico --confirm`, una volta sola.
+
+- **Periodo:** eventi dal 1° gennaio 2008 al 6 novembre 2026. La rassegna di Park e Irwin, da cui nasce l'idea, è del 2007: questi anni sono fuori dal campione della letteratura che l'ha ispirata.
+- **Tutto il resto è identico:** stessa configurazione e stesso hash, stessa ipotesi T1, stessi mercati, stessa soglia α = 0,01, stessa regola dei tre esiti. Gli ingressi casuali vengono dallo stesso mercato e dallo stesso anno, dentro il periodo.
+- **Cosa è già stato visto:** gli stessi prezzi sono serviti a B3, alla tecnica e ai tag, e i conteggi degli incroci dal 2015 sono stati guardati per stimare la durata. I rendimenti dopo gli incroci della media a 200 sedute non sono mai stati calcolati in BZD. Un modello linguistico (il supervisore) e chi scrive conoscono però la letteratura successiva al 2007 sul trend following: il periodo non è del tutto ignaro.
+- **Potenza:** circa 27 cluster all'anno per quasi 19 anni, circa 500 cluster: potenza vicina al 100% a d = 0,3, e alta anche a d = 0,2.
+- **Rapporto con il test sui dati futuri:** il test storico non lo sostituisce. Se il test storico è supportato, quello futuro dice se l'effetto c'è ancora. Se non lo è, il test futuro resta in piedi ma diventa poco promettente.
+
 ## Ipotesi secondarie (solo descrittive)
 - **Controllo azioni:** stessa regola su S&P 500, Nasdaq 100 e Russell 2000. La bozza voleva che l'idea fosse smentita anche se l'effetto è uguale o più forte sulle azioni. Ma le azioni danno circa 5 eventi all'anno, troppo pochi per un test: il confronto è solo descrittivo.
 - **Per classe:** cambi e materie prime separati.
