@@ -537,7 +537,7 @@ def notes_page(rows, verdicts=None):
 
 
 def ideas_page(rec):
-    lines = ["# Bozze di setup v2", "", "Scritte dal suggeritore (`python -m bzd.research idee`) a partire da `NOTE.md`. **Nessuna è testata.** Non entrano negli alert né nei setup congelati: ognuna diventa un setup solo se passa una pre-registrazione v2 su dati raccolti dopo la sua data.", "",
+    lines = ["# Bozze di setup v2", "", "Scritte dal supervisore (`python -m bzd.research supervisore`) a partire da `NOTE.md`, dopo aver ricontrollato ogni nota sul suo abstract. **Nessuna è testata.** Non entrano negli alert né nei setup congelati: ognuna diventa un setup solo se passa una pre-registrazione v2 su dati raccolti dopo la sua data.", "",
              f"Generate il {rec['ts'][:10]} con {rec['model']}."]
     if rec["status"] != "ok":
         return "\n".join(lines + ["", f"Nessuna bozza: {rec.get('detail')}."])
@@ -550,7 +550,7 @@ def ideas_page(rec):
     for i, x in enumerate(out["idee"], 1):
         rule = "; ".join(f"{r['variabile']} {r['condizione']} {r['soglia']:g}" for r in x["regola"])
         lines += ["", f"## {i}. {x['nome']}", "", x["ipotesi"], "", f"- **Da:** {', '.join(x['note'])}", f"- **Mercati:** {', '.join(x['mercati'])}", f"- **Regola:** {rule}", f"- **Orizzonte:** {x['orizzonte']}",
-                  f"- **Confronto:** {x['confronto']}", f"- **La smentisce:** {x['falsificazione']}", f"- **Dati che mancano:** {'; '.join(x['dati_mancanti']) or 'nessuno'}", f"- **Rischi:** {'; '.join(x['rischi']) or '–'}"]
+                  f"- **Confronto:** {x['confronto']}", f"- **La smentisce:** {x['falsificazione']}", f"- **Dati che mancano:** {'; '.join(y.rstrip(' .;') for y in x['dati_mancanti']) or 'nessuno'}", f"- **Rischi:** {'; '.join(y.rstrip(' .;') for y in x['rischi']) or '–'}"]
     return "\n".join(lines) + "\n"
 
 

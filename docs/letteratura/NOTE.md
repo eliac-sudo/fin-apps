@@ -21,6 +21,7 @@ Scritte dal lettore (`python -m bzd.research leggi`) **solo sugli abstract**, e 
 **Per BZD:** pertinenza alta, setup e test. BZD testa strategie su backtest e il lavoro riguarda proprio il rischio che quei backtest siano sovradattati, quindi serve a valutare la robustezza dei test.
 Idea da misurare: Stimare con CSCV la probabilità di overfitting delle strategie BZD su orizzonti da un giorno a un mese, prima di allocarvi capitale.
 Limiti: L'abstract è breve e non riporta dati, risultati numerici né dettagli del metodo; Le appendici non sono state lette, quindi non è possibile verificare le dimostrazioni; Il lavoro non dice nulla su cripto, azioni, bond, materie prime o forex né su dati di retail o funding.
+**Supervisore:** regge.
 
 ## Empirical Asset Pricing via Machine Learning (2020)
 
@@ -43,6 +44,7 @@ Limiti: L'abstract è breve e non riporta dati, risultati numerici né dettagli 
 **Per BZD:** pertinenza media, tecnica e tag BYZ/SZT, setup e test. Il lavoro mostra che segnali di momentum, liquidità e volatilità dominano la previsione dei rendimenti attesi, e tutto il confronto è fatto su predizione out-of-sample. Questo è utile a BZD per la parte di tecnica e di test dei segnali, anche se l'abstract non dice nulla su cripto, forex, opzioni o orizzonti da un giorno a un mese.
 Idea da misurare: Usare un modello non lineare (ad esempio un albero) su momentum, liquidità e volatilità per prevedere i rendimenti a un mese di cripto e azioni, confrontandolo con una regressione lineare semplice.
 Limiti: L'abstract non specifica dati, periodo, universo di asset né orizzonte di previsione; Non riporta i valori numerici di R-quadro né l'entità esatta dei guadagni economici; Non dice come sono stati costruiti i portafogli né quali costi di transazione sono stati considerati; L'appendice tecnica è citata ma non è disponibile nel testo fornito.
+**Supervisore:** forzata. La pertinenza dice che il confronto è tutto out-of-sample, ma l'abstract non lo dice. L'idea estende il risultato a cripto e a un orizzonte mensile, mentre l'abstract non indica né asset né orizzonte. BZD inoltre non ha una variabile di liquidità.
 
 ## Investor Sentiment and the Cross‐Section of Stock Returns (2006)
 
@@ -64,6 +66,7 @@ Limiti: L'abstract non specifica dati, periodo, universo di asset né orizzonte 
 **Per BZD:** pertinenza media, sentiment. Il lavoro riguarda il sentiment come fattore di rendimento, che è vicino al modulo sentiment di BZD. Però l'universo è quello delle singole azioni, mentre BZD non sceglie singole azioni: il segnale utile sarebbe a livello di panieri o mercato.
 Idea da misurare: Verificare se un indicatore di sentiment da dati gratuiti (posizionamento di retail o fondi) anticipa a un mese il rendimento relativo di panieri ad alta volatilità contro panieri a bassa volatilità.
 Limiti: Il giudizio si basa solo sull'abstract, senza metodo, dati e periodo campionario; I proxy di sentiment non sono specificati nell'abstract; Lo studio è del 2006 e riguarda il mercato azionario USA, non cripto, bond, materie prime o forex; Non è chiaro quanto l'effetto resista a costi di transazione e a orizzonti di un mese.
+**Supervisore:** forzata. Il risultato riguarda categorie di singole azioni e proxy di sentiment che l'abstract non definisce. L'idea usa il posizionamento di retail o fondi come proxy di sentiment, cosa che l'abstract non sostiene. Presuppone anche panieri di titoli che BZD non ha.
 
 ## Optimal execution of portfolio transactions (2001)
 
@@ -84,6 +87,7 @@ Limiti: Il giudizio si basa solo sull'abstract, senza metodo, dati e periodo cam
 **Per BZD:** pertinenza media, uscite e piano. Il lavoro riguarda come eseguire uscite da posizioni grandi con costi e rischio bilanciati. È utile per il piano di uscita e per stimare i costi di impatto, ma è un modello teorico e non usa cripto o dati di retail, funding o sentiment. Non riguarda la scelta di cosa comprare.
 Idea da misurare: Stimare con dati di volume gratuiti quanto costa uscire da una posizione in cripto o forex in tempi diversi, e confrontare il costo stimato con il rischio di volatilità durante l'uscita.
 Limiti: L'abstract non riporta dati empirici né risultati numerici; Il modello assume un costo di impatto lineare, che potrebbe non valere nei mercati cripto o in periodi di stress; Il lavoro è del 2001 e riguarda principalmente i mercati azionari tradizionali; Il testo non contiene indicazioni su segnali di acquisto o di vendita.
+**Supervisore:** forzata. L'abstract è un modello teorico di esecuzione, senza dati né mercati indicati. L'idea di stimare i costi di uscita su cripto e forex con dati di volume va oltre l'abstract. Inoltre BZD non ha dati di volume nel suo elenco. Anche il limite «riguarda principalmente i mercati azionari» non è nell'abstract.
 
 ## Risk, Return, and Equilibrium: Empirical Tests (1973)
 
@@ -102,6 +106,7 @@ Limiti: L'abstract non riporta dati empirici né risultati numerici; Il modello 
 
 **Per BZD:** pertinenza media, nessuno. Il lavoro è un riferimento classico sul rapporto tra rischio e rendimento e sull'efficienza dei mercati, utile per capire i fondamenti del rischio sistematico. Non tocca direttamente cripto, sentiment, posizionamento o opzioni, e il dataset del 1973 è solo azionario NYSE.
 Limiti: L'abstract è breve e non riporta periodo, numero di titoli né risultati numerici; Il lavoro è del 1973 e riguarda solo azioni NYSE, quindi la generalizzazione a cripto e altri asset è da verificare; L'affermazione di Gemini non è verificabile dal solo abstract.
+**Supervisore:** regge.
 
 ## WHAT DO WE KNOW ABOUT THE PROFITABILITY OF TECHNICAL ANALYSIS? (2007)
 
@@ -123,6 +128,7 @@ Limiti: L'abstract è breve e non riporta periodo, numero di titoli né risultat
 **Per BZD:** pertinenza media, tecnica e tag BYZ/SZT, setup e test. È una rassegna sulla redditività delle regole tecniche, quindi utile per il modulo di test e per capire quali risultati riguardano mercati simili a quelli di BZD. Però copre studi fino ai primi anni '90 e non dice nulla su dati gratuiti come posizionamento, funding o sentiment.
 Idea da misurare: Rifare un test di regole tecniche semplici su cripto e forex a orizzonte da un giorno a un mese, con controllo di data snooping e costi di transazione.
 Limiti: Abstract breve: non si possono verificare i dettagli delle regole né i periodi dei singoli studi; La letteratura citata è in gran parte precedente agli anni '90, quindi datata rispetto ai mercati attuali; Non riguarda dati di posizionamento, sentiment o opzioni.
+**Supervisore:** regge.
 
 ## … and the Cross-Section of Expected Returns (2015)
 
@@ -144,6 +150,7 @@ Limiti: Abstract breve: non si possono verificare i dettagli delle regole né i 
 **Per BZD:** pertinenza media, setup e test. Il lavoro riguarda il rischio di falsi positivi quando si testano molte variabili. BZD testa molti segnali su cripto, azioni, bond, materie prime e forex, quindi la stessa logica serve a valutare i propri test. Non riguarda però direttamente posizionamento, sentiment, opzioni od orizzonti di trading.
 Idea da misurare: Applicare una soglia di t-statistic più severa, o una correzione per test multipli, ai segnali di BZD che hanno superato il backtest su più varianti.
 Limiti: Solo abstract, senza dettagli sul metodo di correzione né sui dati; Riguarda il cross-section dei fattori di rendimento atteso, non segnali di trading a breve termine; Non dice quanto la nuova soglia riduca i falsi positivi in pratica; Le affermazioni di Gemini includono un numero (316) non presente nell'abstract.
+**Supervisore:** regge.
 
 ## A New Approach to the Economic Analysis of Nonstationary Time Series and the Business Cycle (1989)
 
@@ -159,6 +166,7 @@ Limiti: Solo abstract, senza dettagli sul metodo di correzione né sui dati; Rig
 
 **Per BZD:** pertinenza bassa, nessuno. Il lavoro riguarda il ciclo macroeconomico USA con dati trimestrali di PIL e non tocca cripto, azioni singole, bond, materie prime o forex a orizzonti da un giorno a un mese. Non ci sono dati di posizionamento, funding, sentiment, opzioni o tecnica di prezzo. Può dare un contesto sul regime di recessione, ma non un input operativo per BZD.
 Limiti: L'abstract è breve e non dà dettagli su periodo campionario, frequenza dei dati o specificazione completa del modello; Non ci sono affermazioni di Gemini da verificare; Il lavoro usa il PIL, che non è disponibile con frequenza giornaliera, quindi non si adatta agli orizzonti di BZD.
+**Supervisore:** regge.
 
 ## Do Stock Prices Fully Reflect Information in Accruals and Cash Flows About Future Earnings? (1996)
 
@@ -176,6 +184,7 @@ Limiti: L'abstract è breve e non dà dettagli su periodo campionario, frequenza
 
 **Per BZD:** pertinenza bassa, nessuno. Il lavoro riguarda l'efficienza dei prezzi azionari rispetto alla composizione dell'utile di singole aziende. BZD non sceglie singole azioni e non usa bilanci: l'uso è solo indiretto, come contesto sul sentiment del mercato.
 Limiti: L'abstract non riporta metodo, dati, campione né risultati; Il lavoro usa bilanci aziendali, dati che BZD non usa; L'orizzonte temporale della previsione non è indicato.
+**Supervisore:** regge.
 
 ## Quantifying the High-Frequency Trading "Arms Race" (2020)
 
@@ -197,6 +206,7 @@ Limiti: L'abstract non riporta metodo, dati, campione né risultati; Il lavoro u
 
 **Per BZD:** pertinenza bassa, nessuno. Il lavoro studia gare di latenza in microsecondi sui mercati azionari, cioè alta frequenza, che BZD non fa. BZD opera su orizzonti da un giorno a un mese e non sceglie singole azioni. Il risultato sul costo della liquidità è utile come contesto ma non si traduce nei segnali di BZD.
 Limiti: Il lavoro riguarda gare in microsecondi, fuori dagli orizzonti di BZD; I risultati si riferiscono alle azioni, mentre BZD studia anche cripto, bond, materie prime e forex; L'abstract non dà dettagli sul periodo, sulla fonte esatta dei dati e sul metodo di stima; Le stime in dollari valgono solo per i mercati azionari globali.
+**Supervisore:** regge.
 
 ## The High-Frequency Trading Arms Race: Frequent Batch Auctions as a Market Design Response (2013)
 
@@ -218,6 +228,7 @@ Limiti: Il lavoro riguarda gare in microsecondi, fuori dagli orizzonti di BZD; I
 
 **Per BZD:** pertinenza bassa, nessuno. Il lavoro riguarda la microstruttura degli exchange e la latenza a livello di millisecondi, cioè l'alta frequenza. BZD lavora su orizzonti da un giorno a un mese con dati gratuiti su posizionamento, sentiment, tecnica e opzioni, quindi il tema è lontano dal suo uso.
 Limiti: L'abstract non riporta stime quantitative dei costi dell'arbitraggio; Il lavoro usa dati direct-feed a millisecondi, non disponibili a BZD con dati gratuiti; Il lavoro è teorico e normativo: propone un cambio di design di mercato, non una strategia di trading; Il riassunto è breve e non permette di verificare i dettagli empirici.
+**Supervisore:** regge.
 
 ## The “Actual Retail Price” of Equity Trades (2025)
 
@@ -237,6 +248,7 @@ Limiti: L'abstract non riporta stime quantitative dei costi dell'arbitraggio; Il
 
 **Per BZD:** pertinenza bassa, nessuno. Lavoro sulla qualità dell'esecuzione al dettaglio, utile come contesto sui costi di trading. BZD opera su orizzonti da un giorno a un mese con dati gratuiti e non ha accesso a esecuzioni o ordini di retail da confrontare, quindi il lavoro non si collega ai suoi moduli.
 Limiti: L'abstract non riporta il metodo di stima dei costi né il periodo del campione; Il campione riguarda sei conti presso cinque broker, quindi la generalizzabilità è limitata; Non si applica direttamente a cripto, forex o materie prime.
+**Supervisore:** regge.
 
 ## Value Investing: The Use of Historical Financial Statement Information to Separate Winners from Losers (2000)
 
@@ -253,6 +265,7 @@ Limiti: L'abstract non riporta il metodo di stima dei costi né il periodo del c
 
 **Per BZD:** pertinenza bassa, nessuno. Il titolo parla di separare vincitori e perdenti tra le singole aziende con dati di bilancio, mentre BZD non sceglie singole azioni e non usa bilanci.
 Limiti: L'abstract fornito è solo la citazione bibliografica, senza il testo del riassunto; Senza il riassunto non si possono verificare metodo, dati e risultati; L'affermazione di Gemini riguarda un dato numerico che non compare nel testo fornito.
+**Supervisore:** regge.
 
 ## A five-factor asset pricing model (2014)
 
