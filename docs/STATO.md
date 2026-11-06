@@ -35,6 +35,7 @@ Revisione degli alert con l'LLM **accesa**: `.env` ha `BZD_AGENTS=on` dalle 12:3
 - **Alert su Telegram:** forti movimenti (`bzd/moves.py`), setup, reset, termometro e opzioni ogni giorno.
 - **Piano** (`bzd/plan.py`, `docs/A3_REGOLE.md`): `/piano` sul bot e sezione nell'app.
 - **Test** (`bzd/b3.py`, `docs/B3_RISULTATI.md`): eseguito una sola volta, non si rifà.
+- **Pre-registrazione v2** (`bzd/v2.py`, `config/setups_v2.json`, `docs/PREREGISTRAZIONE_v2.md`): la bozza del supervisore, congelata il 6 novembre. Long dopo l'incrocio al rialzo della media a 200 sedute, tenuto 20 sedute, su 6 cambi e 8 materie prime, con le azioni come controllo descrittivo. Contano solo eventi dal 9 novembre 2026. Test una volta sola a 100 cluster, circa 3 anni e mezzo, o al 30 novembre 2030. `python -m bzd.v2 stato` conta gli eventi senza calcolare rendimenti.
 - **Archivio** (`docs/archivio/`): l'idea iniziale, il primo progetto degli agenti con le sue fonti e il calcolo di potenza. Superati, non guidano il codice.
 
 - **Livelli negli alert (6 novembre):** nei «forte movimento» le distanze da supporto e resistenza partivano dalla chiusura di ieri, non dal prezzo live. Dopo un calo forte un supporto poteva risultare sotto il prezzo quando era già rotto (Nasdaq il 5 novembre). Ora partono dal prezzo live. Se il prezzo live è di un altro strumento (TLT per il future sui bond), i livelli restano quelli del future, e il messaggio lo dice.
@@ -67,7 +68,7 @@ Revisione degli alert con l'LLM **accesa**: `.env` ha `BZD_AGENTS=on` dalle 12:3
 
 L'utente ha deciso il 5 novembre: **prima l'app, gli alert e le indicazioni devono avere senso, poi il server.**
 
-1. **Agenti di ricerca:** il lettore ha girato. Il suggeritore è diventato il supervisore (deciso il 6 novembre): su Opus ricontrolla ogni nota di Haiku sul suo abstract (regge, da correggere, forzata) e scrive bozze solo dalle note che reggono. Gira di rado, una volta al mese o ogni 10 note nuove: `stima` dice quando. Tetto alzato a 1,50 $ il 6 novembre. Primo giro lo stesso giorno, circa 0,18 $: 10 note reggono, 3 forzate (Almgren-Chriss, Baker-Wurgler, Gu-Kelly-Xiu), una bozza in `docs/letteratura/IDEE_V2.md` (trend lungo su cambi e materie prime, azioni come controllo). Non testata: serve una pre-registrazione v2.
+1. **Agenti di ricerca:** il lettore ha girato. Il suggeritore è diventato il supervisore (deciso il 6 novembre): su Opus ricontrolla ogni nota di Haiku sul suo abstract (regge, da correggere, forzata) e scrive bozze solo dalle note che reggono. Gira di rado, una volta al mese o ogni 10 note nuove: `stima` dice quando. La bozza sul trend lungo è pre-registrata come v2. Tetto alzato a 1,50 $ il 6 novembre. Primo giro lo stesso giorno, circa 0,18 $: 10 note reggono, 3 forzate (Almgren-Chriss, Baker-Wurgler, Gu-Kelly-Xiu), una bozza in `docs/letteratura/IDEE_V2.md` (trend lungo su cambi e materie prime, azioni come controllo). Non testata: serve una pre-registrazione v2.
 2. **App e alert:** rivedere che ogni indicazione sia chiara e coerente con i test.
 3. **Server, poi backup fuori dal Codespace:** il kit è pronto (`docs/SERVER.md`). `data/` e `.env` non sono su GitHub.
 

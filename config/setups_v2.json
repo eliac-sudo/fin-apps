@@ -1,0 +1,41 @@
+{
+  "version": 2,
+  "name": "trend_lungo",
+  "source": "bozza 1 del supervisore, docs/letteratura/IDEE_V2.md, 6 novembre 2026",
+  "signal": {
+    "bar": "1d",
+    "average": "sma",
+    "length": 200,
+    "event": "chiusura giornaliera sopra la media dopo una chiusura sotto o uguale",
+    "direction": "long"
+  },
+  "primary_classes": ["fx", "commodities"],
+  "control_classes": ["equities"],
+  "markets": {
+    "fx": ["EURUSD=X", "USDJPY=X", "GBPUSD=X", "AUDUSD=X", "USDCHF=X", "USDCAD=X"],
+    "commodities": ["CL=F", "NG=F", "GC=F", "SI=F", "HG=F", "ZC=F", "ZW=F", "ZS=F"],
+    "equities": ["ES=F", "NQ=F", "RTY=F"]
+  },
+  "first_trigger": "2026-11-09",
+  "entry_after_bars": 1,
+  "horizon_bars": 20,
+  "cooldown_bars": 20,
+  "merge_days": 3,
+  "evaluate": {
+    "min_clusters": 100,
+    "deadline": "2030-11-30"
+  },
+  "test": {
+    "statistic": "t unilaterale sulla media dei cluster dell'eccesso, direzione maggiore",
+    "alpha": 0.01,
+    "also_report_t": 3.0,
+    "baseline_draws": 200,
+    "baseline_seed": 20261109,
+    "bootstrap_reps": 5000
+  },
+  "costs": {
+    "fee_per_side": 0.00045,
+    "slippage_per_side": 0.0002,
+    "funding_per_day_sensitivity": 0.0003
+  }
+}
