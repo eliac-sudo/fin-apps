@@ -1,48 +1,40 @@
-# Chi compra il dip e chi vende il top
+# Chi è long e chi è short
 
-Scheda dell'app «Chi compra» (`bzd/flows.py`). Descrive chi cambia posizione quando il prezzo è tirato, e quanto forte. Non è testato come segnale e non è un consiglio. Niente alert su Telegram.
+Scheda dell'app «Chi compra» (`bzd/flows.py`). Dice come sono posizionati il retail e i grossi su ogni mercato, rispetto alla loro storia recente. Descrive, non è testato come segnale e non è un consiglio. Niente alert su Telegram.
+
+Rifatta il 6 novembre 2026. La versione precedente chiedeva «chi compra il dip e chi vende il top», misurando la variazione di posizione in percentili, con verdetti, episodi, «oltre il movimento» e «apre o chiude». Era confusa. Inoltre il dip e il top sono le zone BYZ e SZT, che i test v3, v4 e v5 hanno smentito, e seguire chi compra sul dip (F1, F2) non ha dato vantaggi. Il codice delle variazioni resta solo perché il test v3 congelato lo usa.
 
 ## Come funziona
 
-**Due gruppi per mercato, più il denaro sulle cripto.**
-
-| Mercati | Retail | Grossi o fondi | Denaro | Frequenza |
+| Mercati | Retail | Grossi o fondi | Livello | Frequenza |
 |---|---|---|---|---|
-| Cripto (9) | quota di conti long su Binance e Bybit, dove ogni conto vale uno | quota long nelle posizioni dei top trader Binance, il 20% di conti con più margine | dollari comprati meno venduti da chi attraversa lo spread, su spot e futures Binance | 4h e giorno, dal dicembre 2021 |
-| Azioni, bond, materie prime, forex (21) | «nonreportable» del COT: posizioni sotto la soglia di segnalazione | leveraged funds, o managed money sulle materie prime | – | settimanale dal 2006, misurato di martedì e pubblicato giorni dopo |
+| Cripto (9) | quota di conti long su Binance e Bybit, dove ogni conto vale uno | quota long delle posizioni dei top trader Binance, il 20% di conti con più margine | la quota stessa | giornaliera, dal dicembre 2021 |
+| Azioni, bond, materie prime, forex (21) | «nonreportable» del COT: posizioni sotto la soglia di segnalazione | leveraged funds, o managed money sulle materie prime | netto long meno short, in quota delle posizioni aperte, col segno della coppia come è quotata | settimanale dal 2006, misurato di martedì e pubblicato giorni dopo |
 
-**Dip e top.** Sono le zone BYZ e SZT sui soli indicatori di prezzo (`zones.indicator_score`): punteggio fino a −50 e da +50 in su. Sul COT si legge il punteggio giornaliero alla data del report.
+**Percentile sui 3 anni.** Per ogni gruppo, dove sta il livello di oggi tra quelli degli ultimi 3 anni dello stesso gruppo, da 0 (il più short) a 100 (il più long). Ogni valore usa solo il passato. Sul COT è il classico «COT index». Con meno di un anno (cripto) o due (COT) di storia non si calcola.
 
-**Pressione e intensità.** Si misura la variazione di posizione: 1 giorno sul 4h, 3 giorni sul giornaliero, un report sul settimanale. La pressione è il percentile di quella variazione tra le variazioni precedenti dello stesso gruppo, riportato da −100 a +100, e usa solo il passato. L'intensità è la sua grandezza: +90 vuol dire più acquisti del 95% del passato.
+| Percentile | Parola |
+|---|---|
+| da 90 | molto long, affollato |
+| 70–89 | più long del solito |
+| 30–69 | nella norma |
+| 10–29 | più short del solito |
+| sotto 10 | molto short, affollato |
 
-| Intensità | Parola | Lettura |
-|---|---|---|
-| sotto 50 | debole | «fermo»: rumore normale |
-| 50–79 | moderata | compra o vende |
-| 80–94 | forte | compra o vende |
-| da 95 | estrema | compra o vende |
+**Opposti:** un gruppo sopra il 70 e l'altro sotto il 30. **↑ o ↓:** il percentile si è mosso di almeno 5 punti in 3 giorni (cripto) o nell'ultimo report (COT). **Prezzo da allora:** sul COT, quanto si è mosso il prezzo dal martedì del report.
 
-**✦ Oltre il movimento.** La stessa pressione, tolto quanto il solo movimento del prezzo farebbe prevedere. Sul grafico, un triangolo pieno è ✦ e uno vuoto è riflesso. La pendenza usa solo barre precedenti, su una finestra mobile: 90 giorni sul 4h, 6 mesi sul giornaliero, 2 anni sul settimanale. Le finestre sono scelte perché il resto risulta scorrelato dal prezzo (tra −0,05 e +0,01 su BTC, ETH, oro e S&P 500), senza guardare i rendimenti.
+Perché il livello e non la variazione: la variazione di una settimana è rumore, e sulle cripto il retail si muove contro il prezzo per riflesso. Il livello dice se un gruppo è già sbilanciato, che è la domanda utile. Le soglie sono convenzioni, non testate.
 
-**Apre o chiude.** Il COT separa long e short, quindi lì è un fatto. Sulle cripto è dedotto dalle posizioni aperte di tutto il mercato, con un «?» accanto, e sotto lo 0,5% non si dice.
+**Dove sono i dati.** `data/hist/positions/`, da `python -m bzd.history get positions`. Le cripto si aggiornano ogni 4 ore con il giro degli alert, il COT con il suo giro settimanale.
 
-Le soglie sono scelte a giudizio, non testate.
+## Limiti
 
-**Dove sono i dati.** `data/hist/positions/`, da `python -m bzd.history get positions`, circa 30 minuti. Le cripto si aggiornano ogni 4 ore con il giro degli alert, il COT con il suo giro settimanale. I file usati dai setup congelati non vengono toccati.
+- Sulle cripto il retail conta i conti, non i soldi; i top trader e i conti vengono solo da Binance e Bybit, mancano Hyperliquid e OKX.
+- Il COT è in ritardo di 3–10 giorni e il suo retail comprende piccoli professionisti, che la CFTC non separa.
+- La storia cripto parte dal dicembre 2021, quindi i «3 anni» coprono un solo ciclo.
+- I livelli non sono testati: che un gruppo affollato preceda un'inversione è un'idea diffusa, non verificata qui.
 
-## Limiti: cosa è stato risolto e cosa resta
-
-| Limite | Stato | Cosa c'è ora |
-|---|---|---|
-| Sulle cripto conta i conti, non i soldi | ridotto | il denaro è in dollari, ma dice dove spinge il denaro e non chi spinge. La size del retail resta invisibile |
-| «Più long» può voler dire chiudere short | risolto sul COT, stimato sulle cripto | «apre» o «chiude» accanto a ogni gruppo |
-| Solo Binance | ridotto | conti da Binance e Bybit, che si muovono insieme (correlazione 0,80–0,93 a 3 giorni su BTC, ETH e SOL). Top trader e denaro restano solo Binance, e Hyperliquid e OKX mancano |
-| L'intensità dipende dal movimento | risolto | ✦ oltre il movimento |
-| COT in ritardo | reso visibile, non risolto | colonna «Da allora» e ⚠ se oggi il prezzo non è più allo stesso estremo. Il dato resta settimanale |
-| «Fondi» troppo generici | risolto | leveraged funds e managed money al posto dei non commerciali |
-| Il retail del COT comprende piccoli professionisti | non risolvibile | la CFTC non li separa |
-
-## Cosa dicono i dati
+## Cosa dicevano i dati della versione precedente
 
 Misura descrittiva del 5 novembre 2026, non un test: barre sovrapposte, dati già visti, nessuna soglia fissata prima. Non va usata come regola.
 

@@ -283,13 +283,13 @@ def sentiment_market(market):
 
 
 def flows_market(market):
-    view = FL.market_view(market)
-    return {**view, "label": label(market)} if view else None
+    view = FL.level_now(market)
+    return {"market": market, "label": label(market), "pos": view} if view else None
 
 
 def flows_part():
     cls = {m: ("crypto" if m in CRYPTO else MARKETS[m][0]) for m in K.all_markets()}
-    return [{**r, "label": label(r["market"]), "class": cls[r["market"]]} for r in FL.overview()]
+    return [{**r, "label": label(r["market"]), "class": cls[r["market"]]} for r in FL.positioning()]
 
 
 def technical_part():

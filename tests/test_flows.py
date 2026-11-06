@@ -12,38 +12,6 @@ def days(n, start="2024-01-01"):
     return pd.date_range(start, periods=n, tz="UTC")
 
 
-class TestWords(unittest.TestCase):
-    def test_a_group_acts_only_from_the_threshold(self):
-        self.assertEqual([F.action(x) for x in (49.9, 50, -49.9, -50, float("nan"))], ["fermo", "compra", "fermo", "vende", None])
-
-    def test_intensity_words(self):
-        self.assertEqual([F.word(x) for x in (10, 50, 80, 95)], ["debole", "moderata", "forte", "estrema"])
-
-    def test_the_sentence_names_who_acts(self):
-        self.assertEqual(F.verdict("dip", "compra", "vende", "i grossi"), "Sul dip compra il retail, vendono i grossi.")
-        self.assertEqual(F.verdict("top", "vende", "vende", "i fondi"), "Sul top vendono il retail e i fondi.")
-        self.assertEqual(F.verdict("top", "fermo", "compra", "i grossi"), "Sul top comprano i grossi.")
-        self.assertEqual(F.verdict("dip", "fermo", "fermo", "i grossi"), "Sul dip nessuno si muove più del solito.")
-        self.assertIsNone(F.verdict(None, "compra", "vende", "i grossi"))
-
-
-class TestHow(unittest.TestCase):
-    def test_the_report_tells_opening_from_closing(self):
-        self.assertEqual(F.how_of("compra", .03, -.01), "apre long")
-        self.assertEqual(F.how_of("compra", .01, -.03), "chiude short")
-        self.assertEqual(F.how_of("vende", .01, .03), "apre short")
-        self.assertEqual(F.how_of("vende", -.03, .01), "chiude long")
-        self.assertIsNone(F.how_of("fermo", .03, 0))
-
-    def test_open_interest_gives_a_guess_only_when_clear(self):
-        self.assertEqual(F.how_from_oi("compra", 2), "apre long")
-        self.assertEqual(F.how_from_oi("compra", -2), "chiude short")
-        self.assertEqual(F.how_from_oi("vende", 2), "apre short")
-        self.assertEqual(F.how_from_oi("vende", -2), "chiude long")
-        self.assertIsNone(F.how_from_oi("compra", .2))
-        self.assertIsNone(F.how_from_oi("compra", None))
-
-
 class TestBeyond(unittest.TestCase):
     def setUp(self):
         r = np.random.default_rng(3)
@@ -83,31 +51,6 @@ class TestPressure(unittest.TestCase):
 def table(states, retail, big):
     n = len(states)
     return pd.DataFrame({"state": states, "retail": retail, "big": big, "close": np.arange(100.0, 100.0 + n)}, index=days(n))
-
-
-class TestEpisodes(unittest.TestCase):
-    def test_a_short_pause_keeps_one_run_with_its_strongest_pressure(self):
-        x = table(["dip", None, "dip", None, None, None, None, "top"], [60, 0, 90, 0, 0, 0, 0, -70], [-80, 0, -60, 0, 0, 0, 0, 10])
-        e = F.episodes(x, "1d", "i grossi")
-        self.assertEqual([(a["kind"], a["bars"]) for a in e], [("dip", 2), ("top", 1)])
-        self.assertEqual((e[0]["retail"], e[0]["big"]), (90, -60))
-        self.assertEqual(e[0]["verdict"], "Sul dip compra il retail, vendono i grossi.")
-        self.assertEqual(e[1]["verdict"], "Sul top vende il retail.")
-
-    def test_habit_counts_the_usual_action_at_extremes(self):
-        h = F.habit(table(["dip", "dip", "top", None], [80, 10, -60, 90], [10, 70, 10, 0]))
-        self.assertEqual(h["dip"], {"bars": 2, "retail": 50.0, "big": 50.0})
-        self.assertEqual(h["top"], {"bars": 1, "retail": 100.0, "big": 0.0})
-
-    def test_a_bar_without_extreme_has_no_verdict(self):
-        x = table([None, None], [10, 60], [0, -60]).assign(retail_flow=[.01, .02], big_flow=[.0, -.02], score=[0.0, 10.0], oi_change=[1.0, np.nan], retail_beyond=[0.0, 70.0], big_beyond=[0.0, 0.0])
-        now = F.frame_view(x, "1d", "i grossi")["now"]
-        self.assertIsNone(now["state"])
-        self.assertIsNone(now["verdict"])
-        self.assertEqual(now["retail"]["action"], "compra")
-        self.assertTrue(now["retail"]["beyond"])
-        self.assertFalse(now["big"]["beyond"])
-        self.assertIsNone(now["oi_change"])
 
 
 class TestTables(unittest.TestCase):
@@ -156,10 +99,32 @@ class TestTables(unittest.TestCase):
             x = F.cot_table("USDJPY=X")
         self.assertEqual([round(v, 2) for v in x.retail_flow], [-.1, 0])
 
+    def test_cot_levels_are_net_shares_signed_for_the_pair(self):
+        self.cot("ESF")
+        self.cot("USDJPYX")
+        with self.frames():
+            es, jpy = F.cot_levels("ES=F"), F.cot_levels("USDJPY=X")
+        self.assertEqual([round(v, 2) for v in es.retail], [0, .1, .1])
+        self.assertEqual([round(v, 2) for v in es.big], [0, 0, .35])
+        self.assertEqual([round(v, 2) for v in jpy.retail], [0, -.1, -.1])
+
     def test_a_market_without_data_is_none(self):
         with self.frames():
             self.assertIsNone(F.cot_table("ES=F"))
         self.assertIsNone(F.crypto_table("BTC", "9h"))
+
+
+class TestLevels(unittest.TestCase):
+    def test_percentile_uses_only_the_window_up_to_each_bar(self):
+        s = pd.Series([1.0, 2, 3, 4, 0])
+        p = F.rolling_pct(s, 5, 2)
+        self.assertEqual(p.iloc[3], 100.0)
+        self.assertEqual(p.iloc[4], 0.0)
+        self.assertEqual(F.rolling_pct(s.iloc[:4], 5, 2).iloc[3], p.iloc[3])  # later data never moves an earlier value
+
+    def test_words_and_sides(self):
+        self.assertEqual([F.level_word(x) for x in (95, 75, 50, 20, 5)], ["molto long", "più long del solito", "nella norma", "più short del solito", "molto short"])
+        self.assertEqual((F.side_of(80), F.side_of(50), F.side_of(20)), (1, 0, -1))
 
 
 class TestDownload(unittest.TestCase):
