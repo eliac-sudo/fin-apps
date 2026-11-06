@@ -3,7 +3,7 @@
 It serves saved data on this machine only. It holds no trading keys, places no orders, and makes no paid calls.
 A plan calculated here isn't logged, since trying numbers isn't a decision.
 """
-import json, os, sys, threading, time, urllib.parse
+import json, os, re, sys, threading, time, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -13,6 +13,7 @@ from . import option_lab as L
 from . import option_paper as OP
 from . import plan as P
 from . import snapshot as S
+from . import wallets as WL
 from . import wiki as WK
 from .recorder import load_env
 
@@ -145,6 +146,10 @@ class Handler(BaseHTTPRequestHandler):
                     self.send(404, b'{"error":"mercato sconosciuto"}')
                 else:
                     self.send(200, json.dumps(S.clean(option_market(key, q.get("fresh", [""])[0] == "1"))).encode())
+            elif url.path == "/api/wallet":
+                address = q.get("address", [""])[0].lower()
+                view = WL.detail(address) if re.fullmatch(r"0x[0-9a-f]{40}", address) else None
+                self.send(*((200, json.dumps(S.clean(view)).encode()) if view else (404, b'{"error":"conto non seguito"}')))
             elif url.path == "/api/options_paper":
                 with _paper_lock:
                     self.send(200, json.dumps(S.clean(OP.view())).encode())

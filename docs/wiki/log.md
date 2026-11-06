@@ -2,6 +2,7 @@
 
 Le modifiche al motore, dalla più recente. Il dettaglio è in `docs/STATO.md` e nella storia di git.
 
+- **2026-11-06** · Portafogli Hyperliquid: solo profittevoli e vault, con il dettaglio di ogni conto e la strategia ricostruita dai fill ([[portafogli-hl]]).
 - **2026-11-06** · «Chi compra» rifatta: chi è long e chi è short rispetto ai propri ultimi 3 anni, al posto di chi compra il dip ([[chi-compra]]).
 - **2026-11-06** · Test v5: BYZ e SZT come il vecchio nome, agli estremi e sul mensile, non reggono su 99 azioni nuove ([[v5]]). I tag restano momentum, MOM↓ e MOM↑.
 - **2026-11-06** · Test v4: BYZ e SZT letti come momentum reggono su 50 mercati nuovi, ma il vantaggio è piccolo e non copre i costi dello short ([[v4]]).

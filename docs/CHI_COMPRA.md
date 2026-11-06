@@ -60,19 +60,26 @@ Misura descrittiva del 5 novembre 2026, non un test: barre sovrapposte, dati gi�
 
 Sui dip delle cripto i rendimenti sono stati migliori quando il gruppo in questione **non** comprava con forza, per tutti e tre i gruppi, presi uno alla volta. Sono più di venti confronti senza intervalli di confidenza, quindi qualche scarto è atteso per caso: è un'ipotesi, non un risultato. Dire che seguire un gruppo aiuta richiede una pre-registrazione v2 su dati nuovi.
 
-## Portafogli su Hyperliquid (dal 6 novembre 2026)
+## Portafogli profittevoli su Hyperliquid
 
-`bzd/wallets.py`, servizio `python3 -m bzd.wallets run`. Ogni giorno salva la classifica pubblica di Hyperliquid (conti sopra $10.000, circa 20.000), e ogni ora le posizioni aperte di quattro gruppi, sui perpetui principali e su `xyz`:
+`bzd/wallets.py`, servizio `python3 -m bzd.wallets run`. Rifatto il 6 novembre 2026: prima seguiva anche i perdenti e mostrava solo una tabella per mercato, poco leggibile.
 
-- **vincenti storici** e **perdenti storici:** i 150 conti con più e meno profitti di sempre;
-- **vincenti del mese** e **perdenti del mese:** i 50 dell'ultimo mese, se non sono già negli storici.
+**Chi si segue, scelto ogni giorno.**
+- **Trader:** i 150 con più profitti di sempre e i 50 del mese (se non già nei primi). Solo conti sopra $100.000 che nel mese muovono tra 0,5 e 100 volte il capitale: sotto sono conti fermi, sopra market maker. Le soglie vengono dalla classifica del 6 novembre.
+- **Vault:** fino a 40 vault aperti, con almeno $100.000 depositati, 90 giorni di vita e un profitto storico, ordinati per profitto. I vault del protocollo (HLP) restano fuori, perché sono il market making della borsa e non una strategia.
 
-Restano fuori i conti sotto $100.000, quelli che in un mese muovono meno di metà del capitale (vault, chi tiene e basta) e quelli che lo muovono più di 100 volte (market maker). Le soglie vengono dalla classifica del 6 novembre: metà dei conti sopra $100.000 muove meno di una volta il capitale al mese, e l'1% lo muove 350 volte o più.
+**Cosa si registra.** Ogni ora le posizioni di tutti. Ogni giorno i fill nuovi, che si accumulano per 180 giorni: Hyperliquid dà solo gli ultimi 10.000, quindi per i conti più attivi senza registrazione la storia si perderebbe.
 
-Nell'app, in «Chi compra», per ogni mercato: il netto in dollari di ogni gruppo, quanti sono long e short, e la variazione in 24 ore dei vincenti storici. `python3 -m bzd.wallets flussi` dà la stessa tabella nel terminale.
+**Nell'app** («Chi compra», in fondo), ogni conto mostra capitale, profitto storico, profitto del mese o APR del vault, quanto è net long o short, la leva e le posizioni principali. Cliccandolo si aprono:
+- le posizioni aperte, con entrata, PnL aperto, leva e distanza dalla liquidazione;
+- per i vault, la descrizione del gestore, i depositanti, la commissione e la quota del gestore;
+- **come opera**, ricostruito dai fill degli ultimi 30 giorni: quanto tiene una posizione, se apre long o short, su quali mercati e con che risultato, quante chiusure in utile, ordini limite o a mercato, TWAP, e in che ore UTC;
+- la curva del profitto dall'inizio e il calo massimo;
+- l'esposizione nel tempo, dalle nostre foto orarie.
+
+**Come si stima la durata.** Una posizione conta da quando parte da zero a quando torna a zero. Molti conti grandi non tornano mai a zero: aggiungono e tolgono. Per loro la durata è stimata dal giro d'affari, cioè l'esposizione di oggi divisa per metà del volume giornaliero, e l'app scrive «circa».
 
 Cautele:
-- **Descrive, non è testato.** Il profitto passato non prova bravura: un vincente può essere fortunato, coprire una posizione fatta altrove, o essere una gamba di un arbitraggio.
-- **I vincenti del mese sono in parte circolari:** dopo un calo sono soprattutto chi era short. Per questo gli storici sono mostrati a parte.
-- **Nessuno storico gratuito:** la classifica e le posizioni esistono solo da quando le registriamo. Un test su questi dati potrà partire solo dopo mesi di registrazione, con una pre-registrazione nuova.
-- Primo giro, 6 novembre 13:21 UTC: i vincenti storici erano short quasi ovunque (BTC −648 milioni di dollari, ETH −424), i perdenti storici long.
+- **Descrive, non è testato.** Il profitto passato non prova bravura: un vincente può essere fortunato, coprire una posizione fatta altrove o essere una gamba di un arbitraggio.
+- **I vincenti del mese sono in parte circolari:** dopo un calo sono soprattutto chi era short.
+- **Copiare non è stato provato.** Dire se seguire questi conti renderebbe richiede mesi di registrazione e una pre-registrazione.

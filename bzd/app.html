@@ -332,23 +332,68 @@ html[data-theme=kangtao] nav button[aria-selected=true]{box-shadow:0 0 16px -4px
 <dialog id="dlg"></dialog>
 <script>
 "use strict";
+const WAL={kind:"tutti",all:false};
+const usdM=v=>v==null?"–":(v<0?"−":"")+"$"+(Math.abs(v)>=1e9?(Math.abs(v)/1e9).toFixed(2)+" mld":Math.abs(v)>=1e6?(Math.abs(v)/1e6).toFixed(1)+" mln":Math.abs(v)>=1e3?Math.round(Math.abs(v)/1e3)+"k":Math.round(Math.abs(v)));
+const sideSpan=(v,label)=>!v?el("span",{class:"muted"},"–"):el("span",{style:`color:${v>0?"var(--good)":"var(--crit)"};font-weight:650`},(label||(v>0?"long ":"short "))+usdM(Math.abs(v)));
+const walName=a=>a.name||a.address.slice(0,6)+"…"+a.address.slice(-4);
 function walletSection(){
-  const W=D.wallets;if(!W)return el("section",{class:"card"},el("h2",null,"Portafogli su Hyperliquid"),el("p",{class:"muted"},"Il primo giro di posizioni non è ancora stato registrato."));
-  const usd=v=>v==null?"–":(v>=0?"+":"−")+"$"+(Math.abs(v)>=1e9?(Math.abs(v)/1e9).toFixed(2)+"B":(Math.abs(v)/1e6).toFixed(1)+"M");
-  const side=v=>v==null||!v?el("span",{class:"muted"},"–"):el("span",{style:`color:${v>0?"var(--good)":"var(--crit)"};font-weight:650`},(v>0?"long ":"short ")+usd(Math.abs(v)).slice(1));
-  const cell=g=>g.long||g.short?el("span",{title:g.long+" conti long, "+g.short+" short"},side(g.net)):el("span",{class:"muted"},"–");
-  const cols=[{k:"market",label:"Mercato",val:r=>r.market,cell:r=>r.market.replace(/^xyz:/,"")+(r.market.startsWith("xyz:")?" (xyz)":"")},
-    ...W.groups.map(g=>({k:g,label:g[0].toUpperCase()+g.slice(1),num:true,val:r=>r.groups[g].net,cell:r=>cell(r.groups[g]),title:W.wallets[g]+" portafogli"})),
-    {k:"chg",label:"Vincenti storici, 24 ore",num:true,val:r=>r.groups["vincenti storici"].change_24h,cell:r=>usd(r.groups["vincenti storici"].change_24h),title:"Quanto è cambiato il netto dei vincenti storici rispetto a 24 ore prima"}];
-  const size=r=>Math.abs(r.groups["vincenti storici"].net||0)+Math.abs(r.groups["perdenti storici"].net||0);
-  const rows=W.rows.filter(r=>hitName(r.market)).sort((a,b)=>size(b)-size(a)),top=rows.slice(0,10);
-  const vs=top.slice(0,4).map(r=>{const w=r.groups["vincenti storici"].net,l=r.groups["perdenti storici"].net;return r.market.replace(/^xyz:/,"")+": vincenti "+(w>0?"long":"short")+", perdenti "+(l>0?"long":"short")+(Math.sign(w)!==Math.sign(l)?" (opposti)":"")});
-  return el("section",{class:"card"},el("h2",null,"Portafogli su Hyperliquid: vincenti e perdenti"),
-    el("p",{class:"lead",style:"margin:2px 0 6px"},vs.length?vs.join(" · ")+".":"Nessuna posizione registrata."),
-    el("p",{class:"sub",style:"margin:2px 0 6px"},"Quanto tengono in dollari, long o short, i conti più e meno profittevoli. Giro del "+when(W.at)+". Il profitto passato non prova bravura: descrive, non è un segnale."),
-    Table(cols,top),
-    rows.length>10?el("details",{style:"margin-top:8px"},el("summary",null,"Tutti i "+rows.length+" mercati"),el("div",{style:"margin-top:6px"},Table(cols,rows))):null,
-    el("details",{style:"margin-top:8px"},el("summary",null,"Chi sono questi conti"),el("p",{class:"small"},"I vincenti e i perdenti storici sono i 150 conti con più e meno profitti di sempre, quelli del mese i 50 dell'ultimo mese. Esclusi i conti sotto $100.000, i market maker e i conti che non fanno trading. Dopo un calo i vincenti del mese sono soprattutto chi era short."+(W.has_24h?"":" Il confronto a 24 ore arriva domani."))))}
+  const W=D.wallets;if(!W||!W.accounts)return el("section",{class:"card"},el("h2",null,"Portafogli profittevoli su Hyperliquid"),el("p",{class:"muted"},"Il primo giro di posizioni non è ancora stato registrato."));
+  const acc=W.accounts.filter(a=>(WAL.kind==="tutti"||a.kind===WAL.kind)&&(!Q||(walName(a)+" "+a.address+" "+a.top.map(t=>t[0]).join(" ")).toLowerCase().includes(Q.toLowerCase())));
+  const cols=[{k:"name",label:"Conto",val:r=>walName(r),cell:r=>el("span",null,el("b",{style:"font-weight:600"},walName(r)),r.kind==="vault"?el("span",{class:"tag",style:"margin-left:6px"},"vault"):null)},
+    {k:"capital",label:"Capitale",num:true,val:r=>r.capital,cell:r=>usdM(r.capital)},
+    {k:"pnl_all",label:"Profitto storico",num:true,val:r=>r.pnl_all,cell:r=>r.pnl_all==null?"–":el("span",{class:r.pnl_all>0?"pos":"neg"},(r.pnl_all>0?"+":"")+usdM(r.pnl_all))},
+    {k:"pnl_month",label:"Mese / APR",num:true,val:r=>r.kind==="vault"?r.apr:r.pnl_month,cell:r=>r.kind==="vault"?(r.apr==null?"–":el("span",{class:r.apr>0?"pos":"neg"},sgn(100*r.apr,0)+"% annuo")):r.pnl_month==null?"–":el("span",{class:r.pnl_month>0?"pos":"neg"},(r.pnl_month>0?"+":"")+usdM(r.pnl_month)),title:"Trader: profitto dell'ultimo mese. Vault: rendimento annualizzato dichiarato da Hyperliquid"},
+    {k:"net",label:"Posizionato",num:true,val:r=>r.net,cell:r=>r.positions?sideSpan(r.net,(r.net>0?"net long ":"net short ")):el("span",{class:"muted"},"senza posizioni"),title:"Long meno short, in dollari"},
+    {k:"leverage",label:"Leva",num:true,val:r=>r.leverage,cell:r=>r.leverage==null||!r.positions?"–":fmt(r.leverage,1)+"x",title:"Esposizione lorda divisa per il capitale"},
+    {k:"top",label:"Posizioni principali",val:r=>r.positions,cell:r=>el("span",{class:"small"},r.top.map((t,i)=>el("span",{style:`color:${t[1]>0?"var(--good)":"var(--crit)"}`},(i?" · ":"")+t[0].replace(/^xyz:/,"")+(t[1]>0?" ▲":" ▼"))))}];
+  const mcols=[{k:"market",label:"Mercato",cell:r=>r.market.replace(/^xyz:/,"")+(r.market.startsWith("xyz:")?" (xyz)":"")},
+    ...["trader","vault"].map(g=>({k:g,label:g==="trader"?"Trader":"Vault",num:true,val:r=>r[g]?r[g].net:0,cell:r=>r[g]?el("span",{title:r[g].long+" long, "+r[g].short+" short"},sideSpan(r[g].net)," ",el("span",{class:"tiny muted"},r[g].long+"L/"+r[g].short+"S")):el("span",{class:"muted"},"–")}))];
+  const n=W.counts||{};
+  return el("section",{class:"card"},el("div",{class:"selectline"},el("h2",null,"Portafogli profittevoli su Hyperliquid"),
+      el("div",{class:"chips"},[["tutti","Tutti"],["trader","Trader "+(n.trader||0)],["vault","Vault "+(n.vault||0)]].map(([k,t])=>el("button",{class:"chip","aria-pressed":String(k===WAL.kind),onclick:()=>{WAL.kind=k;render()}},t)))),
+    el("p",{class:"sub",style:"margin:2px 0 6px"},"I trader con più profitti di sempre e del mese, esclusi market maker e conti fermi, e i vault aperti con almeno $100.000, 90 giorni di vita e un profitto. Posizioni del "+when(W.at)+". ",el("b",null,"Clicca un conto")," per vedere come è posizionato e come opera."),
+    Table(cols,WAL.all?acc:acc.slice(0,25),{sort:"pnl_all",dir:-1,onRow:r=>openWallet(r.address)}),
+    acc.length>25?el("button",{class:"ghost",style:"margin-top:6px",onclick:()=>{WAL.all=!WAL.all;render()}},WAL.all?"Mostra i primi 25":"Mostra tutti i "+acc.length):null,
+    el("details",{style:"margin-top:8px"},el("summary",null,"Dove sono posizionati, per mercato"),el("div",{style:"margin-top:6px"},Table(mcols,W.markets.filter(r=>hitName(r.market))))),
+    el("p",{class:"tiny",style:"margin:6px 2px 0"},"Il profitto passato non prova bravura: un conto può essere fortunato, coprire una posizione fatta altrove o essere una gamba di un arbitraggio. Descrive, non è un segnale."))}
+async function openWallet(addr){const d=$("#dlg");hideTip();d.style.width="min(1100px,96vw)";d.replaceChildren(el("p",{class:"muted"},"Leggo il conto da Hyperliquid… la prima volta può servire qualche secondo."));if(!d.open)d.showModal();
+  d.addEventListener("close",()=>{d.style.width=""},{once:true});
+  let j=null;try{const r=await fetch("/api/wallet?address="+encodeURIComponent(addr));j=r.ok?await r.json():null}catch(e){}
+  if(!j){d.replaceChildren(el("p",{class:"notice bad"},"Conto non disponibile."),el("button",{class:"btn",onclick:()=>d.close()},"Chiudi"));return}
+  d.replaceChildren(...walletView(j))}
+function walletView(w){const now=w.now,p=w.profile,v=w.vault,lb=w.leaderboard||{},vault=w.cohort==="vault";
+  const url=vault?"https://app.hyperliquid.xyz/vaults/"+w.address:"https://app.hyperliquid.xyz/explorer/address/"+w.address;
+  const kpi=(n,val,h)=>el("div",{title:h||null},el("b",null,val),el("span",null,n));
+  const day=ms=>new Date(ms).toISOString().slice(0,10);
+  const pos=now.positions,pcols=[{k:"coin",label:"Mercato",cell:r=>r.coin.replace(/^xyz:/,"")},{k:"side",label:"Lato",cell:r=>el("span",{style:`color:${r.side==="long"?"var(--good)":"var(--crit)"};font-weight:650`},r.side)},
+    {k:"value",label:"Valore",num:true,cell:r=>usdM(r.value)},{k:"share",label:"Del capitale",num:true,val:r=>r.value/now.value,cell:r=>now.value?fmt(100*r.value/now.value,0)+"%":"–"},
+    {k:"entry",label:"Entrata",num:true,cell:r=>price(r.entry)},{k:"mark",label:"Prezzo",num:true,cell:r=>price(r.mark)},
+    {k:"upnl",label:"PnL aperto",num:true,cell:r=>el("span",{class:r.upnl>=0?"pos":"neg"},(r.upnl>=0?"+":"")+usdM(r.upnl))},
+    {k:"leverage",label:"Leva",num:true,cell:r=>r.leverage==null?"–":r.leverage+"x"+(r.lev_type==="isolated"?" iso":"")},
+    {k:"liq_dist",label:"Dalla liquidazione",num:true,cell:r=>r.liq_dist==null?el("span",{class:"muted"},"lontana"):r.liq_dist>100?el("span",{class:"muted"},"oltre 100%"):el("span",{class:r.liq_dist<10?"neg":null},fmt(r.liq_dist,1)+"%"),title:"Quanto deve muoversi il prezzo contro la posizione prima della liquidazione"}];
+  const curve=w.curve&&w.curve.pnl.length>1?lineChart([{name:"Profitto cumulato",dates:w.curve.pnl.map(x=>day(x[0])),values:w.curve.pnl.map(x=>x[1]),color:"var(--good)"}],{height:170,W:1000,digits:0}):el("p",{class:"muted small"},"Curva non disponibile.");
+  const h=w.history,hist=h&&h.t.length>2?lineChart([{name:"Netto",dates:h.t.map(t=>t.slice(0,10)),values:h.net,color:"var(--y)"},{name:"Lordo",dates:h.t.map(t=>t.slice(0,10)),values:h.gross,color:"var(--muted)"},...Object.entries(h.coins).map(([c,vals],i)=>({name:c.replace(/^xyz:/,""),dates:h.t.map(t=>t.slice(0,10)),values:vals,color:["var(--s1)","var(--s2)","var(--s4)","var(--h4)"][i]}))],{height:190,W:1000,digits:0}):el("p",{class:"muted small"},"Le posizioni di questo conto si registrano ogni ora da quando lo seguiamo: il grafico si riempie con i giorni.");
+  const stat=(n,val,hint)=>el("div",{title:hint||null},el("b",null,val),el("span",null,n));
+  const pctS=x=>x==null?"–":fmt(100*x,0)+"%";
+  const prof=p?[el("p",{class:"lead",style:"margin:4px 0 8px"},p.sentence),
+      el("div",{class:"kv"},stat("operazioni lette",p.fills.toLocaleString("it-IT"),"Fill eseguiti, uniti per ordine"),stat("periodo",fmt(p.days,1)+" giorni","Hyperliquid dà solo gli ultimi 10.000 fill: per i conti più attivi sono pochi giorni. Da quando seguiamo un conto li salviamo ogni giorno"),
+        stat("mercati",p.markets),stat("aperture long",pctS(p.long_share),"Quota del volume di apertura che apre long"),stat("ordini limite",pctS(p.maker_share),"Quota del volume eseguita senza attraversare lo spread"),stat("TWAP",pctS(p.twap_share)),
+        stat(p.trips>=5?"operazioni in utile":"chiusure in utile",pctS(p.trips>=5?p.win_rate:p.close_win)),stat("volume al giorno",usdM(p.volume/Math.max(p.days,1/24))),stat("commissioni",usdM(p.fees)),stat("realizzato nel periodo",(p.realized>=0?"+":"")+usdM(p.realized))),
+      el("div",{class:"grid g2",style:"margin-top:8px"},
+        el("div",null,el("h3",null,"Su cosa opera"),Table([{k:"coin",label:"Mercato",cell:r=>r.coin.replace(/^xyz:/,"")},{k:"share",label:"Volume",num:true,cell:r=>fmt(100*r.share,0)+"%"},{k:"pnl",label:"Realizzato",num:true,cell:r=>el("span",{class:r.pnl>=0?"pos":"neg"},(r.pnl>=0?"+":"")+usdM(r.pnl))}],p.coins,{})),
+        el("div",null,el("h3",null,"Quando opera (ore UTC)"),hourBars(p.hours)))]:[el("p",{class:"muted"},"Nessun fill negli ultimi 30 giorni: il conto tiene le posizioni senza toccarle.")];
+  return[el("div",{class:"selectline"},el("h2",{style:"margin:0"},w.name||w.address.slice(0,10)+"…"),el("div",null,el("span",{class:"tag"},vault?"vault":w.cohort)," ",el("a",{href:url,target:"_blank",rel:"noopener"},"Apri su Hyperliquid ↗")," ",el("button",{class:"ghost",onclick:()=>$("#dlg").close()},"Chiudi"))),
+    el("p",{class:"tiny muted",style:"margin:2px 0 8px"},w.address),
+    v?el("p",{class:"small",style:"margin:0 0 8px"},el("b",null,"Il gestore dice: "),v.description||"nessuna descrizione","  ",el("span",{class:"muted"},v.followers+" depositanti, commissione "+fmt(100*(v.commission||0),0)+"%, il gestore tiene il "+fmt(100*(v.leader_share||0),0)+"%")):null,
+    el("div",{class:"kv"},kpi("capitale",usdM(now.value)),kpi("profitto storico",lb.pnl_all!=null?(lb.pnl_all>0?"+":"")+usdM(lb.pnl_all):w.curve&&w.curve.pnl.length?usdM(w.curve.pnl[w.curve.pnl.length-1][1]):"–"),
+      kpi("calo massimo",w.curve?usdM(w.curve.max_drawdown):"–","La perdita più grande dal massimo del profitto cumulato"),kpi("long",usdM(now.long)),kpi("short",usdM(now.short)),kpi("netto",sideSpan(now.net)),kpi("leva",now.leverage==null?"–":fmt(now.leverage,1)+"x","Esposizione lorda divisa per il capitale")),
+    el("h3",{style:"margin-top:12px"},"Come opera"),...prof,
+    el("h3",{style:"margin-top:12px"},"Posizioni aperte ("+pos.length+")"),el("p",{class:"lead",style:"margin:2px 0 6px"},now.structure),pos.length?Table(pcols,pos,{}):el("p",{class:"muted"},"Nessuna posizione aperta."),
+    el("h3",{style:"margin-top:12px"},"Profitto dall'inizio"),curve,
+    el("h3",{style:"margin-top:12px"},"Esposizione nel tempo, dalle nostre foto orarie"),hist,
+    el("p",{class:"tiny",style:"margin-top:8px"},"Ricostruzione dai dati pubblici di Hyperliquid: posizioni, curva del profitto e fill. La durata media, se il conto non chiude quasi mai del tutto, è stimata dal giro d'affari. Il profitto passato non prova bravura. Descrive, non è un consiglio.")]}
+function hourBars(h){const W=320,H=90,m=Math.max(1,...h),bw=W/24;const g=svg("svg",{viewBox:`0 0 ${W} ${H+14}`,width:"100%",role:"img","aria-label":"Fill per ora UTC"});
+  h.forEach((v,i)=>{const bh=(H-4)*v/m;g.append(svg("rect",{x:i*bw+1,y:H-bh,width:bw-2,height:bh,fill:"var(--s1)"}));if(i%6===0){const t=svg("text",{x:i*bw+bw/2,y:H+12,"text-anchor":"middle"});t.textContent=i+"h";g.append(t)}});return g}
 let WK={data:null,page:null,q:"",hover:null};
 const KIND_COL={fonte:"var(--s2)",raccolta:"var(--s1)",calcolo:"var(--y)",verifica:"var(--s4)",uscita:"var(--good)"};
 const ago=t=>{if(!t)return"mai";const m=(Date.now()/1000-t)/60;return m<1?"adesso":m<60?Math.round(m)+" min fa":m<2880?Math.round(m/60)+" ore fa":Math.round(m/1440)+" giorni fa"};
