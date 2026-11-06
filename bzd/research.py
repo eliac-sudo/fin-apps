@@ -108,7 +108,8 @@ KNOWN = """- B3, test pre-registrato una volta: su 15 test tra panico, squeeze e
 - Uscite: stop più obiettivo a 3R taglia le perdite peggiori ma rende meno del tenere.
 - Tag BYZ e SZT: vanno nella direzione del nome solo sul mensile. Misura descrittiva.
 - Chi compra, misura descrittiva su dati già visti: il retail cripto si muove contro il prezzo (-0,54 su BTC a 3 giorni), fuori dalle cripto no. Sui dip cripto il rendimento a 5 giorni è stato più basso quando un gruppo comprava con forza che quando non lo faceva, per retail, grossi e denaro.
-- Volatilità: HAR batte GARCH ed EWMA, ma su BTC ed ETH la volatilità implicita prevede meglio."""
+- Volatilità: HAR batte GARCH ed EWMA, ma su BTC ed ETH la volatilità implicita prevede meglio.
+- Trend lungo, test pre-registrato v2 sulla storia dal 2008: comprare dopo l'incrocio al rialzo della media a 200 sedute e tenere 20 sedute, su cambi e materie prime, non batte ingressi casuali (+0,08% su 489 cluster)."""
 
 READER_SYSTEM = """Sei il lettore di letteratura di un sistema di ricerca sui mercati, BZD. Ricevi il riassunto (abstract) di un lavoro accademico e, a volte, affermazioni che un altro modello, Gemini, ha scritto su quel lavoro.
 
