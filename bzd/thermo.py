@@ -39,19 +39,25 @@ def heat_from(parts):
     return (float(np.mean(list(vals.values()))), vals) if vals else (None, {})
 
 
-def crypto_reading(a):
+def crypto_series(a):
+    """The parts of the tension on every 4h bar, each from strictly earlier data. Also used by the v3 historical test."""
     d, f, o = load_crypto(a)
     c = d.close
     r42 = np.log(c).diff(42)
     fund7 = f.rolling(21).mean().reindex(d.index, method="ffill")
     oi7 = o.reindex(d.index, method="ffill", limit=2).pct_change(42, fill_method=None)
     rs = I.rsi(c)
-    series = {"slancio": I.past_percentile(r42), "rsi": rs, "estensione": I.past_percentile(I.sma_distance(c, 1200)),
-              "funding": I.past_percentile(fund7), "oi": I.past_percentile(oi7)}
+    return d, c, rs, {"slancio": I.past_percentile(r42), "rsi": rs, "estensione": I.past_percentile(I.sma_distance(c, 1200)),
+                      "funding": I.past_percentile(fund7), "oi": I.past_percentile(oi7)}
+
+
+def crypto_reading(a):
+    d, c, rs, series = crypto_series(a)
     return reading(a, "crypto", c, rs, series, d.index[-1], 42, extra={"sma200_dist": I.sma_distance(c, 1200).iloc[-1], "vwap_dist": I.vwap_distance(d, 42, "volume_usd").iloc[-1]})
 
 
-def daily_reading(sym, cls):
+def daily_series(sym):
+    """The parts of the tension on every daily bar, each from strictly earlier data. Also used by the v3 historical test."""
     d = daily(read("tradfi", safe(sym)))
     c = d.close
     rs = I.rsi(c)
@@ -64,6 +70,11 @@ def daily_reading(sym, cls):
     vi = load_vol_index(VOL_INDEX[sym], d.index) if sym in VOL_INDEX else None
     if vi is not None and vi.notna().iloc[-1]:
         series["calma"] = 100 - I.past_percentile(vi)
+    return d, c, rs, series
+
+
+def daily_reading(sym, cls):
+    d, c, rs, series = daily_series(sym)
     return reading(sym, cls, c, rs, series, d.index[-1], 5, extra={"sma200_dist": I.sma_distance(c, 200).iloc[-1]})
 
 
