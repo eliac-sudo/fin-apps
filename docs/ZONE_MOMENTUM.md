@@ -16,6 +16,7 @@ Quanto fidarsi:
 - **È un vantaggio relativo e piccolo.** Tolti i costi, uno short dopo MOM↓ ha perso in media (−0,77%), perché i mercati in media salgono. Un long dopo MOM↑ è rimasto in pari. Serve più come filtro (non comprare in MOM↓, non vendere allo scoperto in MOM↑) che come ingresso.
 - **Le versioni meno sensibili.** MOM↑ da 3 sedute di fila ha retto (N4) e l'app lo segna con «3+». MOM↓ da 3 sedute e la soglia ±70 non hanno retto, e non si mostrano.
 - **Cosa è stato testato:** solo il giornaliero e solo gli indicatori, senza sentiment. Gli altri timeframe sono misure descrittive, qui sotto.
+- **Agli estremi e sul mensile i vecchi nomi non tornano.** Il test v5 ([V5_STORICO.md](V5_STORICO.md)), su 99 azioni mai usate, ha provato BYZ long e SZT short a ±70 sul giornaliero e a ±50 sul mensile: nessuna regge. Agli estremi c'è un piccolo ritorno indietro, ma non supera la correzione per i confronti multipli.
 - **La stella ★** (momentum d'accordo con il trend di fondo) non è testata.
 - Prima di diventare una regola serve la prova sui dati futuri.
 
