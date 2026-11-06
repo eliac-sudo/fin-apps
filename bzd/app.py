@@ -7,6 +7,7 @@ import json, os, sys, threading, time, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from . import lookup as LK
 from . import option_lab as L
 from . import plan as P
 from . import snapshot as S
@@ -112,7 +113,15 @@ class Handler(BaseHTTPRequestHandler):
                 self.send(*((200, json.dumps(S.clean(S.price_series(m))).encode()) if S.known_market(m) else (404, b'{"error":"mercato sconosciuto"}')))
             elif url.path == "/api/technical":
                 m = q.get("market", [""])[0]
-                self.send(*((200, json.dumps(S.clean(S.technical_market(m))).encode()) if S.known_market(m) else (404, b'{"error":"mercato sconosciuto"}')))
+                if S.known_market(m):
+                    self.send(200, json.dumps(S.clean(S.technical_market(m))).encode())
+                elif m[:3] in ("hl:", "yf:") and LK.valid(m):
+                    view = LK.technical(m)
+                    self.send(*((200, json.dumps(S.clean(view)).encode()) if view else (404, b'{"error":"nessun dato"}')))
+                else:
+                    self.send(404, b'{"error":"mercato sconosciuto"}')
+            elif url.path == "/api/lookup":
+                self.send(200, json.dumps(LK.search(q.get("q", [""])[0][:60])).encode())
             elif url.path == "/api/sentiment":
                 m = q.get("market", [""])[0]
                 self.send(*((200, json.dumps(S.clean(S.sentiment_market(m))).encode()) if S.known_market(m) else (404, b'{"error":"mercato sconosciuto"}')))

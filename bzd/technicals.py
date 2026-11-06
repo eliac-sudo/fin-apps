@@ -175,8 +175,18 @@ def read_frame(d, tf, pool=None):
                       "ema20": series(ema20), "sma50": series(sma50), "sma200": series(sma200), "rsi": series(rs)}}
 
 
-def analyze(market):
-    f = frames(market)
+def frames_from(daily, four_h=None):
+    """The same timeframes as `frames`, from bars fetched elsewhere, such as a searched ticker."""
+    if daily is None or daily.empty:
+        return {}
+    out = {"1d": daily, "1w": resample(daily, "W-SUN"), "1M": resample(daily, "MS")}
+    if four_h is not None and not four_h.empty:
+        out["4h"] = four_h
+    return {k: out[k] for k in FRAMES if k in out}
+
+
+def analyze(market, f=None):
+    f = frames(market) if f is None else f
     pool = swing_pool(f)
     return {tf: read_frame(d, tf, pool) for tf, d in f.items() if len(d) >= 30}
 
