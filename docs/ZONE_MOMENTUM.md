@@ -5,6 +5,7 @@ Il tag dice quanto è tirato un mercato su ogni timeframe, e in che verso tende 
 - **MOM↓** (momentum giù): il mercato è molto tirato verso il basso. Prima si chiamava BYZ, «Buy Ze dip».
 - **MOM↑** (momentum su): il mercato è molto tirato verso l'alto. Prima si chiamava SZT, «Sell Ze Top».
 - **NTR**: nessuno dei due.
+- **Nomi storici:** l'interruttore «MOM | BYZ/SZT» nell'app rimette i vecchi nomi e colori, segnati come non indicativi. Il calcolo è lo stesso.
 - **3+** accanto a MOM↑: da almeno 3 sedute di fila sul giornaliero.
 
 ## Perché il nome è cambiato
