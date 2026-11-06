@@ -22,7 +22,7 @@ Revisione degli alert con l'LLM **accesa**: `.env` ha `BZD_AGENTS=on` dalle 12:3
 
 ## Cosa esiste
 
-- **App** (`bzd/app.py`, `app.html`, `snapshot.py`): Oggi, Opzioni, Analisi tecnica, Sentiment, Chi compra, Alert, Piano, Test. Ricerca unica, tabelle ordinabili, tasto Layout con 4 stili (BZD Neon, Arasaka, Militech, Kang Tao).
+- **App** (`bzd/app.py`, `app.html`, `snapshot.py`): Oggi, Opzioni, Analisi tecnica, Sentiment, Chi compra, Alert, Piano, Test. Ricerca unica, tabelle ordinabili, tasto Layout con 4 stili (BZD Neon, Arasaka, Militech, Kang Tao). Dal 6 novembre Arasaka è un HUD futuristico (vetro nero, luce cremisi, scansione animata, sezioni numerate) e gli altri tre stili hanno gli stessi tocchi più leggeri. I font (Orbitron, Rajdhani, Share Tech Mono, licenza OFL) stanno in `bzd/fonts/` e li serve l'app stessa. `?tema=arasaka` nell'indirizzo sceglie lo stile. Il sentiment per mercato si apre in meno di mezzo secondo: il conteggio delle parole si rifà in background.
 - **Tensione** (`bzd/thermo.py`): il vecchio «calore», da 0 a 100 con 50 come norma del mercato. Parole: tirato in basso, in equilibrio, tirato in alto, anche su Telegram.
 - **Sentiment storico** (`bzd/sentiment.py`): estremi sul grafico del prezzo. Cripto da Fear & Greed; gli altri da speculatori COT e indice di volatilità. Soglie non testate, nessun test su cosa succede dopo. I conteggi di parole partono dal 4 novembre e i giorni chiusi restano in `data/sentiment/days.json`.
 - **Chi compra** (`bzd/flows.py`, `docs/CHI_COMPRA.md`): chi compra il dip e chi vende il top, con l'intensità, se è oltre il riflesso, e se apre o chiude. Cripto da Binance e Bybit più il denaro; gli altri dal COT (piccoli contro leveraged funds o managed money). Non testato, solo nell'app.

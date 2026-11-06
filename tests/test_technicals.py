@@ -16,20 +16,9 @@ def bars(close):
     return pd.DataFrame({"open": c.shift().fillna(c), "high": c * 1.01, "low": c * .99, "close": c})
 
 
-class TestLevels(unittest.TestCase):
-    def test_repeated_swings_make_one_level_and_single_swings_none(self):
-        wave = [100, 104, 108, 112, 108, 104, 100, 96, 92, 96, 100, 104, 108, 112.2, 108, 104, 100, 96, 92.1, 96, 100, 104, 108]
-        lv = K.find_levels(bars(wave), 3, 1.5)
-        self.assertEqual(len(lv), 2)
-        self.assertEqual([x["touches"] for x in lv], [2, 2])
-        self.assertEqual(K.find_levels(bars(list(range(100, 130))), 3, 1), [])
-
+class TestSwings(unittest.TestCase):
     def test_a_swing_needs_bars_on_both_sides(self):
         self.assertEqual(K.swings(bars([100, 101, 102, 103, 104]), 3), [])
-
-    def test_later_bars_cannot_change_old_levels_without_new_swings(self):
-        wave = [100, 104, 108, 112, 108, 104, 100, 96, 92, 96, 100, 104, 108, 112.2, 108, 104, 100, 96, 92.1, 96, 100, 104]
-        self.assertEqual(K.find_levels(bars(wave), 3, 1.5)[0]["price"], K.find_levels(bars(wave + [108]), 3, 1.5)[0]["price"])
 
 
 class TestReset(unittest.TestCase):

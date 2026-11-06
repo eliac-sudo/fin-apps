@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'none'; font-src 'self'">
 <title>BZD // quadro dei mercati</title>
-<script>document.documentElement.dataset.theme=localStorage.getItem("bzd-theme")||"bzd"</script>
+<script>document.documentElement.dataset.theme=new URLSearchParams(location.search).get("tema")||localStorage.getItem("bzd-theme")||"bzd"</script>
 <style>
 :root{color-scheme:dark;--page:#050608;--surface:#0e1016;--surface2:#1b1e29;--ink:#f5f6f0;--ink2:#c9ccd6;--muted:#8d92a6;--grid:#20232f;--axis:#3a3f50;--border:rgba(252,238,10,.28);
 --y:#fcee0a;--on-y:#000;--title:var(--y);--ui2:#00e5ff;--on-ui2:#00090c;--s1:#00e5ff;--s2:#ff2bd6;--s4:#fcee0a;--h0:#00e5ff;--h1:#0077b6;--h2:#2a2d38;--h3:#b3122f;--h4:#ff003c;--i0:#00090c;--i1:#fff;--i2:#f5f6f0;--i3:#fff;--i4:#fff;--good:#00ff9c;--on-good:#00170c;--warn:#fcee0a;--crit:#ff2a55;--up:rgba(0,255,156,.17);--down:rgba(255,42,85,.2);--cold:rgba(0,229,255,.18);--hero:#0e1016;--hdr:#050608;--hdr-line:var(--y);--field:#0e1016;
@@ -185,6 +185,109 @@ svg text{font:10.5px var(--mono);fill:var(--muted)}
 .modelsum{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:center}
 .selectline{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between}.selectline select{width:auto;min-width:190px;padding:4px 8px}
 @media (max-width:1100px){html[data-theme=kangtao] body{padding-left:0}html[data-theme=kangtao] header{position:sticky;width:auto;bottom:auto;flex-direction:row;flex-wrap:wrap}html[data-theme=kangtao] nav{flex-direction:row}.terms,.modelsum{grid-template-columns:1fr}.bands{grid-template-columns:repeat(2,minmax(0,1fr))}.factor{grid-template-columns:120px 80px 30px 1fr}}
+
+/* ---- fonts served by the app (OFL) ---- */
+@font-face{font-family:"Orbitron";src:url(/fonts/Orbitron.ttf) format("truetype");font-weight:400 900;font-display:swap}
+@font-face{font-family:"Rajdhani";src:url(/fonts/Rajdhani-Medium.ttf) format("truetype");font-weight:500;font-display:swap}
+@font-face{font-family:"Rajdhani";src:url(/fonts/Rajdhani-SemiBold.ttf) format("truetype");font-weight:600 700;font-display:swap}
+@font-face{font-family:"Share Tech Mono";src:url(/fonts/ShareTechMono.ttf) format("truetype");font-display:swap}
+
+/* ---- Arasaka: corporate HUD, black glass and red light ---- */
+html[data-theme=arasaka]{--page:#030304;--surface:rgba(16,16,20,.74);--surface2:rgba(44,44,52,.6);--solid:#0d0d10;--border:rgba(232,17,45,.30);--grid:rgba(255,255,255,.06);--axis:rgba(255,255,255,.18);
+  --ink:#f4f1ec;--ink2:#cfcac4;--muted:#8f8a86;--y:#ff1a3c;--glow:rgba(255,26,60,.55);--glow2:rgba(255,26,60,.18);--steel:#9fb3c8;
+  --head:"Orbitron","Rajdhani","Bahnschrift",system-ui,sans-serif;--body:"Rajdhani","Segoe UI",system-ui,sans-serif;--mono:"Share Tech Mono",ui-monospace,"Consolas",monospace;
+  --pattern:radial-gradient(1100px 520px at 12% -12%,rgba(255,26,60,.17),transparent 62%),radial-gradient(800px 700px at 112% 38%,rgba(255,26,60,.07),transparent 60%),
+    linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px) 0 0/100% 46px,linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px) 0 0/46px 100%;
+  --hero:rgba(26,6,10,.70);--scan:.10}
+html[data-theme=arasaka] body{font-size:15px;letter-spacing:.01em;background-attachment:fixed}
+html[data-theme=arasaka] body::before{content:"";position:fixed;left:0;right:0;top:-30vh;height:30vh;pointer-events:none;z-index:31;
+  background:linear-gradient(180deg,transparent,rgba(255,26,60,.03) 70%,rgba(255,26,60,.09) 99%,transparent);animation:ar-sweep 9s linear infinite}
+@keyframes ar-sweep{to{transform:translateY(160vh)}}
+html[data-theme=arasaka] ::selection{background:var(--y);color:#fff}
+html[data-theme=arasaka] *{scrollbar-width:thin;scrollbar-color:rgba(255,26,60,.55) transparent}
+
+html[data-theme=arasaka] header{background:linear-gradient(180deg,rgba(3,3,4,.92),rgba(3,3,4,.72));backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(255,26,60,.55);box-shadow:0 1px 0 rgba(255,26,60,.15),0 6px 22px -16px var(--glow)}
+html[data-theme=arasaka] h1{font-family:"Orbitron",var(--head);font-weight:800;letter-spacing:.5em;text-shadow:0 0 14px var(--glow),2px 0 rgba(0,229,255,.35),-2px 0 rgba(255,26,60,.6);animation:ar-flicker 7s infinite}
+@keyframes ar-flicker{0%,92%,100%{opacity:1}93%{opacity:.55}94%{opacity:1}96%{opacity:.75}97%{opacity:1}}
+html[data-theme=arasaka] nav button{font:600 10px "Orbitron",var(--head);letter-spacing:.16em;color:var(--muted);padding:7px 9px;border-bottom:1px solid transparent;transition:color .2s,text-shadow .2s}
+html[data-theme=arasaka] nav button:hover{color:var(--ink);text-shadow:0 0 10px var(--glow)}
+html[data-theme=arasaka] nav button[aria-selected=true]{color:#fff;border-bottom:1px solid var(--y);text-shadow:0 0 12px var(--glow);box-shadow:0 8px 14px -10px var(--y)}
+html[data-theme=arasaka] nav button[aria-selected=true]::before{content:"▸ ";color:var(--y)}
+html[data-theme=arasaka] .search{min-width:150px}
+html[data-theme=arasaka] .search input{background:rgba(0,0,0,.5);border:1px solid rgba(255,26,60,.45);color:var(--ink);font-family:var(--mono);letter-spacing:.06em;box-shadow:inset 0 0 12px rgba(255,26,60,.12)}
+html[data-theme=arasaka] .search input:focus{outline:none;border-color:var(--y);box-shadow:0 0 0 1px var(--y),0 0 16px var(--glow)}
+
+html[data-theme=arasaka] main{counter-reset:ar-sec}
+html[data-theme=arasaka] .card{position:relative;padding:18px 20px;border:1px solid rgba(255,255,255,.07);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%);
+  background:linear-gradient(var(--y),var(--y)) 0 0/16px 1px no-repeat,linear-gradient(var(--y),var(--y)) 0 0/1px 16px no-repeat,
+    linear-gradient(var(--y),var(--y)) 100% 100%/16px 1px no-repeat,linear-gradient(var(--y),var(--y)) 100% 100%/1px 16px no-repeat,
+    linear-gradient(225deg,rgba(255,26,60,.55) 0 11px,transparent 11px) 100% 0/16px 16px no-repeat,
+    linear-gradient(180deg,rgba(30,30,36,.80),rgba(10,10,13,.82));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 20px 46px -20px rgba(0,0,0,.9)}
+html[data-theme=arasaka] section.card{counter-increment:ar-sec}
+html[data-theme=arasaka] section.card>h2::before,html[data-theme=arasaka] section.card>.selectline>h2::before{content:"// " counter(ar-sec,decimal-leading-zero) "  ";color:var(--y);text-shadow:0 0 10px var(--glow)}
+html[data-theme=arasaka] h2{font:600 12px "Orbitron",var(--head);letter-spacing:.26em;color:var(--ink)}
+html[data-theme=arasaka] h3{font:600 10.5px "Orbitron",var(--head);letter-spacing:.2em;color:var(--steel)}
+html[data-theme=arasaka] .sub,html[data-theme=arasaka] .small{font-size:14px}
+html[data-theme=arasaka] .tiny{font-size:12.5px}
+
+html[data-theme=arasaka] .heroCard{position:relative;overflow:hidden;border:1px solid rgba(255,26,60,.35);border-left:3px solid var(--y);padding:26px 30px;
+  background:linear-gradient(105deg,rgba(255,26,60,.16),rgba(255,26,60,.02) 42%,rgba(159,179,200,.05)),var(--hero);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  box-shadow:0 0 0 1px rgba(0,0,0,.6),0 0 40px -12px var(--glow),inset 0 0 60px -30px var(--glow)}
+html[data-theme=arasaka] .heroCard::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.07) 45%,transparent 60%);transform:translateX(-100%);animation:ar-sheen 7s ease-in-out infinite}
+@keyframes ar-sheen{60%,100%{transform:translateX(100%)}}
+html[data-theme=arasaka] .heroCard::before{content:"ARASAKA // QUADRO DEI MERCATI · LIVE";position:absolute;top:8px;right:14px;font:500 9.5px var(--mono);letter-spacing:.3em;color:var(--y);opacity:.8}
+html[data-theme=arasaka] .hero{font:500 21px/1.38 "Orbitron",var(--head);letter-spacing:.015em;text-shadow:0 0 22px rgba(255,26,60,.28)}
+html[data-theme=arasaka] .big{font:500 30px/1.05 "Orbitron",var(--head);text-shadow:0 0 16px rgba(255,255,255,.18)}
+html[data-theme=arasaka] .mid{font:600 15px/1.25 "Orbitron",var(--head);letter-spacing:.05em}
+
+html[data-theme=arasaka] .num,html[data-theme=arasaka] td.num{font-family:var(--mono);font-size:13.5px;letter-spacing:.02em}
+html[data-theme=arasaka] table{font-size:14px}
+html[data-theme=arasaka] th{background:var(--solid);font:600 9.5px "Orbitron",var(--head);letter-spacing:.2em;color:var(--muted);border-bottom:1px solid rgba(255,26,60,.4)}
+html[data-theme=arasaka] th.num{font:600 9.5px "Orbitron",var(--head);letter-spacing:.2em}
+html[data-theme=arasaka] th.sort:hover,html[data-theme=arasaka] th.sort[aria-sort]{color:#fff;text-shadow:0 0 8px var(--glow)}
+html[data-theme=arasaka] td{border-bottom:1px solid rgba(255,255,255,.05)}
+html[data-theme=arasaka] tbody tr{transition:background .15s}
+html[data-theme=arasaka] tbody tr:hover td{background:rgba(255,26,60,.07)}
+html[data-theme=arasaka] tbody tr:hover td:first-child{box-shadow:inset 2px 0 0 var(--y)}
+
+html[data-theme=arasaka] .chip{background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12);font:600 10.5px "Orbitron",var(--head);letter-spacing:.16em;color:var(--ink2);padding:5px 12px}
+html[data-theme=arasaka] .chip:hover{border-color:rgba(255,26,60,.6);color:#fff}
+html[data-theme=arasaka] .chip[aria-pressed=true]{background:rgba(255,26,60,.2);border-color:var(--y);color:#fff;box-shadow:0 0 14px -2px var(--glow),inset 0 0 10px rgba(255,26,60,.25)}
+html[data-theme=arasaka] .seg button[aria-pressed=true]{box-shadow:0 0 12px -2px var(--glow)}
+html[data-theme=arasaka] .tag{font-family:var(--mono);letter-spacing:.06em;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04)}
+html[data-theme=arasaka] .tag.cheap{background:rgba(53,214,154,.16);color:#6fffc4;border-color:rgba(53,214,154,.6);box-shadow:0 0 10px -2px rgba(53,214,154,.55)}
+html[data-theme=arasaka] .tag.dear{background:rgba(255,26,60,.18);color:#ff8597;border-color:rgba(255,26,60,.7);box-shadow:0 0 10px -2px var(--glow)}
+html[data-theme=arasaka] .gauge{height:3px;box-shadow:0 0 12px rgba(255,26,60,.35)}
+html[data-theme=arasaka] .gauge i{background:#fff;box-shadow:0 0 10px #fff,0 0 18px var(--glow)}
+html[data-theme=arasaka] .tile{border:1px solid rgba(255,255,255,.08);transition:transform .15s,box-shadow .15s}
+html[data-theme=arasaka] .tile:hover{transform:translateY(-1px);box-shadow:0 0 16px -4px var(--glow);filter:brightness(1.2)}
+html[data-theme=arasaka] .notice{border-left:2px solid var(--y);background:rgba(255,26,60,.07)}
+html[data-theme=arasaka] a{color:#ff8597}
+html[data-theme=arasaka] details>summary::before{color:var(--y)}
+html[data-theme=arasaka] .ghost,html[data-theme=arasaka] .btn{font-family:"Orbitron",var(--head);font-size:10.5px;letter-spacing:.16em}
+
+@media (prefers-reduced-motion:reduce){html[data-theme=arasaka] body::before,html[data-theme=arasaka] .heroCard::after,html[data-theme=arasaka] h1{animation:none!important}}
+
+/* ---- the other layouts: the same HUD ideas, lighter, in their own colours ---- */
+html:not([data-theme]),html[data-theme=bzd],html[data-theme=militech],html[data-theme=kangtao]{--mono:"Share Tech Mono",ui-monospace,"Cascadia Mono","Consolas",monospace}
+html:not([data-theme]) main,html[data-theme=bzd] main,html[data-theme=militech] main{counter-reset:hud-sec}
+html:not([data-theme]) section.card,html[data-theme=bzd] section.card,html[data-theme=militech] section.card{counter-increment:hud-sec}
+html:not([data-theme]) section.card>h2::before,html[data-theme=bzd] section.card>h2::before,html:not([data-theme]) section.card>.selectline>h2::before,html[data-theme=bzd] section.card>.selectline>h2::before{content:"> " counter(hud-sec,decimal-leading-zero) " ";color:var(--ui2);text-shadow:0 0 8px var(--ui2)}
+html[data-theme=militech] section.card>h2::before,html[data-theme=militech] section.card>.selectline>h2::before{content:"▮ " counter(hud-sec,decimal-leading-zero) " · "}
+html:not([data-theme]) nav button[aria-selected=true],html[data-theme=bzd] nav button[aria-selected=true]{box-shadow:0 0 18px -2px var(--y)}
+html:not([data-theme]) .big,html[data-theme=bzd] .big{text-shadow:0 0 14px rgba(252,238,10,.35)}
+html:not([data-theme]) h1,html[data-theme=bzd] h1{text-shadow:0 0 16px rgba(252,238,10,.45)}
+html:not([data-theme]) tbody tr:hover td,html[data-theme=bzd] tbody tr:hover td{background:rgba(0,229,255,.06)}
+html[data-theme=militech] tbody tr:hover td{background:rgba(255,122,26,.07)}
+html[data-theme=militech] nav button[aria-selected=true]{text-shadow:0 0 10px rgba(255,122,26,.7)}
+html[data-theme=kangtao] .card{background:linear-gradient(160deg,rgba(82,220,199,.07),rgba(11,28,26,.6) 40%),rgba(11,28,26,.72);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 16px 40px -22px rgba(0,0,0,.9)}
+html[data-theme=kangtao] .heroCard{box-shadow:0 0 50px -18px rgba(224,181,74,.5),inset 0 0 60px -36px rgba(82,220,199,.6)}
+html[data-theme=kangtao] h2{text-shadow:0 0 12px rgba(224,181,74,.35)}
+html[data-theme=kangtao] tbody tr:hover td{background:rgba(82,220,199,.07)}
+html[data-theme=kangtao] nav button[aria-selected=true]{box-shadow:0 0 16px -4px var(--ui2)}
 </style>
 </head>
 <body>
@@ -213,7 +316,7 @@ function walletSection(){
 let LK={q:"",res:[],timer:null};
 function lookupBox(){
   const res=el("div",{id:"lkRes",style:"max-height:260px;overflow:auto"});
-  const show=()=>res.replaceChildren(...LK.res.map(r=>el("button",{class:"lkhit"+(r.id===TA.market?" on":""),style:"display:block;width:100%;text-align:left;background:none;border:0;padding:4px 6px;cursor:pointer;color:inherit",onclick:()=>{TA.searched=true;openTA(r.id);show()}},el("div",{style:"font-weight:600"},r.label),el("div",{class:"tiny muted"},r.source+" · "+r.detail))),LK.q&&!LK.res.length?el("div",{class:"tiny muted",style:"padding:4px 6px"},"Nessun risultato"):null);
+  const show=()=>res.replaceChildren(...LK.res.map(r=>el("button",{class:"lkhit"+(r.id===TA.market?" on":""),style:"display:block;width:100%;text-align:left;background:none;border:0;padding:4px 6px;cursor:pointer;color:inherit",onclick:()=>{TA.searched=true;openTA(r.id);show()}},el("div",{style:"font-weight:600"},r.label),el("div",{class:"tiny muted"},r.source+" · "+r.detail))),LK.q&&!LK.res.length?el("div",{class:"tiny muted",style:"padding:4px 6px"},"Nessun risultato"):"");
   const input=el("input",{type:"search",placeholder:"Cerca un altro mercato: NVDA, oro, AAPL…","aria-label":"Cerca un altro mercato",value:LK.q,style:"width:100%;margin:0 0 6px",oninput:e=>{LK.q=e.target.value.trim();clearTimeout(LK.timer);if(!LK.q){LK.res=[];show();return}LK.timer=setTimeout(async()=>{const q=LK.q;try{const r=await fetch("/api/lookup?q="+encodeURIComponent(q));if(q!==LK.q)return;LK.res=r.ok?await r.json():[]}catch(e){LK.res=[]}show()},400)}});
   show();return el("div",{style:"padding:0 4px 6px;border-bottom:1px solid var(--line);margin-bottom:6px"},input,res)}
 function searchedInfo(d){const i=d.info||{},usd=v=>"$"+(v>=1e9?(v/1e9).toFixed(2)+"B":(v/1e6).toFixed(1)+"M");
@@ -263,7 +366,7 @@ const bin=h=>h>=80?4:h>=60?3:h>=40?2:h>=20?1:0;
 const when=s=>{const d=new Date(s);return isNaN(d)?"":d.toLocaleString("it-IT",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"UTC"})+" UTC"};
 const short=s=>{const[,m,d]=s.split("-");return d+"/"+m};
 const bandWord=b=>(b||"").replace(/^\S+\s/,"");
-const THEMES=[["bzd","BZD Neon","Originale: neon, angoli tagliati",["#050608","#fcee0a","#00e5ff","#ff2bd6"]],["arasaka","Arasaka","Corporate: nero e cremisi, tanto spazio",["#070708","#e8112d","#f3f1ee","#6fb4ea"]],["militech","Militech","Tattico: oliva e arancio, denso, a tutta larghezza",["#14170f","#ff7a1a","#d6cf96","#54bff0"]],["kangtao","Kang Tao","Hi-tech: giada e oro, menu laterale",["#051110","#e0b54a","#52dcc7","#7cc4ff"]]];
+const THEMES=[["bzd","BZD Neon","Originale: neon, angoli tagliati",["#050608","#fcee0a","#00e5ff","#ff2bd6"]],["arasaka","Arasaka","HUD corporate: vetro nero, luce cremisi",["#070708","#e8112d","#f3f1ee","#6fb4ea"]],["militech","Militech","Tattico: oliva e arancio, denso, a tutta larghezza",["#14170f","#ff7a1a","#d6cf96","#54bff0"]],["kangtao","Kang Tao","Hi-tech: giada e oro, menu laterale",["#051110","#e0b54a","#52dcc7","#7cc4ff"]]];
 const tip=$("#tip");
 function showTip(ev,...kids){tip.replaceChildren(...kids);tip.style.display="block";const r=tip.getBoundingClientRect();tip.style.left=Math.min(ev.clientX+14,innerWidth-r.width-8)+"px";tip.style.top=Math.min(ev.clientY+14,innerHeight-r.height-8)+"px"}
 const hideTip=()=>tip.style.display="none";
@@ -735,7 +838,7 @@ let TA={market:null,tf:"1d",data:null,matrix:"1d"};
 async function openTA(m){TA.market=m;TA.data=null;drawTA();const r=await fetch("/api/technical?market="+encodeURIComponent(m));if(TA.market!==m)return;TA.data=r.ok?await r.json():{error:true};if(TA.data.frames&&!TA.data.frames[TA.tf])TA.tf="1d";drawTA()}
 function drawTA(){const box=$("#ta");if(!box)return;document.querySelectorAll(".rows").forEach(r=>r.classList.toggle("on",r.dataset.m===TA.market));const d=TA.data;if(!d){box.replaceChildren(el("p",{class:"muted"},"Carico il grafico…"));return}if(d.error||!d.frames[TA.tf]){box.replaceChildren(el("p",{class:"notice bad"},"Dati non disponibili per questo mercato."));return}
   const f=d.frames[TA.tf];box.replaceChildren(el("div",{style:"display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"},el("div",{style:"display:flex;gap:10px;align-items:center"},el("div",{class:"mid"},d.label+" · "+price(f.price)),d.plan_key?el("button",{class:"btn",onclick:()=>openPlan({key:d.plan_key,why:d.label+", analisi tecnica"})},"🧮 Apri nel Piano"):null),el("div",{class:"seg"},Object.keys(TF).map(k=>el("button",{"aria-pressed":String(k===TA.tf),style:d.frames[k]?null:"opacity:.35;cursor:default",title:d.frames[k]?null:"Nessuno storico a 4 ore per questo mercato",onclick:()=>{if(d.frames[k]){TA.tf=k;drawTA()}}},TF[k])))),
-    d.searched?searchedInfo(d):null,el("p",{class:"small",style:"margin:3px 0 6px"},taSentence(f)),candles(f.chart,f),el("h3",{style:"margin-top:8px"},"RSI 14"),lineChart([{name:"RSI",values:f.chart.rsi,dates:f.chart.t.map(x=>x.slice(0,10)),color:"var(--s1)"}],{height:100,digits:0,W:900,domain:[0,100],refs:[30,50,70]}),taCards(f))}
+    d.searched?searchedInfo(d):"",el("p",{class:"small",style:"margin:3px 0 6px"},taSentence(f)),candles(f.chart,f),el("h3",{style:"margin-top:8px"},"RSI 14"),lineChart([{name:"RSI",values:f.chart.rsi,dates:f.chart.t.map(x=>x.slice(0,10)),color:"var(--s1)"}],{height:100,digits:0,W:900,domain:[0,100],refs:[30,50,70]}),taCards(f))}
 function planView(p){const long=p.side==="long",lo=long?p.stop:p.target,hi=long?p.target:p.stop,pos=v=>(v-lo)/(hi-lo)*100,e=pos(p.entry),lossW=long?e:100-e;
   const rail=long?[el("i",{style:`width:${lossW}%;background:var(--crit);border-radius:5px 0 0 5px`}),el("i",{style:`width:${100-lossW}%;background:var(--good);border-radius:0 5px 5px 0`})]:[el("i",{style:`width:${100-lossW}%;background:var(--good);border-radius:5px 0 0 5px`}),el("i",{style:`width:${lossW}%;background:var(--crit);border-radius:0 5px 5px 0`})];
   const clamp=x=>Math.max(9,Math.min(91,x)),stopAt=clamp(pos(p.stop)),targetAt=clamp(pos(p.target)),entryAt=e;

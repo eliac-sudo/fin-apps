@@ -18,6 +18,8 @@ PORT = 8787
 CACHE_SECONDS = 120
 LIVE_SECONDS = 300
 PAGE = Path(__file__).with_name("app.html")
+FONT_DIR = Path(__file__).resolve().parent / "fonts"
+FONTS = {"Orbitron.ttf", "Rajdhani-Medium.ttf", "Rajdhani-SemiBold.ttf", "ShareTechMono.ttf"}  # free fonts (OFL), served from here because the page only loads its own files
 _cache, _lock, _live = {"at": 0, "data": None}, threading.Lock(), {}
 
 
@@ -71,6 +73,7 @@ def warm():
     """The first reading takes a while, so it happens before anyone waits for it."""
     try:
         snapshot()
+        S.SM.word_days()  # the per-market sentiment view needs the word counts: about 8 seconds the first time
     except Exception as e:
         print(f"warm-up failed: {type(e).__name__}", flush=True)
 
@@ -107,6 +110,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if url.path == "/":
                 self.send(200, PAGE.read_bytes(), "text/html; charset=utf-8")
+            elif url.path.startswith("/fonts/") and url.path[7:] in FONTS:
+                self.send(200, (FONT_DIR / url.path[7:]).read_bytes(), "font/ttf")
             elif url.path == "/api/snapshot":
                 self.send(200, snapshot())
             elif url.path == "/api/price":

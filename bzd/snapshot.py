@@ -350,7 +350,7 @@ def tests_part():
 
 def freshness(now):
     files = snapshot_files("hl_ctx_main")
-    minutes = int((now - snapshot_time(files[-1])).total_seconds() // 60) if files else None
+    minutes = max(0, int((now - snapshot_time(files[-1])).total_seconds() // 60)) if files else None  # a file stamped a moment ahead reads as now
     return {"recorder_minutes": minutes, "ok": minutes is not None and minutes <= 40}
 
 

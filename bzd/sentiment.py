@@ -143,11 +143,31 @@ def read_days(root=None, now=None):
 
 
 def word_days(root=None, now=None):
-    """Counting reads every saved text, so the result is kept for a while."""
+    """Counting reads every saved text, about 8 seconds, so the result is kept for a while.
+
+    Once there is a result, an old one is returned at once and a fresh count runs in the background.
+    """
+    def recount():
+        try:
+            days = read_days(root, now)
+            with _lock:
+                _words.update(days=days, at=time.time())
+        finally:
+            with _lock:
+                _words["busy"] = False
+
     with _lock:
-        if _words["days"] is None or time.time() - _words["at"] > WORDS_SECONDS:
-            _words.update(days=read_days(root, now), at=time.time())
-        return _words["days"]
+        have, stale = _words["days"] is not None, time.time() - _words["at"] > WORDS_SECONDS
+        start = have and stale and not _words.get("busy")
+        if start:
+            _words["busy"] = True
+    if start:
+        threading.Thread(target=recount, daemon=True).start()
+    if not have:
+        with _lock:
+            if _words["days"] is None:
+                _words.update(days=read_days(root, now), at=time.time())
+    return _words["days"]
 
 
 def word_marks(market, days):

@@ -80,17 +80,6 @@ def swings(d, k, size=0.0):
     return out
 
 
-def find_levels(d, k, width):
-    """Swings at about the same price, as one level each, with how many times the price turned there."""
-    groups = []
-    for i, p in sorted(swings(d, k), key=lambda x: x[1]):
-        if groups and p - np.mean([x[1] for x in groups[-1]]) <= width:
-            groups[-1].append((i, p))
-        else:
-            groups.append([(i, p)])
-    return [{"price": float(np.mean([x[1] for x in g])), "touches": len(g), "last": d.index[max(x[0] for x in g)].strftime("%Y-%m-%d")} for g in groups if len(g) >= 2]
-
-
 def typical_atr(d, tf):
     """The median ATR of the window: unlike the last bar's, it barely moves when one bar goes wild."""
     a = atr(d).tail(FRAMES[tf]["bars"]).dropna()
