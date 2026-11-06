@@ -160,6 +160,6 @@ class TestCache(unittest.TestCase):
 
 class TestBriefingZones(unittest.TestCase):
     def test_briefing_names_the_tags(self):
-        rows = [{"label": "Oro", "zones": {"1d": {"tag": "BYZ"}}}, {"label": "BTC", "zones": {"1d": {"tag": "SZT"}}}, {"label": "ETH", "zones": {"1d": {"tag": "NTR"}}}]
+        rows = [{"label": "Oro", "zones": {"1d": {"tag": "GIU"}}}, {"label": "BTC", "zones": {"1d": {"tag": "SU"}}}, {"label": "ETH", "zones": {"1d": {"tag": "NTR"}}}]
         t = S.briefing(rows, {}, [], [], {})[0]["text"]
-        self.assertEqual(t, "Sul giornaliero: BYZ su Oro; SZT su BTC.")
+        self.assertEqual(t, "Momentum sul giornaliero: in calo su Oro; in salita su BTC.")

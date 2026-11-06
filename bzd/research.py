@@ -85,7 +85,7 @@ UNSOURCED = ["arrivando a rappresentare oltre il 70% dei volumi azionari statuni
 # What the setup agent may build rules from: only data BZD already has, with the markets and the start of its history.
 FEATURES = {
     "movimento_z": ("rendimento della barra diviso la volatilità recente del mercato", ["crypto", "equities", "bonds", "commodities", "fx"], "cripto dal 2019, altri dal 2000"),
-    "punteggio_byz": ("punteggio BYZ/SZT degli indicatori di prezzo, da -100 a +100", ["crypto", "equities", "bonds", "commodities", "fx"], "come i prezzi"),
+    "punteggio_byz": ("punteggio momentum degli indicatori di prezzo (ex BYZ/SZT), da -100 a +100", ["crypto", "equities", "bonds", "commodities", "fx"], "come i prezzi"),
     "rsi": ("RSI a 14 barre", ["crypto", "equities", "bonds", "commodities", "fx"], "come i prezzi"),
     "trend_lungo": ("prezzo sopra o sotto la media lunga, +1 o -1", ["crypto", "equities", "bonds", "commodities", "fx"], "come i prezzi"),
     "funding": ("funding dei perpetui Binance, in percentile del passato", ["crypto"], "2019"),
@@ -102,11 +102,11 @@ FEATURES = {
 CONDITIONS = (">=", "<=", "sale di almeno", "scende di almeno")
 HORIZONS = ("24 ore", "3 giorni", "5 sedute", "4 settimane")
 CLASSES = ("crypto", "equities", "bonds", "commodities", "fx")
-MODULES = ("chi compra", "sentiment", "tecnica e tag BYZ/SZT", "setup e test", "uscite e piano", "opzioni e volatilità", "nessuno")
+MODULES = ("chi compra", "sentiment", "tecnica e tag momentum", "setup e test", "uscite e piano", "opzioni e volatilità", "nessuno")
 # What BZD has already measured, so the agent doesn't propose what was tried. Numbers here may be repeated.
 KNOWN = """- B3, test pre-registrato una volta: su 15 test tra panico, squeeze e surriscaldamento in 5 classi di mercato, passa solo il panico cripto (+0,75% sulle 24 ore rispetto a ingressi casuali), e non alla soglia più severa.
 - Uscite: stop più obiettivo a 3R taglia le perdite peggiori ma rende meno del tenere.
-- Tag BYZ e SZT: vanno nella direzione del nome solo sul mensile. Misura descrittiva.
+- Tag momentum (ex BYZ e SZT): dopo il tag il prezzo continua nel verso del tag per 10 sedute, circa 0,6% più del solito (test v4 su 50 mercati nuovi). Vantaggio relativo: tolti i costi lo short perde.
 - Chi compra, misura descrittiva su dati già visti: il retail cripto si muove contro il prezzo (-0,54 su BTC a 3 giorni), fuori dalle cripto no. Sui dip cripto il rendimento a 5 giorni è stato più basso quando un gruppo comprava con forza che quando non lo faceva, per retail, grossi e denaro.
 - Volatilità: HAR batte GARCH ed EWMA, ma su BTC ed ETH la volatilità implicita prevede meglio.
 - Trend lungo, test pre-registrato v2 sulla storia dal 2008: comprare dopo l'incrocio al rialzo della media a 200 sedute e tenere 20 sedute, su cambi e materie prime, non batte ingressi casuali (+0,08% su 489 cluster)."""

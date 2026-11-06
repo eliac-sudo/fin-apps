@@ -31,7 +31,12 @@ class TestScore(unittest.TestCase):
         self.assertAlmostEqual(full.iloc[399], cut.iloc[-1], places=9)
 
     def test_tags(self):
-        self.assertEqual((Z.tag_of(-50), Z.tag_of(-49), Z.tag_of(49), Z.tag_of(50)), ("BYZ", "NTR", "NTR", "SZT"))
+        self.assertEqual((Z.tag_of(-50), Z.tag_of(-49), Z.tag_of(49), Z.tag_of(50)), ("GIU", "NTR", "NTR", "SU"))
+
+    def test_streak_counts_the_last_bars_in_the_zone(self):
+        import pandas as pd
+        s = pd.Series([60, 10, 55, 70, 52])
+        self.assertEqual((Z.streak(s, "SU"), Z.streak(s, "GIU"), Z.streak(s, "NTR")), (3, 0, 0))
 
     def test_weights_are_70_30_and_missing_mood_leaves_indicators_alone(self):
         self.assertAlmostEqual(Z.blend(-60, 100), -12)
@@ -68,8 +73,9 @@ class TestMarket(unittest.TestCase):
         with mock.patch.object(Z.K, "frames", return_value={"1d": d, "1M": month}):
             r = Z.market_zones("GC=F", {"Metalli preziosi": {"fear": 90, "greed": 10}})
         self.assertEqual(set(r), {"1d", "1M", "12M"})
-        self.assertEqual(r["1d"]["tag"], "BYZ")
+        self.assertEqual(r["1d"]["tag"], "GIU")
         self.assertEqual(r["1d"]["slow"], "rialzo")
-        self.assertTrue(r["1d"]["with_trend"])
+        self.assertFalse(r["1d"]["with_trend"])  # momentum down against a rising slow trend
+        self.assertGreaterEqual(r["1d"]["streak"], 1)
         self.assertEqual(r["1d"]["sentiment"], -80)
         self.assertAlmostEqual(r["1d"]["score"], .7 * r["1d"]["indicators"] + .3 * -80)

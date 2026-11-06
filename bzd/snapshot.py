@@ -356,7 +356,7 @@ def freshness(now):
 
 
 def add_zones(markets, sentiment):
-    """The BYZ and SZT tags for every market, each theme's mood coming from the sentiment part."""
+    """The momentum tags for every market, each theme's mood coming from the sentiment part."""
     moods = {c["name"]: c for c in sentiment["classes"]} if sentiment else {}
     fear_greed = (sentiment.get("fear_greed") or {}).get("value") if sentiment else None
     for m in markets:
@@ -367,9 +367,9 @@ def briefing(markets, classes, lab, tech, alerts):
     """What matters today, in sentences. Each one is built from the numbers on the page."""
     out = []
     by_tag = lambda tag: [m["label"] for m in markets if (m.get("zones") or {}).get("1d", {}).get("tag") == tag]
-    byz, szt = by_tag("BYZ"), by_tag("SZT")
-    if byz or szt:
-        out.append({"tone": "zone", "text": "Sul giornaliero: " + "; ".join(([f"BYZ su {', '.join(byz)}"] if byz else []) + ([f"SZT su {', '.join(szt)}"] if szt else [])) + "."})
+    down, up = by_tag("GIU"), by_tag("SU")
+    if down or up:
+        out.append({"tone": "zone", "text": "Momentum sul giornaliero: " + "; ".join(([f"in calo su {', '.join(down)}"] if down else []) + ([f"in salita su {', '.join(up)}"] if up else [])) + "."})
     moved = [m for m in markets if (m.get("returns") or {}).get("7g") is not None]
     if moved:
         up, down = max(moved, key=lambda m: m["returns"]["7g"]), min(moved, key=lambda m: m["returns"]["7g"])

@@ -7,7 +7,7 @@ Two groups on each market, as positions change:
   others  retail is the COT "nonreportable" group, positions under the CFTC's reporting limit. The big side is leveraged funds, or managed money on commodities.
           These are contracts, so size counts. Weekly, measured on Tuesday and published days later.
 
-A dip or a top is the BYZ or SZT zone on price indicators alone (`zones.indicator_score`), so there's one definition across the app.
+A dip or a top is the momentum-down or momentum-up zone (ex BYZ and SZT) on price indicators alone (`zones.indicator_score`), so there's one definition across the app.
 Pressure is where a group's change in position sits among its own earlier changes, from -100 to +100: +90 means more buying than 95% of its past.
 Intensity is its size. A group buys or sells only from INTENSITY_MIN up: smaller moves are normal noise.
 

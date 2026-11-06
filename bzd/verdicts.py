@@ -14,8 +14,8 @@ PERIOD = "2008–2026"
 TEXT = {  # the reading, and what was seen when it went the other way. Prices only: no "buy" or "sell" in a message
     "O1": ("vendere straddle quando le opzioni sono care", None),
     "O2": ("comprare straddle quando le opzioni sono economiche", None),
-    "Z1": ("BYZ", "ha continuato a scendere più del solito"),
-    "Z2": ("SZT", "ha continuato a salire più del solito"),
+    "Z1": ("BYZ (oggi MOM↓)", "ha continuato a scendere più del solito"),
+    "Z2": ("SZT (oggi MOM↑)", "ha continuato a salire più del solito"),
     "R1": ("un reset in ipervenduto", None),
     "R2": ("un reset in ipercomprato", None),
     "T1": ("un mercato molto tirato in basso", None),
@@ -93,8 +93,8 @@ def momentum_line():
     r = json.loads(RESULTS_V4.read_text())["results"]
     n1, n2 = r["N1"], r["N2"]
     if n1["outcome"] != "supportata" or n2["outcome"] != "supportata":
-        return "Letti al contrario, su 50 mercati mai usati, il test v4 non conferma un effetto momentum."
+        return "Su 50 mercati mai usati, il test v4 non conferma un effetto momentum."
     it = lambda x, sign=False: (f"{100 * x:+.2f}" if sign else f"{100 * x:.2f}").replace(".", ",") + "%"
-    return (f"Letti al contrario, su 50 mercati mai usati dal programma (test v4), reggono: in 10 sedute dopo BYZ il prezzo ha fatto {it(n1['mean'])} "
-            f"peggio di un giorno qualsiasi, dopo SZT {it(n2['mean'])} meglio. È un vantaggio relativo e piccolo: tolti i costi, uno short dopo BYZ "
-            f"ha perso in media ({it(n1['mean_net'], True)}) e un long dopo SZT è rimasto in pari ({it(n2['mean_net'], True)}). Più severi (3 sedute di fila, soglia ±70) non vanno meglio.")
+    return (f"Su 50 mercati mai usati dal programma (test v4), in 10 sedute dopo MOM↓ il prezzo ha fatto {it(n1['mean'])} peggio di un giorno qualsiasi, "
+            f"dopo MOM↑ {it(n2['mean'])} meglio. È un vantaggio relativo e piccolo: tolti i costi, uno short dopo MOM↓ ha perso in media ({it(n1['mean_net'], True)}) "
+            f"e un long dopo MOM↑ è rimasto in pari ({it(n2['mean_net'], True)}). Con 3 sedute di fila regge solo MOM↑; la soglia ±70 non aiuta.")
