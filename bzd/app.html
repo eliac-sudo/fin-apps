@@ -374,14 +374,18 @@ function wikiBody(md,cites){const out=[];let list=null;
     if(li){if(!list){list=el(/^\s*\d/.test(line)?"ol":"ul",{class:"plain wlist"});out.push(list)}list.append(el("li",null,wikiInline(li[1],cites)));continue}
     list=null;if(!line)continue;if(h){out.push(el(h[1].length===1?"h2":"h3",{class:"wh"},h[2]));continue}
     out.push(el("p",{class:"wp"},wikiInline(line,cites)))}return out}
-function wikiBrain(){const W=WK.data,P=W.pages,K=W.kinds.map(([k])=>k),pages=Object.values(P),css=getComputedStyle(document.documentElement);
-  const norm=document.createElement("canvas").getContext("2d"),col=k=>{const v=(KIND_COL[k]||"").match(/--[\w-]+/);norm.fillStyle="#ff2b4a";norm.fillStyle=v&&css.getPropertyValue(v[0]).trim()||"#ff2b4a";return /^#[0-9a-f]{6}$/i.test(norm.fillStyle)?norm.fillStyle:"#ff2b4a"};const KC=Object.fromEntries(K.map(k=>[k,col(k)]));
-  let seed=7;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+let BRAIN_SHELL=null;
+function brainShell(rnd){
   // brain-shaped shell: two hemispheres, wrinkled surface, flat underside
   const shell=[],ell=(n,cx,cy,cz,rx,ry,rz,wr)=>{for(let i=0;i<n;i++){const u=rnd()*2-1,th=rnd()*Math.PI*2,s=Math.sqrt(1-u*u),w=1+wr*(Math.sin(7*th+3*u)*Math.sin(9*Math.acos(u))+.5*Math.sin(17*th));shell.push({x:cx+s*Math.cos(th)*rx*w,y:cy+u*ry*w,z:cz+s*Math.sin(th)*rz*w})}};
   for(const side of[1,-1]){const st=shell.length;ell(330,0,.05,side*.5,1.3,.85,.55,.06);for(let i=st;i<shell.length;i++){const q=shell[i];if(side*q.z<.05)q.z=side*(.05+Math.abs(q.z-side*.5)*.15);if(q.y<-.42)q.y=-.42+(q.y+.42)*.35;if(q.x<-.7&&q.y<-.2)q.y+=.12}}
   ell(110,-.95,-.55,0,.42,.26,.62,.04);for(let i=0;i<40;i++){const a=rnd()*Math.PI*2,h=rnd();shell.push({x:-.45-.15*h+.13*Math.cos(a),y:-.45-.65*h,z:.13*Math.sin(a)})}
-  const links=[];shell.forEach((a,i)=>{const near=shell.map((b,j)=>[j,(a.x-b.x)**2+(a.y-b.y)**2+(a.z-b.z)**2]).filter(([j])=>j>i).sort((p,q)=>p[1]-q[1]).slice(0,3);for(const[j,d]of near)if(d<.05)links.push([i,j])});
+  const links=[];for(let i=0;i<shell.length;i++){const a=shell[i],near=[];for(let j=i+1;j<shell.length;j++){const b=shell[j],d=(a.x-b.x)**2+(a.y-b.y)**2+(a.z-b.z)**2;if(d<.05){near.push([j,d]);if(near.length>3){near.sort((p,q)=>p[1]-q[1]);near.pop()}}}for(const[j]of near)links.push([i,j])}
+  return{shell,links}}
+function wikiBrain(){const W=WK.data,P=W.pages,K=W.kinds.map(([k])=>k),pages=Object.values(P),css=getComputedStyle(document.documentElement);
+  const norm=document.createElement("canvas").getContext("2d"),col=k=>{const v=(KIND_COL[k]||"").match(/--[\w-]+/);norm.fillStyle="#ff2b4a";norm.fillStyle=v&&css.getPropertyValue(v[0]).trim()||"#ff2b4a";return /^#[0-9a-f]{6}$/i.test(norm.fillStyle)?norm.fillStyle:"#ff2b4a"};const KC=Object.fromEntries(K.map(k=>[k,col(k)]));
+  let seed=7;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  const{shell,links}=BRAIN_SHELL||(BRAIN_SHELL=brainShell(rnd));seed=11;
   // real pages inside: back of the brain = sources, front = what you see
   const nodes=[];K.forEach((k,ki)=>{const ps=pages.filter(p=>p.kind===k).sort((a,b)=>a.title.localeCompare(b.title)),x=-1+2*ki/Math.max(1,K.length-1);
     ps.forEach((p,i)=>{const a=i/ps.length*Math.PI*2+ki*.7,rr=(.25+.4*((i%3)/2))*Math.sqrt(1-Math.min(.85,x*x*.5));nodes.push({p,x:x*.95+(rnd()-.5)*.12,y:Math.sin(a)*rr*.75,z:Math.cos(a)*rr})})});
@@ -391,17 +395,18 @@ function wikiBrain(){const W=WK.data,P=W.pages,K=W.kinds.map(([k])=>k),pages=Obj
   wrap.append(cv,el("div",{class:"bhud tl"},el("b",null,"BZD // MAPPA NEURALE"),el("div",null,"NODI "+nodes.length+" · SINAPSI "+edges.length+" · MODULI "+W.modules.length),el("div",{style:hard?"color:var(--crit)":""},hard?"INTEGRITÀ ▲ "+hard+" ERRORI":"INTEGRITÀ 100% · LINT OK")),
     el("div",{class:"bhud tr"},W.kinds.map(([k,n])=>el("div",null,el("i",{style:`background:${KC[k]};box-shadow:0 0 8px ${KC[k]}`}),n.toUpperCase()))),
     el("div",{class:"bhud bl"},"TRASCINA PER RUOTARE · ROTELLA ZOOM · CLIC PER APRIRE"),el("div",{class:"bhud br"},"RETRO = FONTI  →  FRONTE = USCITE"),el("div",{class:"bscan"}),tipb);
-  const ctx=cv.getContext("2d");const cam=WK.cam||(WK.cam={yaw:-.6,pitch:.25,zoom:1,auto:true});let yaw=cam.yaw,pitch=cam.pitch,zoom=cam.zoom,drag=null,hover=null,auto=cam.auto,Wd=0,Ht=0,dpr=1,t0=performance.now(),proj=[];
+  const ctx=cv.getContext("2d");const cam=WK.cam||(WK.cam={yaw:-.6,pitch:.25,zoom:1,auto:!matchMedia("(prefers-reduced-motion: reduce)").matches});let visible=true;new IntersectionObserver(es=>{visible=es[0].isIntersecting}).observe(wrap);let yaw=cam.yaw,pitch=cam.pitch,zoom=cam.zoom,drag=null,hover=null,auto=cam.auto,Wd=0,Ht=0,dpr=1,t0=performance.now(),proj=[];
   const size=()=>{dpr=Math.min(2,devicePixelRatio||1);Wd=wrap.clientWidth||900;Ht=Math.round(Math.min(620,Math.max(420,Wd*.52)));cv.width=Wd*dpr;cv.height=Ht*dpr;cv.style.height=Ht+"px"};
   const P3=(q)=>{const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);let x=q.x*cy-q.z*sy,z=q.x*sy+q.z*cy,y=q.y;const y2=y*cp-z*sp,z2=y*sp+z*cp,f=Math.min(Wd,Ht*1.6)*.3*zoom,s=3.4/(3.4-z2);return{x:Wd/2+x*f*s,y:Ht/2-y2*f*s,z:z2,s}};
   const lit=n=>!hover||n===hover||edges.some(e=>(e.a===hover&&e.b===n)||(e.b===hover&&e.a===n));
   const curve=(A,B)=>{const mx=(A.x+B.x)/2,my=(A.y+B.y)/2,dx=B.x-A.x,dy=B.y-A.y,l=Math.hypot(dx,dy)||1;return[mx-dy/l*l*.12,my+dx/l*l*.12]};
-  function frame(now){if(!wrap.isConnected)return;if(document.hidden){requestAnimationFrame(frame);return}const t=(now-t0)/1000;if(auto&&!drag)yaw+=.0025;Object.assign(cam,{yaw,pitch,zoom,auto});
+  function frame(now){if(!wrap.isConnected)return;if(document.hidden||!visible){requestAnimationFrame(frame);return}const t=(now-t0)/1000;if(auto&&!drag)yaw+=.0025;Object.assign(cam,{yaw,pitch,zoom,auto});
     if(cv.width!==Math.round((wrap.clientWidth||900)*dpr))size();
     ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,Wd,Ht);const g=ctx.createRadialGradient(Wd/2,Ht/2,10,Wd/2,Ht/2,Wd*.6);g.addColorStop(0,"rgba(120,0,20,.22)");g.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=g;ctx.fillRect(0,0,Wd,Ht);
-    const sp=shell.map(P3);ctx.lineWidth=.6;
-    for(const[i,j]of links){const a=sp[i],b=sp[j],d=(a.z+b.z)/2;ctx.strokeStyle=`rgba(255,40,70,${.07+.28*(d+1.3)/2.6})`;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}
-    sp.forEach((q,i)=>{const fl=.5+.5*Math.sin(t*2+i*1.7),a=(.2+.7*(q.z+1.3)/2.6)*(.55+.45*fl);ctx.fillStyle=`rgba(255,80,100,${a})`;ctx.fillRect(q.x-1.1,q.y-1.1,2.2*q.s,2.2*q.s)});
+    const sp=shell.map(P3),BANDS=5,band=z=>Math.max(0,Math.min(BANDS-1,Math.floor((z+1.3)/2.6*BANDS)));ctx.lineWidth=.6;
+    const lp=Array.from({length:BANDS},()=>new Path2D());for(const[i,j]of links){const a=sp[i],b=sp[j],k=band((a.z+b.z)/2);lp[k].moveTo(a.x,a.y);lp[k].lineTo(b.x,b.y)}
+    lp.forEach((path,k)=>{ctx.strokeStyle=`rgba(255,40,70,${.07+.28*(k+.5)/BANDS})`;ctx.stroke(path)});
+    const fl=.78+.22*Math.sin(t*2);for(let k=0;k<BANDS;k++){ctx.fillStyle=`rgba(255,80,100,${(.2+.7*(k+.5)/BANDS)*fl})`;for(const q of sp)if(band(q.z)===k)ctx.fillRect(q.x-1.1,q.y-1.1,2.2*q.s,2.2*q.s)}
     proj=nodes.map(n=>({n,...P3(n)}));const pp=new Map(proj.map(q=>[q.n,q]));
     for(const e of edges){const A=pp.get(e.a),B=pp.get(e.b),on=hover&&(e.a===hover||e.b===hover),[cx,cy]=curve(A,B),c=KC[e.a.p.kind];
       ctx.strokeStyle=on?c:"rgba(255,60,80,.28)";ctx.globalAlpha=hover&&!on?.25:1;ctx.lineWidth=on?1.8:.9;ctx.shadowColor=c;ctx.shadowBlur=on?12:0;ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.quadraticCurveTo(cx,cy,B.x,B.y);ctx.stroke();
@@ -812,7 +817,6 @@ function drawSent(){const box=$("#sentBox");if(!box)return;const pick=$("#sentPi
     el("p",{class:"tiny",style:"margin:6px 0 0"},"Mostra quando l'umore è stato estremo, non cosa conviene fare: scegliere a occhio gli estremi che hanno funzionato inganna facilmente. Non è stato testato cosa succede dopo."))}
 const FLOW={market:"BTC",tf:null,win:{},data:null},FLOW_WIN={"4h":{"30G":30,"90G":90},"1d":{"6M":183,"1A":365,"2A":730,"Tutto":99999},"1w":{"2A":730,"5A":1826,"10A":3653}},FLOW_DEFAULT={"4h":"30G","1d":"1A","1w":"5A"},FLOW_STATE={dip:{col:"var(--crit)",mark:"▼"},top:{col:"var(--good)",mark:"▲"}},FLOW_TF={"4h":"4h, su 1 giorno","1d":"1g, su 3 giorni","1w":"1s, per report"};
 const flowAct=g=>g.action==="compra"?"var(--good)":g.action==="vende"?"var(--crit)":"var(--muted)";
-function flowCell(g){if(g.pressure==null)return el("span",{class:"muted"},"–");const w=Math.abs(g.pressure)/2,on=g.action!=="fermo";return el("span",{title:on?"Intensità "+fmt(g.intensity)+", "+g.word:null,style:"display:inline-flex;align-items:center;gap:5px;white-space:nowrap"},el("span",{style:"position:relative;display:inline-block;width:40px;height:7px;background:var(--surface2)"},el("i",{style:`position:absolute;top:0;bottom:0;${g.pressure>=0?"left:50%":"right:50%"};width:${w}%;background:${flowAct(g)}`})),el("span",{style:on?`color:${flowAct(g)};font-weight:650`:"color:var(--muted)"},g.action),el("span",{class:"num"},sgn(g.pressure)),g.beyond?el("span",{title:"Più di quanto il solo movimento del prezzo farebbe prevedere",style:"color:var(--ink)"},"✦"):null,g.how?el("span",{class:"tiny",title:g.how_inferred?"Dedotto dalle posizioni aperte di tutto il mercato":"Dal report, che separa long e short"},g.how+(g.how_inferred?"?":"")):null)}
 async function openFlow(m){FLOW.data=null;const b=$("#flowBox");if(b)b.replaceChildren(el("p",{class:"muted"},"Carico il grafico…"));try{const r=await fetch("/api/flows?market="+encodeURIComponent(m));if(FLOW.market!==m)return;const j=r.ok?await r.json():null;FLOW.data=j||{error:true,market:m}}catch(e){FLOW.data={error:true,market:m}}drawFlow()}
 function flowChart(f,tf,win,big){const cut=new Date(f.dates[f.dates.length-1].slice(0,10)+"T00:00:00Z").getTime()-FLOW_WIN[tf][win]*864e5;let i0=f.dates.findIndex(d=>new Date(d.slice(0,10)+"T00:00:00Z").getTime()>=cut);if(i0<0)i0=0;
   const dates=f.dates.slice(i0),close=f.close.slice(i0),re=f.retail.slice(i0),bi=f.big.slice(i0),reB=f.retail_beyond.slice(i0),biB=f.big_beyond.slice(i0),mo=f.money?f.money.slice(i0):null,st=f.state.slice(i0),n=dates.length;

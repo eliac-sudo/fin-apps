@@ -42,6 +42,19 @@ def split_ref(ref):
     return path, sym
 
 
+_LINES, _GRAPH = {}, {}
+
+
+def _lines(p):
+    """A file's lines, read again only when the file changes."""
+    key = (p, p.stat().st_mtime_ns)
+    if key not in _LINES:
+        if len(_LINES) > 200:
+            _LINES.clear()
+        _LINES[key] = p.read_text(errors="replace").splitlines()
+    return _LINES[key]
+
+
 def find_line(path, sym):
     """Where a name is defined: a Python def, class or constant, a JS function or app tab, or a markdown heading. 0 if missing."""
     p = ROOT / path
@@ -49,7 +62,7 @@ def find_line(path, sym):
         return 0
     if not sym:
         return 1
-    lines = p.read_text(errors="replace").splitlines()
+    lines = _lines(p)
     e = re.escape(sym)
     for pat in (rf"^\s*(async\s+)?(def|class)\s+{e}\b", rf"^{e}\s*[:=]", rf"\bfunction\s+{e}\b", rf"^{e}\(\)\{{", rf"^#+\s.*{e}", rf"\b{e}\b"):
         for i, line in enumerate(lines, 1):
@@ -58,9 +71,27 @@ def find_line(path, sym):
     return 0
 
 
+_FACTS = {}
+FACTS_SECONDS = 30
+
+
 def folder_facts(path, now=None):
-    """How many files, how big, and when the newest one changed. Walks at most 20000 files, then says it stopped."""
+    """How many files, how big, and when the newest one changed. Walks at most 20000 files, then says it stopped.
+
+    A walk is reused for FACTS_SECONDS, so one page view walks data/raw once rather than once per page that cites it."""
     now = now or time.time()
+    hit = _FACTS.get((ROOT, path))
+    if hit and abs(now - hit[0]) < FACTS_SECONDS:
+        facts = dict(hit[1])
+        if facts.get("newest"):
+            facts["age_h"] = (now - facts["newest"]) / 3600
+        return facts
+    facts = _walk(path, now)
+    _FACTS[(ROOT, path)] = (now, facts)
+    return dict(facts)
+
+
+def _walk(path, now):
     p = ROOT / path
     if not p.exists():
         return {"exists": False}
@@ -79,9 +110,18 @@ def folder_facts(path, now=None):
 
 
 def module_graph():
-    """Which bzd module imports which, read from the code itself so it can't drift from it."""
+    """Which bzd module imports which, read from the code itself so it can't drift from it. Parsed again only when a file changes."""
+    files = sorted((ROOT / "bzd").glob("*.py"))
+    key = tuple((f.name, f.stat().st_mtime_ns) for f in files)
+    if key not in _GRAPH:
+        _GRAPH.clear()
+        _GRAPH[key] = _imports(files)
+    return _GRAPH[key]
+
+
+def _imports(files):
     edges = set()
-    for f in sorted((ROOT / "bzd").glob("*.py")):
+    for f in files:
         try:
             tree = ast.parse(f.read_text())
         except SyntaxError:
