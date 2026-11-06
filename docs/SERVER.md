@@ -20,8 +20,8 @@ Poi il passaggio, che deve lasciare **il bot in un posto solo**:
 
 1. Nel Codespace ferma i servizi: alert e bot per primi.
 2. `bash scripts/server-move-data.sh utente@server` di nuovo, per l'ultima parte dei dati.
-3. Sul server: `sudo systemctl start bzd-recorder bzd-backfill bzd-alerts bzd-app bzd-backup.timer`
-4. Controlla: `systemctl is-active bzd-recorder bzd-backfill bzd-alerts bzd-app`, poi `/piano` sul bot.
+3. Sul server: `sudo systemctl start bzd-recorder bzd-backfill bzd-wallets bzd-alerts bzd-app bzd-backup.timer`
+4. Controlla: `systemctl is-active bzd-recorder bzd-backfill bzd-wallets bzd-alerts bzd-app`, poi `/piano` sul bot.
 5. Togli `postStartCommand` da `.devcontainer/devcontainer.json`, altrimenti alla riaccensione del Codespace due bot si contendono i messaggi.
 
 ## Aggiornare

@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from . import flows as FL
+from . import wallets as WL
 from . import indicators as I
 from . import option_lab as L
 from . import options_report as O
@@ -412,5 +413,5 @@ def build(now=None):
     alerts = part(lambda: alerts_part({m["market"]: m["price"] for m in markets}), errors, "alerts", {"setups": [], "moves": [], "resets": []})
     return clean({"at": now.isoformat(timespec="seconds"), "markets": markets, "classes": summaries, "overview": overview, "briefing": part(lambda: briefing(markets, summaries, lab, tech, alerts), errors, "briefing", []),
                   "options": part(options_part, errors, "options", []), "lab": lab, "sentiment": sentiment, "zone_info": {"frames": ZN.FRAMES, "past": ZN.PAST, "byz": ZN.BYZ_BELOW, "szt": ZN.SZT_ABOVE},
-                  "alerts": alerts, "tests": part(tests_part, errors, "tests", None), "technical": tech, "flows": part(flows_part, errors, "flows", []),
+                  "alerts": alerts, "tests": part(tests_part, errors, "tests", None), "technical": tech, "flows": part(flows_part, errors, "flows", []), "wallets": part(WL.view, errors, "wallets", None),
                   "freshness": part(lambda: freshness(now), errors, "freshness", {"recorder_minutes": None, "ok": False}), "errors": errors})

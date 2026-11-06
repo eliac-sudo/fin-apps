@@ -67,3 +67,20 @@ Misura descrittiva del 5 novembre 2026, non un test: barre sovrapposte, dati gi�
 | Altri, 4 settimane | top | fondi vendono | −0,27% | −0,52% |
 
 Sui dip delle cripto i rendimenti sono stati migliori quando il gruppo in questione **non** comprava con forza, per tutti e tre i gruppi, presi uno alla volta. Sono più di venti confronti senza intervalli di confidenza, quindi qualche scarto è atteso per caso: è un'ipotesi, non un risultato. Dire che seguire un gruppo aiuta richiede una pre-registrazione v2 su dati nuovi.
+
+## Portafogli su Hyperliquid (dal 6 novembre 2026)
+
+`bzd/wallets.py`, servizio `python3 -m bzd.wallets run`. Ogni giorno salva la classifica pubblica di Hyperliquid (conti sopra $10.000, circa 20.000), e ogni ora le posizioni aperte di quattro gruppi, sui perpetui principali e su `xyz`:
+
+- **vincenti storici** e **perdenti storici:** i 150 conti con più e meno profitti di sempre;
+- **vincenti del mese** e **perdenti del mese:** i 50 dell'ultimo mese, se non sono già negli storici.
+
+Restano fuori i conti sotto $100.000, quelli che in un mese muovono meno di metà del capitale (vault, chi tiene e basta) e quelli che lo muovono più di 100 volte (market maker). Le soglie vengono dalla classifica del 6 novembre: metà dei conti sopra $100.000 muove meno di una volta il capitale al mese, e l'1% lo muove 350 volte o più.
+
+Nell'app, in «Chi compra», per ogni mercato: il netto in dollari di ogni gruppo, quanti sono long e short, e la variazione in 24 ore dei vincenti storici. `python3 -m bzd.wallets flussi` dà la stessa tabella nel terminale.
+
+Cautele:
+- **Descrive, non è testato.** Il profitto passato non prova bravura: un vincente può essere fortunato, coprire una posizione fatta altrove, o essere una gamba di un arbitraggio.
+- **I vincenti del mese sono in parte circolari:** dopo un calo sono soprattutto chi era short. Per questo gli storici sono mostrati a parte.
+- **Nessuno storico gratuito:** la classifica e le posizioni esistono solo da quando le registriamo. Un test su questi dati potrà partire solo dopo mesi di registrazione, con una pre-registrazione nuova.
+- Primo giro, 6 novembre 13:21 UTC: i vincenti storici erano short quasi ovunque (BTC −648 milioni di dollari, ETH −424), i perdenti storici long.

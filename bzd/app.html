@@ -199,6 +199,17 @@ svg text{font:10.5px var(--mono);fill:var(--muted)}
 <dialog id="dlg"></dialog>
 <script>
 "use strict";
+function walletSection(){
+  const W=D.wallets;if(!W)return el("section",{class:"card"},el("h2",null,"Portafogli su Hyperliquid"),el("p",{class:"muted"},"Il primo giro di posizioni non è ancora stato registrato."));
+  const usd=v=>v==null?"–":(v>=0?"+":"−")+"$"+(Math.abs(v)>=1e9?(Math.abs(v)/1e9).toFixed(2)+"B":(Math.abs(v)/1e6).toFixed(1)+"M");
+  const cell=g=>g.long||g.short?el("span",{title:g.long+" long, "+g.short+" short"},el("b",null,usd(g.net)),el("span",{class:"tiny muted"}," "+g.long+"L/"+g.short+"S")):el("span",{class:"muted"},"–");
+  const cols=[{k:"market",label:"Mercato",val:r=>r.market,cell:r=>r.market.replace(/^xyz:/,"")+(r.market.startsWith("xyz:")?" (xyz)":"")},
+    ...W.groups.map(g=>({k:g,label:g[0].toUpperCase()+g.slice(1),num:true,val:r=>r.groups[g].net,cell:r=>cell(r.groups[g]),title:W.wallets[g]+" portafogli"})),
+    {k:"chg",label:"Vincenti storici, 24 ore",num:true,val:r=>r.groups["vincenti storici"].change_24h,cell:r=>usd(r.groups["vincenti storici"].change_24h),title:"Quanto è cambiato il netto dei vincenti storici rispetto a 24 ore prima"}];
+  const rows=W.rows.filter(r=>hitName(r.market));
+  return el("section",{class:"card"},el("h2",null,"Portafogli su Hyperliquid: vincenti e perdenti"),
+    el("p",{class:"sub",style:"margin:2px 0 6px"},"Posizioni aperte, in dollari: + è long, − è short. I vincenti e i perdenti storici sono i 150 conti con più e meno profitti di sempre, quelli del mese i 50 dell'ultimo mese. Esclusi i conti sotto $100.000, i market maker e i conti che non fanno trading. Il profitto passato non prova bravura, e i vincenti del mese dopo un calo sono soprattutto chi era short. Descrive e non è testato. Giro del "+when(W.at)+(W.has_24h?".":"; il confronto a 24 ore arriva domani.")),
+    Table(cols,rows))}
 const TABS=[["oggi","Oggi"],["opzioni","Opzioni"],["tecnica","Analisi tecnica"],["sentiment","Sentiment"],["chi","Chi compra"],["alert","Alert"],["piano","Piano"],["test","Test"]];
 const PARTS={slancio:"Slancio",rsi:"RSI",estensione:"Distanza dalla media",funding:"Funding",oi:"Leva (OI)",posizionamento:"Speculatori",calma:"Calma (volatilità bassa)"};
 const BANDS=[
@@ -424,7 +435,7 @@ chi(){
   const groups=Object.entries(D.classes).map(([k,c])=>{const g=document.createElement("optgroup");g.label=c.name;all.filter(r=>r.class===k).forEach(r=>{const o=el("option",{value:r.market},r.label);if(r.market===FLOW.market)o.selected=true;g.append(o)});return g});
   return [el("p",{class:"hero"},says?says+".":"Adesso il retail non compra né vende agli estremi"),el("p",{class:"sub"},also?also+" ":"","Chi cambia posizione quando il prezzo è tirato, e quanto forte rispetto al proprio passato. ✦ vuol dire più di quanto spiega il solo movimento del prezzo. Fuori dalle cripto il dato è quello dell'ultimo report COT. Descrive e non è testato."),
     el("section",{class:"card"},el("h2",null,"Tutti i mercati, adesso"),el("div",{style:"margin-top:4px"},Table(cols,rows,{sort:"strength",on:r=>r.market===FLOW.market,onRow:r=>{FLOW.market=r.market;FLOW.tf=null;openFlow(r.market);$("#flowPick").scrollIntoView({block:"center"})}}))),
-    el("section",{class:"card"},el("div",{class:"selectline"},el("h2",null,"Chi ha comprato i dip e venduto i top"),el("div",{style:"display:flex;gap:8px;align-items:center;flex-wrap:wrap"},el("select",{id:"flowPick","aria-label":"Scegli il mercato",onchange:e=>{FLOW.market=e.target.value;FLOW.tf=null;openFlow(FLOW.market)}},groups),el("div",{class:"seg",id:"flowTf"}),el("div",{class:"seg",id:"flowWin"}))),el("div",{id:"flowBox",style:"margin-top:6px"},el("p",{class:"muted"},"Carico il grafico…")))]},
+    el("section",{class:"card"},el("div",{class:"selectline"},el("h2",null,"Chi ha comprato i dip e venduto i top"),el("div",{style:"display:flex;gap:8px;align-items:center;flex-wrap:wrap"},el("select",{id:"flowPick","aria-label":"Scegli il mercato",onchange:e=>{FLOW.market=e.target.value;FLOW.tf=null;openFlow(FLOW.market)}},groups),el("div",{class:"seg",id:"flowTf"}),el("div",{class:"seg",id:"flowWin"}))),el("div",{id:"flowBox",style:"margin-top:6px"},el("p",{class:"muted"},"Carico il grafico…"))),walletSection()]},
 alert(){
   const a=D.alerts,items=[...a.moves.map(m=>({kind:"movimenti",time:m.at,ic:m.down?"🔻":"🔺",name:m.label,title:m.label+" "+sgn(m.pct,1)+"% in "+m.window,line:m.position?"Prezzo "+m.position:"Soglia "+sgn(m.limit_pct,1)+"%",plan:m.plan_key?{key:m.plan_key,why:m.label+", forte movimento"}:null})),
     ...a.resets.map(r=>({kind:"reset",time:r.bar,ic:"🔄",name:r.label,title:r.label+", reset "+r.frame,line:"RSI "+fmt(r.rsi)+", "+r.kind,plan:r.plan_key?{key:r.plan_key,why:r.label+", reset "+r.frame,short:r.trend==="ribasso"}:null})),
