@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 
 from . import indicators as I
+from . import verdicts as V
 from .events import align_cot, crypto_daily, daily, read
 from .history import CRYPTO, MARKETS, safe
 from .recorder import load_env
@@ -212,7 +213,7 @@ def build_digest(now=None):
     fg = fear_greed()
     if fg:
         out += ["", f"Fear &amp; Greed cripto: {fg['value']}"]
-    out += ["", "Descrive e non prevede: non è testato come segnale e non è consulenza finanziaria."]
+    out += ["", "Descrive e non prevede. " + V.line("T1"), V.line("T2") + " Non è consulenza finanziaria."]
     return "\n".join(out), rows
 
 

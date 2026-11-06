@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 from . import indicators as I
+from . import verdicts as V
 from .events import daily, read
 from .history import CRYPTO, MARKETS, safe
 
@@ -285,5 +286,6 @@ def format_resets(found, now, name=lambda m: m):
         context = context_line(r["market"])
         if context:
             lines.append(context)
-    lines += ["", "Grafico e livelli sono nell'app, in Analisi tecnica. Soglie scelte da noi: non è testato come segnale e non è consulenza finanziaria."]
+    tested = " ".join(V.line(rid) for rid, trend in (("R1", "rialzo"), ("R2", "ribasso")) if any(r["trend"] == trend for r in found))
+    lines += ["", "Grafico e livelli sono nell'app, in Analisi tecnica. Soglie scelte da noi. " + tested + " Non è consulenza finanziaria."]
     return "\n".join(lines)

@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
+from . import verdicts as V
 from .events import crypto_daily, daily, read
 from .history import safe
 from .recorder import BASE
@@ -116,5 +117,5 @@ def format_moves(moves, now, options=""):
             lines.append(m["context"])
     if options:
         lines += ["", options]
-    lines += ["", "Prezzi Hyperliquid. Dice che il prezzo si muove, non dove andrà: non è testato come segnale e non è consulenza finanziaria."]
+    lines += ["", "Prezzi Hyperliquid. Dice che il prezzo si muove, non dove andrà. " + V.line("M1") + " Non è consulenza finanziaria."]
     return "\n".join(lines)

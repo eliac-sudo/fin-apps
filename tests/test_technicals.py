@@ -68,7 +68,7 @@ class TestReset(unittest.TestCase):
         t = K.format_resets([{"market": "BTC", "tf": "1w", "rsi": 38.0, "threshold": 40, "trend": "rialzo", "kind": "ipervenduto in un trend al rialzo", "price": 80000.0, "bar": "x"}], datetime(2026, 11, 5, tzinfo=timezone.utc))
         self.assertIn("RESET", t)
         self.assertIn("settimanale", t)
-        self.assertIn("non è testato", t)
+        self.assertIn("non è salito più", t)
         for word in ("entra", "stop", "compra", "obiettivo"):
             self.assertNotIn(word, t.lower())
 

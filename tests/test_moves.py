@@ -77,7 +77,7 @@ class TestFind(unittest.TestCase):
             moved = A.check_moves(st, True, NOW, self.tmp.name, lambda m: .02)
         self.assertEqual(len(moved), 2)
         self.assertEqual(len(st["pending"]), 1)
-        for word in ("BTC", "ETH", "OPZ-QUI", "non è consulenza", "non è testato"):
+        for word in ("BTC", "ETH", "OPZ-QUI", "Non è consulenza", "Testato 2008"):
             self.assertIn(word, st["pending"][0])
         self.assertEqual(len((Path(self.tmp.name) / "alerts" / "moves.jsonl").read_text().splitlines()), 2)
 

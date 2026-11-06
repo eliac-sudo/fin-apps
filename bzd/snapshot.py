@@ -15,6 +15,7 @@ from . import technicals as K
 from . import texts as T
 from . import thermo as Z
 from . import zones as ZN
+from . import verdicts as VD
 from .alerts import CLASS_IT, COND_IT, SETUP_IT, SETUP_MEANS, alert_dir, test_verdict
 from .events import crypto_daily, daily, read
 from .history import CRYPTO, MARKETS, safe
@@ -412,6 +413,6 @@ def build(now=None):
     part(lambda: add_zones(markets, sentiment), errors, "zones", None)
     alerts = part(lambda: alerts_part({m["market"]: m["price"] for m in markets}), errors, "alerts", {"setups": [], "moves": [], "resets": []})
     return clean({"at": now.isoformat(timespec="seconds"), "markets": markets, "classes": summaries, "overview": overview, "briefing": part(lambda: briefing(markets, summaries, lab, tech, alerts), errors, "briefing", []),
-                  "options": part(options_part, errors, "options", []), "lab": lab, "sentiment": sentiment, "zone_info": {"frames": ZN.FRAMES, "past": ZN.PAST, "byz": ZN.BYZ_BELOW, "szt": ZN.SZT_ABOVE},
+                  "options": part(options_part, errors, "options", []), "lab": lab, "sentiment": sentiment, "zone_info": {"frames": ZN.FRAMES, "past": ZN.PAST, "byz": ZN.BYZ_BELOW, "szt": ZN.SZT_ABOVE}, "verdicts": part(VD.all_lines, errors, "verdicts", {}),
                   "alerts": alerts, "tests": part(tests_part, errors, "tests", None), "technical": tech, "flows": part(flows_part, errors, "flows", []), "wallets": part(WL.view, errors, "wallets", None),
                   "freshness": part(lambda: freshness(now), errors, "freshness", {"recorder_minutes": None, "ok": False}), "errors": errors})

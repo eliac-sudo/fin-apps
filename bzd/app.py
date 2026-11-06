@@ -10,6 +10,7 @@ from pathlib import Path
 from . import labels as LB
 from . import lookup as LK
 from . import option_lab as L
+from . import option_paper as OP
 from . import plan as P
 from . import snapshot as S
 from . import wiki as WK
@@ -54,6 +55,9 @@ def snapshot():
                 return _cache["data"]
         time.sleep(.5)
     raise TimeoutError("first reading is still running")
+
+
+_paper_lock = threading.Lock()  # one ledger update at a time
 
 
 def option_market(key, fresh):
@@ -141,6 +145,9 @@ class Handler(BaseHTTPRequestHandler):
                     self.send(404, b'{"error":"mercato sconosciuto"}')
                 else:
                     self.send(200, json.dumps(S.clean(option_market(key, q.get("fresh", [""])[0] == "1"))).encode())
+            elif url.path == "/api/options_paper":
+                with _paper_lock:
+                    self.send(200, json.dumps(S.clean(OP.view())).encode())
             elif url.path == "/api/labels":
                 self.send(200, json.dumps(LB.next_text()).encode())
             elif url.path == "/api/wiki":

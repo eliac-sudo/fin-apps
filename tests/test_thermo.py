@@ -154,7 +154,7 @@ class TestOptionsReport(unittest.TestCase):
         self.assertIn("put più care", t)
         self.assertIn("Più tesa", t)
         self.assertNotIn("GEX", t)
-        self.assertIn("non è testato", t)
+        self.assertIn("Testato 2008", t)
 
     def test_term_flags_near_term_fear(self):
         from unittest import mock

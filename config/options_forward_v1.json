@@ -1,0 +1,24 @@
+{
+ "version": 1,
+ "frozen": "2026-11-06",
+ "purpose": "Strategie sulle opzioni provate sui dati futuri, con i prezzi veri salvati dal recorder. Solo carta: nessun ordine.",
+ "markets": ["SPY", "QQQ", "IWM", "TLT", "GLD", "SLV", "USO", "FXE", "BTC", "ETH"],
+ "entry": {"first_day": "2026-11-07", "deribit_from_utc_hour": 12.0, "cboe_window_utc_hours": [14.5, 21.0], "target_days": 30, "days_range": [20, 45]},
+ "thresholds": {"cheap_below": 0.9, "dear_above": 1.25},
+ "max_leg_spread_of_mid": 0.5,
+ "fees": {"deribit": {"of_underlying": 0.0003, "cap_of_price": 0.125}, "cboe": {"per_unit": 0.0065}},
+ "settlement": {"max_days_after_expiry": 4},
+ "strategies": {
+  "V1": {"name": "Vendi straddle", "legs": [["put", "atm", -1], ["call", "atm", -1]], "when": "sempre", "per": "premio"},
+  "V2": {"name": "Vendi strangle 16Δ", "legs": [["put", 0.16, -1], ["call", 0.16, -1]], "when": "sempre", "per": "premio"},
+  "V3": {"name": "Iron condor 16Δ con ali 5Δ", "legs": [["put", 0.05, 1], ["put", 0.16, -1], ["call", 0.16, -1], ["call", 0.05, 1]], "when": "sempre", "per": "rischio"},
+  "V4": {"name": "Put spread venduto 25Δ/10Δ", "legs": [["put", 0.10, 1], ["put", 0.25, -1]], "when": "sempre", "per": "rischio"},
+  "V5": {"name": "Vendi put ATM (put-write)", "legs": [["put", "atm", -1]], "when": "sempre", "per": "premio"},
+  "V6": {"name": "Compra straddle", "legs": [["put", "atm", 1], ["call", "atm", 1]], "when": "sempre", "per": "premio"},
+  "C1": {"name": "Compra straddle quando le opzioni sono economiche", "legs": [["put", "atm", 1], ["call", "atm", 1]], "when": "economiche", "per": "premio", "from": "O2", "baseline": "V6"},
+  "C2": {"name": "Vendi straddle quando le opzioni sono care", "legs": [["put", "atm", -1], ["call", "atm", -1]], "when": "care", "per": "premio", "from": "O1", "baseline": "V1"},
+  "C3": {"name": "Iron condor quando le opzioni sono care", "legs": [["put", 0.05, 1], ["put", 0.16, -1], ["call", 0.16, -1], ["call", 0.05, 1]], "when": "care", "per": "rischio", "baseline": "V3"}
+ },
+ "readout": {"not_before": "2027-11-06", "min_settled_per_strategy": 100, "family_alpha": 0.05, "correction": "holm",
+             "rule": "Prima di questa data solo descrizione. Poi un test solo: per C1, C2 e C3 l'eccesso sulla loro strategia di base nello stesso mercato e mese; per V1–V6 il netto medio. Entrate dello stesso mercato che si sovrappongono contano come un cluster."}
+}

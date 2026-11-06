@@ -2,6 +2,7 @@
 
 Le modifiche al motore, dalla più recente. Il dettaglio è in `docs/STATO.md` e nella storia di git.
 
+- **2026-11-06** · Nove strategie sulle opzioni in prova sui prezzi veri di Deribit e Cboe ([[opzioni-in-prova]]). Accanto a ogni lettura dell'app e negli alert c'è ora l'esito del test v3.
 - **2026-11-06** · Test storico v3 di 15 letture mai testate: supportata solo «opzioni economiche», le altre no ([[v3]]).
 - **2026-11-06** · Mappa neurale in 3D del motore: retro le fonti, fronte le uscite.
 - **2026-11-06** · Nasce questo wiki. «Chi compra» semplificata: prima chi compra il dip e chi vende il top, il resto nei dettagli.

@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 import numpy as np
 
 from . import indicators as I
+from . import verdicts as V
 from .events import crypto_daily, daily, read
 from .option_models import har_forecast
 from .recorder import load_env
@@ -161,7 +162,7 @@ def options_note(markets):
                 lines = []
             if lines:
                 out += [f"<b>{b['name']}</b>"] + [f"• {x}" for x in lines]
-    return "\n".join(["📊 Opzioni (contesto, non testato come segnale)"] + out) if out else ""
+    return "\n".join(["📊 Opzioni (contesto)"] + out + [V.line("O2"), V.line("O1")]) if out else ""
 
 
 def build_report(now=None):
@@ -182,7 +183,7 @@ def build_report(now=None):
     if costs:
         costs.sort()
         head.append(f"Opzioni più care rispetto al movimento previsto: {costs[-1][1]}. Più economiche: {costs[0][1]}.")
-    return "\n".join(head + out + ["", "Solo descrittivo: non è testato come segnale e non è consulenza finanziaria."])
+    return "\n".join(head + out + ["", V.line("O2"), V.line("O1"), "Le strategie in prova sui prezzi veri sono nell'app, in Opzioni. Non è consulenza finanziaria."])
 
 
 def main(argv):
