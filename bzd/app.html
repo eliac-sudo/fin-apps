@@ -310,6 +310,18 @@ html[data-theme=kangtao] nav button[aria-selected=true]{box-shadow:0 0 16px -4px
 .wfiles{display:grid;gap:2px;max-height:60vh;overflow:auto;min-width:min(700px,80vw)}.wfile{all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:12px;padding:3px 8px;font:12.5px var(--mono,monospace)}.wfile:hover{background:var(--surface2)}
 .wmods{columns:2;margin-top:6px}
 @media (max-width:1100px){.wcols,.wlayout,.whocols{grid-template-columns:1fr}.windex{position:static;max-height:none}}
+.brain{position:relative;margin-top:8px;background:radial-gradient(ellipse at 50% 50%,#1a0308 0%,#050203 60%,#000 100%);border:1px solid rgba(255,30,60,.45);box-shadow:inset 0 0 60px rgba(255,0,40,.18),0 0 24px -8px rgba(255,20,50,.5);overflow:hidden;clip-path:polygon(0 0,calc(100% - 18px) 0,100% 18px,100% 100%,18px 100%,0 calc(100% - 18px))}
+.brain canvas{display:block;width:100%;cursor:grab;touch-action:none}
+.bhud{position:absolute;font:11px/1.6 var(--mono);letter-spacing:.12em;color:rgba(255,200,205,.85);pointer-events:none;text-shadow:0 0 6px rgba(255,30,60,.8)}
+.bhud b{color:#ff3355;font:700 13px "Orbitron",var(--head);letter-spacing:.2em}
+.bhud.tl{top:12px;left:16px}.bhud.tr{top:12px;right:16px;text-align:right}.bhud.bl{bottom:10px;left:16px;opacity:.7}.bhud.br{bottom:10px;right:16px;opacity:.7}
+.bhud.tr i{display:inline-block;width:8px;height:8px;margin-right:7px;border-radius:50%}
+.bhud.tl::before,.bhud.br::after{content:"";position:absolute;width:22px;height:22px;border:1px solid #ff2a4a}.bhud.tl::before{left:-8px;top:-6px;border-right:0;border-bottom:0}.bhud.br::after{right:-8px;bottom:-4px;border-left:0;border-top:0}
+.bscan{position:absolute;left:0;right:0;height:90px;top:-90px;background:linear-gradient(transparent,rgba(255,30,60,.08),transparent);animation:bscan 5s linear infinite;pointer-events:none}
+.brain::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px);pointer-events:none}
+@keyframes bscan{to{top:100%}}
+.btip{position:absolute;display:none;max-width:270px;padding:8px 10px;background:rgba(10,0,4,.92);border:1px solid #ff2a4a;box-shadow:0 0 14px rgba(255,20,50,.45);font-size:12.5px;color:#ffe;pointer-events:none;z-index:2}.btip b{display:block;color:#ff4d66;font:700 12px "Orbitron",var(--head);letter-spacing:.1em;margin-bottom:3px}.btip .tiny{color:rgba(255,200,205,.7);margin-top:4px}
+@media (prefers-reduced-motion:reduce){.bscan{animation:none}}
 </style>
 </head>
 <body>
@@ -362,6 +374,52 @@ function wikiBody(md,cites){const out=[];let list=null;
     if(li){if(!list){list=el(/^\s*\d/.test(line)?"ol":"ul",{class:"plain wlist"});out.push(list)}list.append(el("li",null,wikiInline(li[1],cites)));continue}
     list=null;if(!line)continue;if(h){out.push(el(h[1].length===1?"h2":"h3",{class:"wh"},h[2]));continue}
     out.push(el("p",{class:"wp"},wikiInline(line,cites)))}return out}
+function wikiBrain(){const W=WK.data,P=W.pages,K=W.kinds.map(([k])=>k),pages=Object.values(P),css=getComputedStyle(document.documentElement);
+  const norm=document.createElement("canvas").getContext("2d"),col=k=>{const v=(KIND_COL[k]||"").match(/--[\w-]+/);norm.fillStyle="#ff2b4a";norm.fillStyle=v&&css.getPropertyValue(v[0]).trim()||"#ff2b4a";return /^#[0-9a-f]{6}$/i.test(norm.fillStyle)?norm.fillStyle:"#ff2b4a"};const KC=Object.fromEntries(K.map(k=>[k,col(k)]));
+  let seed=7;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  // brain-shaped shell: two hemispheres, wrinkled surface, flat underside
+  const shell=[],ell=(n,cx,cy,cz,rx,ry,rz,wr)=>{for(let i=0;i<n;i++){const u=rnd()*2-1,th=rnd()*Math.PI*2,s=Math.sqrt(1-u*u),w=1+wr*(Math.sin(7*th+3*u)*Math.sin(9*Math.acos(u))+.5*Math.sin(17*th));shell.push({x:cx+s*Math.cos(th)*rx*w,y:cy+u*ry*w,z:cz+s*Math.sin(th)*rz*w})}};
+  for(const side of[1,-1]){const st=shell.length;ell(330,0,.05,side*.5,1.3,.85,.55,.06);for(let i=st;i<shell.length;i++){const q=shell[i];if(side*q.z<.05)q.z=side*(.05+Math.abs(q.z-side*.5)*.15);if(q.y<-.42)q.y=-.42+(q.y+.42)*.35;if(q.x<-.7&&q.y<-.2)q.y+=.12}}
+  ell(110,-.95,-.55,0,.42,.26,.62,.04);for(let i=0;i<40;i++){const a=rnd()*Math.PI*2,h=rnd();shell.push({x:-.45-.15*h+.13*Math.cos(a),y:-.45-.65*h,z:.13*Math.sin(a)})}
+  const links=[];shell.forEach((a,i)=>{const near=shell.map((b,j)=>[j,(a.x-b.x)**2+(a.y-b.y)**2+(a.z-b.z)**2]).filter(([j])=>j>i).sort((p,q)=>p[1]-q[1]).slice(0,3);for(const[j,d]of near)if(d<.05)links.push([i,j])});
+  // real pages inside: back of the brain = sources, front = what you see
+  const nodes=[];K.forEach((k,ki)=>{const ps=pages.filter(p=>p.kind===k).sort((a,b)=>a.title.localeCompare(b.title)),x=-1+2*ki/Math.max(1,K.length-1);
+    ps.forEach((p,i)=>{const a=i/ps.length*Math.PI*2+ki*.7,rr=(.25+.4*((i%3)/2))*Math.sqrt(1-Math.min(.85,x*x*.5));nodes.push({p,x:x*.95+(rnd()-.5)*.12,y:Math.sin(a)*rr*.75,z:Math.cos(a)*rr})})});
+  const byslug=Object.fromEntries(nodes.map(n=>[n.p.slug,n])),edges=[];for(const n of nodes)for(const t of n.p.feeds)if(byslug[t])edges.push({a:n,b:byslug[t],ph:rnd()});
+  const wrap=el("div",{class:"brain"}),cv=el("canvas",{"aria-label":"Mappa neurale del motore: trascina per ruotare, clic su un nodo per aprirne la pagina"}),tipb=el("div",{class:"btip"});
+  const hard=W.lint.filter(x=>x.kind!=="fermo").length;
+  wrap.append(cv,el("div",{class:"bhud tl"},el("b",null,"BZD // MAPPA NEURALE"),el("div",null,"NODI "+nodes.length+" · SINAPSI "+edges.length+" · MODULI "+W.modules.length),el("div",{style:hard?"color:var(--crit)":""},hard?"INTEGRITÀ ▲ "+hard+" ERRORI":"INTEGRITÀ 100% · LINT OK")),
+    el("div",{class:"bhud tr"},W.kinds.map(([k,n])=>el("div",null,el("i",{style:`background:${KC[k]};box-shadow:0 0 8px ${KC[k]}`}),n.toUpperCase()))),
+    el("div",{class:"bhud bl"},"TRASCINA PER RUOTARE · ROTELLA ZOOM · CLIC PER APRIRE"),el("div",{class:"bhud br"},"RETRO = FONTI  →  FRONTE = USCITE"),el("div",{class:"bscan"}),tipb);
+  const ctx=cv.getContext("2d");const cam=WK.cam||(WK.cam={yaw:-.6,pitch:.25,zoom:1,auto:true});let yaw=cam.yaw,pitch=cam.pitch,zoom=cam.zoom,drag=null,hover=null,auto=cam.auto,Wd=0,Ht=0,dpr=1,t0=performance.now(),proj=[];
+  const size=()=>{dpr=Math.min(2,devicePixelRatio||1);Wd=wrap.clientWidth||900;Ht=Math.round(Math.min(620,Math.max(420,Wd*.52)));cv.width=Wd*dpr;cv.height=Ht*dpr;cv.style.height=Ht+"px"};
+  const P3=(q)=>{const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);let x=q.x*cy-q.z*sy,z=q.x*sy+q.z*cy,y=q.y;const y2=y*cp-z*sp,z2=y*sp+z*cp,f=Math.min(Wd,Ht*1.6)*.3*zoom,s=3.4/(3.4-z2);return{x:Wd/2+x*f*s,y:Ht/2-y2*f*s,z:z2,s}};
+  const lit=n=>!hover||n===hover||edges.some(e=>(e.a===hover&&e.b===n)||(e.b===hover&&e.a===n));
+  const curve=(A,B)=>{const mx=(A.x+B.x)/2,my=(A.y+B.y)/2,dx=B.x-A.x,dy=B.y-A.y,l=Math.hypot(dx,dy)||1;return[mx-dy/l*l*.12,my+dx/l*l*.12]};
+  function frame(now){if(!wrap.isConnected)return;if(document.hidden){requestAnimationFrame(frame);return}const t=(now-t0)/1000;if(auto&&!drag)yaw+=.0025;Object.assign(cam,{yaw,pitch,zoom,auto});
+    if(cv.width!==Math.round((wrap.clientWidth||900)*dpr))size();
+    ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,Wd,Ht);const g=ctx.createRadialGradient(Wd/2,Ht/2,10,Wd/2,Ht/2,Wd*.6);g.addColorStop(0,"rgba(120,0,20,.22)");g.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=g;ctx.fillRect(0,0,Wd,Ht);
+    const sp=shell.map(P3);ctx.lineWidth=.6;
+    for(const[i,j]of links){const a=sp[i],b=sp[j],d=(a.z+b.z)/2;ctx.strokeStyle=`rgba(255,40,70,${.07+.28*(d+1.3)/2.6})`;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}
+    sp.forEach((q,i)=>{const fl=.5+.5*Math.sin(t*2+i*1.7),a=(.2+.7*(q.z+1.3)/2.6)*(.55+.45*fl);ctx.fillStyle=`rgba(255,80,100,${a})`;ctx.fillRect(q.x-1.1,q.y-1.1,2.2*q.s,2.2*q.s)});
+    proj=nodes.map(n=>({n,...P3(n)}));const pp=new Map(proj.map(q=>[q.n,q]));
+    for(const e of edges){const A=pp.get(e.a),B=pp.get(e.b),on=hover&&(e.a===hover||e.b===hover),[cx,cy]=curve(A,B),c=KC[e.a.p.kind];
+      ctx.strokeStyle=on?c:"rgba(255,60,80,.28)";ctx.globalAlpha=hover&&!on?.25:1;ctx.lineWidth=on?1.8:.9;ctx.shadowColor=c;ctx.shadowBlur=on?12:0;ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.quadraticCurveTo(cx,cy,B.x,B.y);ctx.stroke();
+      for(let k=0;k<(on?3:1);k++){const u=(t*(on?.55:.3)+e.ph+k/3)%1,x=(1-u)**2*A.x+2*(1-u)*u*cx+u*u*B.x,y=(1-u)**2*A.y+2*(1-u)*u*cy+u*u*B.y;ctx.fillStyle="#fff";ctx.shadowColor=c;ctx.shadowBlur=10;ctx.beginPath();ctx.arc(x,y,on?2.4:1.5,0,7);ctx.fill()}
+      ctx.shadowBlur=0;ctx.globalAlpha=1}
+    for(const q of [...proj].sort((a,b)=>a.z-b.z)){const c=KC[q.n.p.kind],on=q.n===hover,sel=q.n.p.slug===WK.page,dim=!lit(q.n),r=(on?7:sel?6:4.2)*q.s,pulse=1+.18*Math.sin(t*3+q.x*.05);
+      ctx.globalAlpha=dim?.25:1;const gl=ctx.createRadialGradient(q.x,q.y,0,q.x,q.y,r*4*pulse);gl.addColorStop(0,c);gl.addColorStop(.25,c+"88");gl.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=gl;ctx.beginPath();ctx.arc(q.x,q.y,r*4*pulse,0,7);ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(q.x,q.y,r*.45,0,7);ctx.fill();if(sel){ctx.strokeStyle=c;ctx.lineWidth=1;ctx.beginPath();ctx.arc(q.x,q.y,r*2.2+2*Math.sin(t*4),0,7);ctx.stroke()}
+      if(!dim&&(on||sel||q.z>-.15||hover)){ctx.font=`${on?"700 13px":"11px"} ${css.getPropertyValue("--mono")||"monospace"}`;ctx.fillStyle=on?"#fff":`rgba(255,225,230,${.45+.5*(q.z+1)/2})`;ctx.fillText(q.n.p.title.toUpperCase(),q.x+r+5,q.y+4)}ctx.globalAlpha=1}
+    requestAnimationFrame(frame)}
+  const pick=ev=>{const r=cv.getBoundingClientRect(),x=ev.clientX-r.left,y=ev.clientY-r.top;let best=null,bd=18*18;for(const q of proj){const d=(q.x-x)**2+(q.y-y)**2;if(d<bd){bd=d;best=q}}return best};
+  cv.addEventListener("pointerdown",e=>{drag={x:e.clientX,y:e.clientY,yaw,pitch,moved:false};cv.setPointerCapture(e.pointerId)});
+  cv.addEventListener("pointermove",e=>{if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>4)drag.moved=true;yaw=drag.yaw+dx*.008;pitch=Math.max(-1.2,Math.min(1.2,drag.pitch+dy*.008));return}
+    const q=pick(e);hover=q?q.n:null;cv.style.cursor=q?"pointer":"grab";if(q){const r=wrap.getBoundingClientRect();tipb.replaceChildren(el("b",null,q.n.p.title),el("div",null,q.n.p.brief),el("div",{class:"tiny"},q.n.p.status));tipb.style.display="block";tipb.style.left=Math.min(e.clientX-r.left+16,r.width-280)+"px";tipb.style.top=(e.clientY-r.top+14)+"px"}else tipb.style.display="none"});
+  cv.addEventListener("pointerup",e=>{const was=drag;drag=null;if(was&&!was.moved){const q=pick(e);if(q){WK.page=q.n.p.slug;render();const pg=$("#wpage");if(pg)pg.scrollIntoView({behavior:"smooth",block:"start"})}else auto=!auto}});
+  cv.addEventListener("pointerleave",()=>{hover=null;tipb.style.display="none"});
+  cv.addEventListener("wheel",e=>{e.preventDefault();zoom=Math.max(.6,Math.min(2.2,zoom*(e.deltaY<0?1.08:.93)))},{passive:false});
+  requestAnimationFrame(()=>{size();requestAnimationFrame(frame)});return wrap}
 function wikiGraph(){const W=WK.data,K=W.kinds,P=W.pages,cols=K.map(([k])=>Object.values(P).filter(p=>p.kind===k).sort((a,b)=>a.title.localeCompare(b.title)));
   const rowH=24,top=30,width=1000,colW=width/K.length,H=top+Math.max(...cols.map(c=>c.length))*rowH+8,pos={};
   cols.forEach((c,ci)=>c.forEach((p,ri)=>pos[p.slug]={x:ci*colW+8,y:top+ri*rowH,w:colW-34}));
@@ -663,7 +721,7 @@ motore(){
     K.map(([k,n])=>{const ps=Object.values(P).filter(p=>p.kind===k&&match(p)).sort((a,b)=>a.title.localeCompare(b.title));return ps.length?el("div",null,el("div",{class:"wlabel",style:`color:${KIND_COL[k]}`},n),ps.map(p=>el("button",{class:"wi"+(p.slug===WK.page?" on":""),onclick:()=>{WK.page=p.slug;render()}},p.title))):null}));
   return [el("p",{class:"hero"},"Il motore: come funziona tutto, con le fonti"),
     el("div",{class:"sub"},wikiBody(W.intro||"",{})),el("p",{class:"small"},"Passa su un riquadro della mappa per vedere i collegamenti, cliccalo per la sua pagina. Ogni citazione apre il codice alla riga giusta o la cartella dati con l'ultimo aggiornamento."),
-    el("section",{class:"card"},el("div",{class:"selectline"},el("h2",null,"Mappa"),el("span",{class:"small "+(hard.length?"":"muted")},hard.length?"▲ "+hard.length+" citazioni o link da correggere":"✓ "+Object.keys(P).length+" pagine, ogni citazione porta a un file vero"+(stale.length?" · ▲ "+stale.length+" cartelle dati ferme":""))),wikiGraph(),
+    el("section",{class:"card"},el("div",{class:"selectline"},el("h2",null,"Mappa"),el("span",{class:"small "+(hard.length?"":"muted")},hard.length?"▲ "+hard.length+" citazioni o link da correggere":"✓ "+Object.keys(P).length+" pagine, ogni citazione porta a un file vero"+(stale.length?" · ▲ "+stale.length+" cartelle dati ferme":""))),WK.flat?wikiGraph():wikiBrain(),el("div",{style:"margin-top:6px"},el("button",{class:"ghost",onclick:()=>{WK.flat=!WK.flat;render()}},WK.flat?"◉ Vista 3D":"▤ Vista piatta")),
       stale.length||hard.length?el("ul",{class:"plain small"},[...hard,...stale].map(x=>el("li",null,(x.page?P[x.page].title+": ":"")+x.text))):null),
     el("div",{class:"wlayout"},idx,wikiPage(P[WK.page])),
     el("section",{class:"card"},el("details",null,el("summary",null,"Registro delle modifiche"),el("div",{style:"margin-top:6px"},wikiBody(W.log.replace(/^# .*\n/,""),{}))),
