@@ -7,6 +7,7 @@ import json, os, sys, threading, time, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from . import labels as LB
 from . import lookup as LK
 from . import option_lab as L
 from . import plan as P
@@ -134,6 +135,8 @@ class Handler(BaseHTTPRequestHandler):
                     self.send(404, b'{"error":"mercato sconosciuto"}')
                 else:
                     self.send(200, json.dumps(S.clean(option_market(key, q.get("fresh", [""])[0] == "1"))).encode())
+            elif url.path == "/api/labels":
+                self.send(200, json.dumps(LB.next_text()).encode())
             elif url.path == "/api/plan":
                 code, reply = plan_reply(q)
                 self.send(code, json.dumps(S.clean(reply)).encode())
@@ -142,6 +145,21 @@ class Handler(BaseHTTPRequestHandler):
         except BrokenPipeError:
             pass
         except Exception as e:  # the type only: no paths or data in a reply
+            self.send(500, json.dumps({"error": type(e).__name__}).encode())
+
+    def do_POST(self):
+        """The only write: your sentiment labels. The custom header can't be sent by another site's page, so only this app can label."""
+        try:
+            if urllib.parse.urlsplit(self.path).path != "/api/labels" or self.headers.get("X-BZD") != "1":
+                self.send(403, b'{"error":"non permesso"}')
+                return
+            n = int(self.headers.get("Content-Length") or 0)
+            body = json.loads(self.rfile.read(min(n, 4096)) or b"{}")
+            LB.save_label(str(body.get("id", "")), str(body.get("label", "")))
+            self.send(200, json.dumps(LB.next_text()).encode())
+        except ValueError as e:
+            self.send(400, json.dumps({"error": str(e)}).encode())
+        except Exception as e:
             self.send(500, json.dumps({"error": type(e).__name__}).encode())
 
     def log_message(self, *_):
