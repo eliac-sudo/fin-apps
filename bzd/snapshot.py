@@ -1,6 +1,6 @@
 """Everything the app shows, read from saved data. No orders, no paid calls, nothing written."""
 import gzip, json, math, re, xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import pandas as pd
@@ -14,6 +14,7 @@ from . import sentiment as SM
 from . import technicals as K
 from . import texts as T
 from . import thermo as Z
+from . import capitulation as CP
 from . import zones as ZN
 from . import verdicts as VD
 from .alerts import CLASS_IT, COND_IT, SETUP_IT, SETUP_MEANS, alert_dir, test_verdict
@@ -62,12 +63,19 @@ def class_history(rows):
     return {"dates": list(mean.index), "values": [float(x) for x in mean.values]}
 
 
+def capitulation_of(market):
+    try:
+        return CP.of(market)
+    except Exception:
+        return None
+
+
 def markets_part():
     rows = Z.all_readings()
     out = []
     for r in rows:
         p = Z.market_position(r["market"])
-        out.append({**{k: v for k, v in r.items() if k != "history"}, "label": label(r["market"]), "band": Z.band(r["heat"]) if r["heat"] is not None else None, "position": p, "returns": returns_of(r["market"]), "plan_key": PLAN_KEY.get(r["market"])})
+        out.append({**{k: v for k, v in r.items() if k != "history"}, "label": label(r["market"]), "band": Z.band(r["heat"]) if r["heat"] is not None else None, "position": p, "returns": returns_of(r["market"]), "plan_key": PLAN_KEY.get(r["market"]), "byz": capitulation_of(r["market"])})
     summaries = {}
     for c in CLASS_ORDER:
         g = [r for r in rows if r["class"] == c and r["heat"] is not None]
@@ -166,20 +174,26 @@ def top_words(picked, pattern, n=5):
     return [{"word": w, "n": c} for w, c in sorted(seen.items(), key=lambda kv: -kv[1])[:n]]
 
 
+def tilt_of(m):
+    n = m["fear"] + m["greed"]
+    return "pochi segnali" if n < MIN_MOOD_SIGNALS else "prevale la paura" if m["fear"] / n > .65 else "prevale l'euforia" if m["fear"] / n < .35 else "equilibrio"
+
+
 def sentiment_part(now):
-    items, errors = T.load_items(now=now, hours=24)
+    items, errors = T.load_items(now=now, hours=24 * 7)
     classes = []
     for family, name, pattern in SENTIMENT_GROUPS:
-        m, picked = Z.mood_of(items, re.compile(pattern, re.I), now)
+        rx = re.compile(pattern, re.I)
+        week, in_week = Z.mood_of(items, rx, now, hours=24 * 7)
+        m, picked = Z.mood_of(in_week, rx, now)  # the last day is a slice of the week: no second pass over every text
         seen, sample = {}, []
         for x in picked:  # balanced across sources, so one busy forum can't fill the list
             source = x["source"].split("_")[1] if x["source"].startswith("soc_") else x["source"]
             if seen.get(source, 0) < 2 and len(sample) < 6:
                 seen[source] = seen.get(source, 0) + 1
                 sample.append({"source": x["source"], "time": x["time"], "url": x["url"], "text": x["text"][:220]})
-        tilt = "pochi segnali" if m["fear"] + m["greed"] < MIN_MOOD_SIGNALS else "prevale la paura" if m["fear"] / (m["fear"] + m["greed"]) > .65 else "prevale l'euforia" if m["fear"] / (m["fear"] + m["greed"]) < .35 else "equilibrio"
-        classes.append({"family": family, "name": name, "full": name if family == name else f"{family}: {name}", "tilt": tilt, **m, "fear_words": top_words(picked, Z.FEAR), "greed_words": top_words(picked, Z.GREED), "texts_sample": sample})
-    return {"classes": classes, "fear_greed": Z.fear_greed(), "attention": Z.attention(), "trends": part(trends_part, errors, "trends", []), "total": len(items), "source_errors": sorted(errors)}
+        classes.append({"family": family, "name": name, "full": name if family == name else f"{family}: {name}", "tilt": tilt_of(m), **m, "week": {**week, "tilt": tilt_of(week)}, "fear_words": top_words(picked, Z.FEAR), "greed_words": top_words(picked, Z.GREED), "texts_sample": sample})
+    return {"classes": classes, "fear_greed": Z.fear_greed(), "attention": Z.attention(), "trends": part(trends_part, errors, "trends", []), "total": sum(x["time"] >= (now - timedelta(hours=24)).isoformat() for x in items), "total_week": len(items), "source_errors": sorted(errors)}
 
 
 TOPIC_ALL = re.compile("|".join(T.TOPICS.values()), re.I)
@@ -349,6 +363,40 @@ def tests_part():
     return rows
 
 
+STUDIES = (  # every historical test, in the order they were run. Each was pre-registered and run once
+    ("v3", "Le letture dell'app", "6 novembre 2026", "Ognuna delle 15 letture che l'app mostra, sulla storia 2008–2026: dopo la lettura, il prezzo ha fatto meglio di un giorno qualsiasi?", "docs/PREREGISTRAZIONE_v3.md", "docs/V3_STORICO.md"),
+    ("v4", "Il momentum su mercati nuovi", "6 novembre 2026", "Dopo MOM↓ e MOM↑ (ex BYZ e SZT) il prezzo continua nella stessa direzione anche su 50 mercati mai usati?", "docs/PREREGISTRAZIONE_v4.md", "docs/V4_STORICO.md"),
+    ("v5", "BYZ e SZT agli estremi e sul mensile", "6 novembre 2026", "Letti come il loro nome, agli estremi (±70) e sul mensile, su 99 azioni USA mai usate: dopo BYZ si sale, dopo SZT si scende?", "docs/PREREGISTRAZIONE_v5.md", "docs/V5_STORICO.md"),
+)
+WHERE = {"O": "Opzioni", "Z": "Oggi", "R": "Analisi tecnica", "T": "Oggi", "S": "Sentiment", "F": "Chi compra", "M": "Alert", "L": "Analisi tecnica", "N": "Oggi", "E": "Oggi"}
+
+
+def study_row(rid, h, r):
+    horizon = h.get("horizon_bars")
+    return {"id": rid, "reading": h.get("reading"), "rule": h.get("rule"), "trade": h.get("trade"), "horizon": f"{horizon} barre" if horizon else h.get("horizon"),
+            "where": WHERE.get(rid[0]), "mean": r.get("mean"), "mean_net": r.get("mean_net"), "p": r.get("p"), "clusters": r.get("clusters"), "power": r.get("power", r.get("power_d30")),
+            "outcome": r.get("outcome"), "holm": r.get("holm_threshold")}
+
+
+def studies_part():
+    """Every study with its hypotheses and results, read from the frozen files so the page can't drift from them."""
+    out = []
+    v2 = BASE / "config" / "validation_v2_storico.json"
+    if v2.exists():
+        r = json.loads(v2.read_text())
+        out.append({"id": "v2", "title": "Il trend lungo", "date": "6 novembre 2026", "question": "Comprare dopo l'incrocio al rialzo della media a 200 sedute e tenere 20 sedute, su cambi e materie prime dal 2008, rende più di un giorno qualsiasi?",
+                    "prereg": "docs/PREREGISTRAZIONE_v2.md", "report": "docs/V2_STORICO.md",
+                    "rows": [study_row("P", {"reading": "incrocio al rialzo della SMA 200", "rule": "chiusura sopra la media a 200 sedute dopo una chiusura sotto", "trade": "long", "horizon_bars": 20}, r["primary"])]})
+    for vid, title, date, question, prereg, report in STUDIES:
+        cfg, res = BASE / "config" / f"setups_{vid}.json", BASE / "config" / f"validation_{vid}_storico.json"
+        if not (cfg.exists() and res.exists()):
+            continue
+        hyp, results = json.loads(cfg.read_text())["hypotheses"], json.loads(res.read_text())["results"]
+        out.append({"id": vid, "title": title, "date": date, "question": question, "prereg": prereg, "report": report,
+                    "rows": [study_row(k, h, results.get(k, {})) for k, h in hyp.items()]})
+    return out
+
+
 def freshness(now):
     files = snapshot_files("hl_ctx_main")
     minutes = max(0, int((now - snapshot_time(files[-1])).total_seconds() // 60)) if files else None  # a file stamped a moment ahead reads as now
@@ -361,6 +409,7 @@ def add_zones(markets, sentiment):
     fear_greed = (sentiment.get("fear_greed") or {}).get("value") if sentiment else None
     for m in markets:
         m["zones"] = ZN.market_zones(m["market"], moods, fear_greed)
+        m["theme"] = ZN.SENTIMENT_OF.get(m["market"], (None, 1))[0]
 
 
 def briefing(markets, classes, lab, tech, alerts):
@@ -414,5 +463,5 @@ def build(now=None):
     alerts = part(lambda: alerts_part({m["market"]: m["price"] for m in markets}), errors, "alerts", {"setups": [], "moves": [], "resets": []})
     return clean({"at": now.isoformat(timespec="seconds"), "markets": markets, "classes": summaries, "overview": overview, "briefing": part(lambda: briefing(markets, summaries, lab, tech, alerts), errors, "briefing", []),
                   "options": part(options_part, errors, "options", []), "lab": lab, "sentiment": sentiment, "zone_info": {"frames": ZN.FRAMES, "past": ZN.PAST, "byz": ZN.BYZ_BELOW, "szt": ZN.SZT_ABOVE}, "verdicts": part(VD.all_lines, errors, "verdicts", {}),
-                  "alerts": alerts, "tests": part(tests_part, errors, "tests", None), "technical": tech, "flows": part(flows_part, errors, "flows", []), "wallets": part(WL.view, errors, "wallets", None),
+                  "alerts": alerts, "tests": part(tests_part, errors, "tests", None), "studies": part(studies_part, errors, "studies", []), "technical": tech, "flows": part(flows_part, errors, "flows", []), "wallets": part(WL.view, errors, "wallets", None),
                   "freshness": part(lambda: freshness(now), errors, "freshness", {"recorder_minutes": None, "ok": False}), "errors": errors})

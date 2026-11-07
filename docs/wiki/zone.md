@@ -2,14 +2,14 @@
 title: Tag momentum
 kind: calcolo
 status: momentum sul giornaliero regge nel test v4, vantaggio relativo e piccolo
-brief: Quanto è tirato un mercato su ogni timeframe, e in che verso tende a continuare: MOM↓ e MOM↑, prima BYZ e SZT.
+brief: Chi si muove con forza su ogni timeframe, e in che verso tende a continuare: «scende forte» e «sale forte», prima MOM↓ e MOM↑, e prima ancora BYZ e SZT.
 code: bzd/zones.py#market_zones, bzd/zones.py#indicator_score, bzd/zones.py#sentiment_score, bzd/zones.py#tag_of, bzd/zones.py#streak
 docs: docs/ZONE_MOMENTUM.md, docs/V4_STORICO.md
 feeds: chi-compra, app
 tab: oggi
 ---
 ## In breve
-**MOM↓**: tirato in basso, e tende a continuare a scendere. **MOM↑**: tirato in alto, e tende a continuare a salire. Prima si chiamavano BYZ e SZT, ma i test hanno detto il contrario dei vecchi nomi ([[v3]], [[v4]]). Cinque timeframe: 4h, 1g, 1s, 1M, 12M. «3+» segna il momentum su da almeno 3 sedute di fila.
+**▼ Scende forte** (punteggio da −50 in giù): tende a continuare a scendere. **▲ Sale forte** (da +50 in su): tende a continuare a salire. Nell'app dal 7 novembre 2026; prima MOM↓ e MOM↑, e prima ancora BYZ e SZT, ma i test hanno detto il contrario dei vecchi nomi ([[v3]], [[v4]]). Cinque timeframe: 4h, 1g, 1s, 1M, 12M. «da 3 gg» segna «sale forte» da almeno 3 sedute di fila. Il nome BYZ ora appartiene a un segnale diverso, la [[capitolazione]].
 
 Gli indicatori (RSI, Bollinger, distanza dalle medie, posizione nel range) pesano 70%, il [[sentiment]] 30%. Con meno di 10 testi contano solo gli indicatori e il tag porta un asterisco.
 

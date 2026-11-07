@@ -22,7 +22,8 @@ from .setups import VOL_INDEX, load_crypto, load_vol_index
 LABELS = {"ES=F": "S&amp;P 500", "NQ=F": "Nasdaq", "RTY=F": "Russell", "ZT=F": "2 anni", "ZF=F": "5 anni", "ZN=F": "10 anni", "ZB=F": "30 anni", "CL=F": "Petrolio", "NG=F": "Gas",
           "GC=F": "Oro", "SI=F": "Argento", "HG=F": "Rame", "ZC=F": "Mais", "ZW=F": "Grano", "ZS=F": "Soia", "EURUSD=X": "EUR/USD", "USDJPY=X": "USD/JPY", "GBPUSD=X": "GBP/USD",
           "AUDUSD=X": "AUD/USD", "USDCHF=X": "USD/CHF", "USDCAD=X": "USD/CAD"}
-BANDS = ((80, "🔺 molto tirato in alto"), (60, "↗ tirato in alto"), (40, "⚖ in equilibrio"), (20, "↘ tirato in basso"), (0, "🔻 molto tirato in basso"))
+BANDS = ((80, "🔺 ipercomprato"), (60, "↗ sopra la norma"), (40, "⚖ nella norma"), (20, "↘ sotto la norma"), (0, "🔻 ipervenduto"))
+HIGH_BANDS, LOW_BANDS = {BANDS[0][1], BANDS[1][1]}, {BANDS[3][1], BANDS[4][1]}
 COT_AGAINST_PAIR = {"USDJPY=X", "USDCHF=X", "USDCAD=X"}  # the futures are long the yen, franc or Canadian dollar, so long speculators are betting on the pair falling
 FEAR = r"\b(panic|fear|crash|capitulat|liquidat|collapse|plunge|meltdown|bloodbath|recession|sell-?off|tumbl|rekt|paura|crollo)\w*"
 GREED = r"\b(moon|euphori|\bath\b|all-time high|fomo|parabolic|skyrocket|soar|surge|rally|lambo|bullrun|bull run|euforia)\w*"
@@ -185,10 +186,10 @@ def why_text(s):
 def overview(summaries):
     """The whole picture in one sentence, without the reader having to compare numbers."""
     names = {b: [CLASS_IT[c] for c, s in summaries.items() if s["band"] == b] for b in {s["band"] for s in summaries.values()}}
-    hot = [c for b, g in names.items() if "in alto" in b for c in g]
-    cold = [c for b, g in names.items() if "in basso" in b for c in g]
+    hot = [c for b, g in names.items() if b in HIGH_BANDS for c in g]
+    cold = [c for b, g in names.items() if b in LOW_BANDS for c in g]
     moved = max(((c, s) for c, s in summaries.items() if s["change_7d"] is not None), key=lambda x: abs(x[1]["change_7d"]), default=None)
-    text = (f"Tirati in alto: {', '.join(hot)}. " if hot else "Nessun gruppo tirato in alto. ") + (f"Tirati in basso: {', '.join(cold)}." if cold else "Nessun gruppo tirato in basso.")
+    text = (f"Sopra la norma: {', '.join(hot)}. " if hot else "Nessun gruppo sopra la norma. ") + (f"Sotto la norma: {', '.join(cold)}." if cold else "Nessun gruppo sotto la norma.")
     if moved and abs(moved[1]["change_7d"]) >= 5:
         text += f" Il cambiamento più forte degli ultimi 7 giorni riguarda {CLASS_IT[moved[0]]} ({moved[1]['change_7d']:+.0f})."
     return text
@@ -200,7 +201,7 @@ def build_digest(now=None):
     groups = {c: sorted([r for r in rows if r["class"] == c and r["heat"] is not None], key=lambda r: -r["heat"]) for c in CLASS_IT}
     groups = {c: g for c, g in groups.items() if g}
     summaries = {c: class_summary(g) for c, g in groups.items()}
-    out = [f"🌡 <b>Termometro</b> · {now:%d/%m %H:%M} UTC", "Tensione da 0 a 100 rispetto al suo passato: 0 tirato in basso, 50 la sua norma, 100 tirato in alto.", "", f"<b>{overview(summaries)}</b>"]
+    out = [f"🌡 <b>Termometro</b> · {now:%d/%m %H:%M} UTC", "Forza da 0 a 100 rispetto al suo passato: 0 ipervenduto, 50 la sua norma, 100 ipercomprato.", "", f"<b>{overview(summaries)}</b>"]
     for c, g in groups.items():
         s = summaries[c]
         change = f" ({s['change_7d']:+.0f} in 7 giorni)" if s["change_7d"] is not None else ""

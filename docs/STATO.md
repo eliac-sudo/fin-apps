@@ -1,6 +1,6 @@
 # Stato del progetto
 
-Aggiornato al 6 novembre 2026. Da leggere per primo quando si riprende il lavoro. Branch `roadmap-v0.3`: `main` non contiene questo lavoro.
+Aggiornato al 7 novembre 2026. Da leggere per primo quando si riprende il lavoro. Branch `roadmap-v0.3`: `main` non contiene questo lavoro.
 
 ## Cos'è
 
@@ -46,6 +46,8 @@ Revisione degli alert con l'LLM **accesa**: `.env` ha `BZD_AGENTS=on` dalle 12:3
 
 - **Livelli negli alert (6 novembre):** nei «forte movimento» le distanze da supporto e resistenza partivano dalla chiusura di ieri, non dal prezzo live. Dopo un calo forte un supporto poteva risultare sotto il prezzo quando era già rotto (Nasdaq il 5 novembre). Ora partono dal prezzo live. Se il prezzo live è di un altro strumento (TLT per il future sui bond), i livelli restano quelli del future, e il messaggio lo dice.
 - **Alert più chiari (6 novembre):** ogni mercato dice quante conferme ha su quante («Conferme: 0 su 3») e quali mancano. Il risultato del test compare una volta sola. Se la direzione e il prezzo si contraddicono (un long su un mercato già caro, una presa di profitto su uno economico), l'alert lo segnala con «⚠️ In contrasto». Quale dei due pesi di più non è stato testato.
+
+- **App più chiara (7 novembre):** la «tensione» si chiama **forza**, con cinque parole: ipervenduto (0–19), sotto la norma, nella norma, sopra la norma, ipercomprato (80–100), anche su Telegram. I riquadri dei gruppi hanno una curva con la fascia della norma e l'ultimo valore. Il momentum si legge «▼ scende forte» e «▲ sale forte»: via l'interruttore MOM/BYZ-SZT. **BYZ** torna come segnale a sé, la capitolazione (`bzd/capitulation.py`, `docs/wiki/capitolazione.md`): asset forte, calo profondo, volatilità spenta, prezzo di lato da 40 sedute. Regola scelta guardando la storia, **non testata**; oggi non scatta su nessun mercato. Cliccare un ticker apre una pagina che riassume Oggi, Analisi tecnica, Opzioni, Sentiment e Chi compra. Tutti i test (v2–v5, B3, opzioni in prova, letture non testate) stanno nella scheda Test, con ipotesi e risultati letti dai file congelati; le altre schede rimandano lì. Sentiment anche sui 7 giorni, con «oggi rispetto alla settimana». Grafico dell'analisi tecnica e RSI più alti.
 
 ## Cosa sappiamo
 

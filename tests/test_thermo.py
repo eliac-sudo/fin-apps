@@ -103,9 +103,9 @@ class TestThermo(unittest.TestCase):
         self.assertEqual(Th.heat_from({"a": None}), (None, {}))
 
     def test_bands(self):
-        self.assertIn("molto tirato in alto", Th.band(95))
-        self.assertIn("in equilibrio", Th.band(50))
-        self.assertIn("molto tirato in basso", Th.band(3))
+        self.assertIn("ipercomprato", Th.band(95))
+        self.assertIn("nella norma", Th.band(50))
+        self.assertIn("ipervenduto", Th.band(3))
 
     def rows(self):
         return [{"market": "BTC", "class": "crypto", "heat": 90.0, "heat_change_7d": 12.0, "parts": {"funding": 95, "slancio": 85, "oi": 30}},
@@ -118,8 +118,8 @@ class TestThermo(unittest.TestCase):
                 mock.patch.object(Th, "market_position", return_value=None):
             t, _ = Th.build_digest(NOW)
         self.assertNotIn("GEX", t)
-        self.assertIn("0 tirato in basso", t)
-        self.assertIn("Tirati in alto: Cripto. Tirati in basso: Azioni.", t)
+        self.assertIn("0 ipervenduto", t)
+        self.assertIn("Sopra la norma: Cripto. Sotto la norma: Azioni.", t)
         self.assertIn("Cripto (+10)", t)
         self.assertIn("+10 in 7 giorni", t)
         self.assertIn("Più in alto BTC 90 · più in basso ETH 70", t)
@@ -129,7 +129,7 @@ class TestThermo(unittest.TestCase):
 
     def test_quiet_markets_say_so(self):
         s = {"crypto": {"band": Th.band(50), "change_7d": 1.0}}
-        self.assertEqual(Th.overview(s), "Nessun gruppo tirato in alto. Nessun gruppo tirato in basso.")
+        self.assertEqual(Th.overview(s), "Nessun gruppo sopra la norma. Nessun gruppo sotto la norma.")
 
     def test_reading_compares_with_a_week_ago(self):
         import pandas as pd
