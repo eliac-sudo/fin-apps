@@ -106,10 +106,6 @@ section{margin-top:14px}
 .tag.cheap{background:var(--good);color:var(--on-good);font-weight:650}.tag.dear{background:var(--crit);color:#fff;font-weight:650}
 .trend{white-space:nowrap;font-weight:600}.trend.up{color:var(--good)}.trend.down{color:var(--crit)}.trend.side{color:var(--muted)}
 ul.plain{margin:6px 0 0;padding:0 0 0 16px;color:var(--ink2);font-size:13px}ul.plain li{margin:4px 0}
-.bar{display:grid;grid-template-columns:150px 1fr 48px;gap:10px;align-items:center;height:26px;font-size:12.5px}
-.bar .t{position:relative;height:9px}
-.bar .t u{position:absolute;left:0;top:0;bottom:0;background:var(--s1);border-radius:0 3px 3px 0}
-.bar .t s{position:absolute;top:-4px;bottom:-4px;width:1px;background:var(--muted)}
 .stack{display:flex;gap:2px;height:9px;min-width:120px}
 .stack i{display:block;height:100%}.stack i:first-child{border-radius:3px 0 0 3px}.stack i:last-child{border-radius:0 3px 3px 0}
 a{color:var(--ui2)}
@@ -144,7 +140,7 @@ input:focus,select:focus{outline:1px solid var(--y)}
 .pos{color:var(--good);font-weight:650}.neg{color:var(--crit);font-weight:650}
 .chipv{display:inline-block;padding:0 8px;font:700 12.5px var(--head);letter-spacing:.04em;white-space:nowrap}
 .ztag{display:inline-block;min-width:38px;text-align:center;padding:0 7px;font:800 13px/1.45 var(--head);letter-spacing:.09em;clip-path:var(--clip-tab);border-radius:var(--tab-radius)}
-.ztag.SU{background:var(--good);color:var(--on-good);box-shadow:var(--tile-glow)}.ztag.GIU{background:var(--h4);color:#fff}.ztag.GIU.old{background:var(--good);color:var(--on-good);box-shadow:var(--tile-glow)}.ztag.SU.old{background:var(--h4);color:#fff;box-shadow:none}.ztag.NTR{color:var(--muted);background:var(--surface2)}.posbar{display:inline-block;position:relative;width:62px;height:8px;margin-right:7px;vertical-align:middle;border-radius:4px;background:linear-gradient(90deg,var(--crit) 0 10%,var(--surface2) 10% 30%,var(--grid) 30% 70%,var(--surface2) 70% 90%,var(--good) 90%)}.posbar i{position:absolute;top:-3px;width:4px;height:14px;border-radius:2px;transform:translateX(-50%);background:var(--ink)}.poscell{white-space:nowrap}
+.ztag.SU{background:var(--good);color:var(--on-good);box-shadow:var(--tile-glow)}.ztag.GIU{background:var(--h4);color:#fff}.ztag.NTR{color:var(--muted);background:var(--surface2)}.posbar{display:inline-block;position:relative;width:62px;height:8px;margin-right:7px;vertical-align:middle;border-radius:4px;background:linear-gradient(90deg,var(--crit) 0 10%,var(--surface2) 10% 30%,var(--grid) 30% 70%,var(--surface2) 70% 90%,var(--good) 90%)}.posbar i{position:absolute;top:-3px;width:4px;height:14px;border-radius:2px;transform:translateX(-50%);background:var(--ink)}.poscell{white-space:nowrap}
 .ztag.mini{min-width:22px;font-size:11.5px;padding:0 4px}
 .ztag{white-space:nowrap;letter-spacing:.03em}
 .tfrow{display:inline-flex;gap:3px}.tfcell{display:inline-flex;flex-direction:column;align-items:center;min-width:24px;line-height:1.05}.tfcell small{font-size:9.5px;color:var(--muted)}
@@ -624,7 +620,7 @@ function zBar(v){if(v==null)return el("span",{class:"muted"},"–");const w=Math
 function zFrames(m){return el("span",{class:"tfrow"},ZFRAMES.map(tf=>{const z=zoneOf(m,tf);return el("span",{class:"tfcell",title:ZNAME[tf]+": "+(z?zName(z.tag)+", "+sgn(z.score):"nessun dato")},el("small",null,tf),z?el("b",{class:"zt "+z.tag},ZMINI[z.tag]):el("b",{class:"muted"},"–"))}))}
 function byzCell(m){const b=m.byz;if(!b)return el("span",{class:"muted",title:"BYZ guarda solo gli asset forti: cripto grandi, indici USA, metalli"},"–");
   return b.fired?el("span",{class:"tag cheap",title:"Tutte e 4 le condizioni"},"🟢 BYZ"):el("span",{class:"small",title:b.conditions.map(c=>(c.ok?"✓ ":"✗ ")+c.label+": "+c.short).join("\n")},b.met+" su 4")}
-function zoneTable(tech){const pass=m=>zoneFilter==="tutti"||(zoneFilter==="BYZ"?!!(m.byz&&m.byz.fired):(zoneOf(m,zoneTf)||{}).tag===zoneFilter),rows=D.markets.filter(hit).filter(pass);
+function zoneTable(){const pass=m=>zoneFilter==="tutti"||(zoneFilter==="BYZ"?!!(m.byz&&m.byz.fired):(zoneOf(m,zoneTf)||{}).tag===zoneFilter),rows=D.markets.filter(hit).filter(pass);
   const count=t=>D.markets.filter(m=>(zoneOf(m,zoneTf)||{}).tag===t).length,nbyz=D.markets.filter(m=>m.byz&&m.byz.fired).length;
   const cols=[{k:"label",label:"Asset",cell:r=>el("b",{style:"font-weight:600"},r.label)},
     {k:"tag",label:"Momentum "+ZNAME[zoneTf].toLowerCase(),val:r=>(zoneOf(r,zoneTf)||{score:null}).score,cell:r=>{const z=zoneOf(r,zoneTf);return el("span",null,zTag(z),zoneTf==="1d"?zStreak(z):null)},title:"Scende forte da −50 in giù, sale forte da +50 in su"},
@@ -677,7 +673,7 @@ function scatter(rows){const W=620,H=250,L=30,R=10,T=8,B=24,x=v=>L+(W-L-R)*v/100
 
 const VIEWS={
 oggi(){
-  const posAll=D.markets.filter(m=>m.position).sort((a,b)=>a.position.pct-b.position.pct),pos=posAll.filter(hit),tech=Object.fromEntries((D.technical||[]).map(t=>[t.market,t]));
+  const posAll=D.markets.filter(m=>m.position).sort((a,b)=>a.position.pct-b.position.pct),pos=posAll.filter(hit);
   const strip=m=>el("div",{class:"strip",onclick:()=>detail(m),onpointermove:e=>showTip(e,el("strong",null,m.position.label),"Più alto del "+fmt(m.position.pct)+"% delle chiusure dell'ultimo anno",el("div",{class:"muted"},sgn(m.position.from_high)+"% dal massimo, "+sgn(m.position.from_low)+"% dal minimo")),onpointerleave:hideTip},el("span",null,m.label),el("div",{class:"track"},el("i",{style:`left:${m.position.pct}%`})),el("span",{class:"num muted"},sgn(m.position.from_high)+"%"));
   const lab=(D.lab||[]).filter(b=>b.ratio!=null).sort((a,b)=>b.ratio-a.ratio),wk=(D.technical||[]).map(t=>t.trend["1w"]),s=D.sentiment,fg=s&&s.fear_greed;
   const a=D.alerts,all=[...a.moves.map(m=>({t:m.at,x:(m.down?"🔻 ":"🔺 ")+m.label+" "+sgn(m.pct,1)+"% in "+m.window})),...a.resets.map(r=>({t:r.bar,x:"🔄 "+r.label+", reset "+r.frame})),...a.setups.map(x=>({t:x.trigger,x:"🧪 "+x.market+", "+x.setup.toLowerCase()}))].sort((p,q)=>new Date(q.t)-new Date(p.t));
@@ -695,7 +691,7 @@ oggi(){
     el("div",{class:"chipv",style:`background:var(--h${n});color:var(--i${n});margin-top:3px`},bandWord(c.band)),
     spark(c.history,col),el("div",{class:"tiny"},"▲ "+c.hottest.label+" "+fmt(c.hottest.heat)+"  ▼ "+c.coldest.label+" "+fmt(c.coldest.heat)),el("div",{class:"tiny",style:"margin-top:1px;color:var(--ink2)"},c.why))})),
   el("p",{class:"tiny",style:"margin:5px 2px 0"},"La forza va da 0 a 100 e confronta ogni mercato con la sua storia: 50 è la sua norma, sotto 20 è ipervenduto, sopra 80 ipercomprato. Nei riquadri la curva mostra gli ultimi 4 mesi, con la fascia della norma in grigio. Clicca un gruppo per capire cosa lo muove. Descrive la situazione e non prevede il futuro."),
-  zoneTable(tech),byzCard(),
+  zoneTable(),byzCard(),
   el("section",{class:"grid",style:"grid-template-columns:minmax(0,5fr) minmax(0,6fr)"},
     el("div",{class:"card"},el("div",{style:"display:flex;justify-content:space-between;gap:8px;align-items:center"},el("h2",null,"Chi si è mosso di più"),el("div",{class:"seg"},["1g","7g","30g"].map(p=>el("button",{"aria-pressed":String(p===moverWindow),onclick:()=>{moverWindow=p;render()}},p)))),el("div",{style:"margin-top:6px"},movers(D.markets.filter(hit),moverWindow))),
     el("div",{class:"card"},el("h2",null,"Forza e prezzo a confronto"),el("p",{class:"sub",style:"margin:2px 0 2px"},"In basso a sinistra i mercati deboli e vicini ai minimi dell'anno, in alto a destra quelli forti e vicini ai massimi. Clicca un punto per aprirlo."),scatter(D.markets.filter(m=>m.position&&m.heat!=null&&hit(m))))),
@@ -1153,10 +1149,6 @@ function planView(p){const long=p.side==="long",lo=long?p.stop:p.target,hi=long?
     el("p",{class:"small",style:"margin:18px 0 0"},"Metti stop e obiettivo appena entri. All'obiettivo chiudi tutto. Se dopo "+p.time_exit+" non è successo nulla, esci."),
     warn.length?el("div",{style:"margin-top:12px"},warn.map(w=>el("div",{class:"notice"+(w.startsWith("❌")?" bad":"")},w.startsWith("❌")?w:"▲ "+w))):null,
     el("details",{style:"margin-top:14px"},el("summary",null,"Più dettagli"),el("ul",{class:"plain"},el("li",null,"Stop a "+(long?"−":"+")+fmt(p.stop_share*100,1)+"%. "+p.stop_source),el("li",null,"Rischio scelto: "+fmt(p.risk_pct,p.risk_pct%1?1:0)+"% di "+money(p.capital)+" = "+money(p.budget)+"."),el("li",null,"Margine isolato "+money(p.margin)+(p.liquidation>0?", liquidazione "+price(p.liquidation):"")+"."),el("li",null,"Funding ai tassi di ora: "+p.funding_side+" circa "+money(Math.abs(p.funding_per_day))+" al giorno."),el("li",null,"Nei gap lo stop può eseguire peggio, e non spostarlo mai contro di te."),el("li",null,"Nel test sul panico cripto, stop + 3R ha tagliato il peggior 10% dei casi (−1,11R contro −3,88R), ma ha reso meno del tenere senza stop (−0,02R contro +0,31R). Serve contro i disastri e contro il greed, non per guadagnare di più."))))}
-function zoneDetail(m){const z=m.zones||{},have=ZFRAMES.filter(t=>z[t]);if(!have.length)return null;const pick=z[zoneTf]||z[have[0]],used=z[zoneTf]?zoneTf:have[0];
-  return el("div",{style:"margin-top:10px"},el("h3",null,"Stato per timeframe"),el("div",{style:"display:flex;gap:10px;flex-wrap:wrap;margin:5px 0"},have.map(t=>el("div",{style:"text-align:center"},el("div",{class:"tiny"},t),zTag(z[t]),el("div",{class:"tiny"},sgn(z[t].score))))),
-    el("div",{class:"small"},ZON[used][0].toUpperCase()+ZON[used].slice(1)+": indicatori "+sgn(pick.indicators)+(pick.sentiment==null?", sentiment assente (pochi segnali), quindi contano solo gli indicatori.":", sentiment "+sgn(pick.sentiment)+". Punteggio "+sgn(pick.score)+".")+(pick.slow?" Trend di fondo al "+pick.slow+".":"")),
-    ...Object.entries(pick.parts).filter(([,v])=>v!=null).map(([k,v])=>el("div",{class:"hbar",style:"grid-template-columns:200px 1fr;cursor:default"},el("span",null,k),el("div",{class:"w"},el("s"),el("i",{style:`${v>=0?"left:50%":"right:50%"};width:${Math.abs(v)/2}%;background:${v<=-50?"var(--h4)":v>=50?"var(--good)":"var(--muted)"}`}),el("em",{style:v>=0?`left:${50+Math.abs(v)/2+1}%`:`right:${50+Math.abs(v)/2+1}%`},sgn(v))))))}
 function tensionScale(h){return el("div",{class:"scale"},BANDS.map((_,i)=>el("i",{style:`background:${i===2?"var(--axis)":`var(--h${i})`}`})),el("u",{style:`left:${h}%`}),[[0,"0"],[50,"50, la norma"],[100,"100"]].map(([x,t])=>el("span",{style:`left:${x}%`},t)))}
 function factorRows(parts){return Object.entries(parts||{}).sort((a,b)=>Math.abs(b[1]-50)-Math.abs(a[1]-50)).map(([k,v])=>el("div",{class:"factor",title:(PART_TEXT[k]||{}).what||null},el("span",null,PARTS[k]||k),el("div",{class:"m"},el("i",{style:`width:${v}%;background:${v>=60?"var(--h4)":v<=40?"var(--h0)":"var(--muted)"}`}),el("s")),el("span",{class:"num"},fmt(v)),el("span",{class:"small"},partSentence(k,v))))}
 const closeBtn=d=>el("button",{class:"ghost",onclick:()=>d.close()},"Chiudi");

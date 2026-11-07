@@ -16,7 +16,6 @@ FRAMES = ("4h", "1d", "1w", "1M", "12M")
 SETTINGS = {"4h": {"ema": 20, "sma": 50, "range": 180}, "1d": {"ema": 20, "sma": 50, "range": 252}, "1w": {"ema": 20, "sma": 50, "range": 104},
             "1M": {"ema": 12, "sma": 36, "range": 48}, "12M": {"ema": 12, "sma": 60, "range": 12}}
 BYZ_BELOW, SZT_ABOVE = -50, 50  # GIU and SU; on the indicators alone, about 15% of bars on each side in the past. Old names kept: frozen tests use them
-STREAK_TESTED = 3  # momentum up held this many daily sessions in a row passed test v4 (N4)
 MIN_SIGNALS = 10
 # Theme and sign: good mood about the yen means USD/JPY falls, so the sign flips on pairs quoted the other way round
 SENTIMENT_OF = {**{c: ("Cripto", 1) for c in K.CRYPTO}, "ES=F": ("Azioni", 1), "NQ=F": ("Azioni", 1), "RTY=F": ("Azioni", 1), "ZT=F": ("USA", 1), "ZF=F": ("USA", 1), "ZN=F": ("USA", 1), "ZB=F": ("USA", 1),

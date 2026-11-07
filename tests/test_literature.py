@@ -1,4 +1,4 @@
-import json, os, tempfile, unittest
+import json, tempfile, unittest
 from unittest import mock
 
 from bzd import literature as L

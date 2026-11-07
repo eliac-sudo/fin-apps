@@ -8,7 +8,7 @@ folder of linked markdown pages (`docs/wiki/`), and lint checks the pages agains
 by Claude in the repo, never by a model at run time. The app reads them through `pages()` and adds what the files say now:
 the line a function starts on, how many files a data folder holds and when it last changed. Standard library only.
 """
-import ast, gzip, json, re, sys, time
+import ast, gzip, re, sys, time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent

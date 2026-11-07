@@ -1,10 +1,11 @@
-import gzip, json, os, tempfile, unittest
+import gzip, json, tempfile, unittest
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
 import numpy as np
 import pandas as pd
+from scipy.stats import norm
 
 from bzd import option_lab as L, option_models as M, sentiment as SM, technicals as K, thermo as Th
 
@@ -138,7 +139,7 @@ class TestModelWorkings(unittest.TestCase):
         e = L.worked_example([contract], [], [contract], [exp], self.returns, 365, .04)["example"]
         rebuilt = float(M.black76(e["forward"], e["strike"], e["years"], e["fair_iv"], True, e["discount"]))
         self.assertAlmostEqual(rebuilt, e["fair"])
-        self.assertAlmostEqual(e["forward"] * M.norm.cdf(e["d1"]) - e["strike"] * M.norm.cdf(e["d2"]), e["fair"])
+        self.assertAlmostEqual(e["forward"] * norm.cdf(e["d1"]) - e["strike"] * norm.cdf(e["d2"]), e["fair"])
         self.assertAlmostEqual(e["scale"], 1.1)
 
     def test_no_usable_contract_means_no_example(self):

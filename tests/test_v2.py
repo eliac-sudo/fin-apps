@@ -1,4 +1,4 @@
-import json, tempfile, unittest
+import tempfile, unittest
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock

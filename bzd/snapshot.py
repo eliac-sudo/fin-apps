@@ -365,7 +365,7 @@ def tests_part():
 
 STUDIES = (  # every historical test, in the order they were run. Each was pre-registered and run once
     ("v3", "Le letture dell'app", "6 novembre 2026", "Ognuna delle 15 letture che l'app mostra, sulla storia 2008–2026: dopo la lettura, il prezzo ha fatto meglio di un giorno qualsiasi?", "docs/PREREGISTRAZIONE_v3.md", "docs/V3_STORICO.md"),
-    ("v4", "Il momentum su mercati nuovi", "6 novembre 2026", "Dopo MOM↓ e MOM↑ (ex BYZ e SZT) il prezzo continua nella stessa direzione anche su 50 mercati mai usati?", "docs/PREREGISTRAZIONE_v4.md", "docs/V4_STORICO.md"),
+    ("v4", "Il momentum su mercati nuovi", "6 novembre 2026", "Dopo «scende forte» e «sale forte» (ex MOM↓ e MOM↑, e prima BYZ e SZT) il prezzo continua nella stessa direzione anche su 50 mercati mai usati?", "docs/PREREGISTRAZIONE_v4.md", "docs/V4_STORICO.md"),
     ("v5", "BYZ e SZT agli estremi e sul mensile", "6 novembre 2026", "Letti come il loro nome, agli estremi (±70) e sul mensile, su 99 azioni USA mai usate: dopo BYZ si sale, dopo SZT si scende?", "docs/PREREGISTRAZIONE_v5.md", "docs/V5_STORICO.md"),
 )
 WHERE = {"O": "Opzioni", "Z": "Oggi", "R": "Analisi tecnica", "T": "Oggi", "S": "Sentiment", "F": "Chi compra", "M": "Alert", "L": "Analisi tecnica", "N": "Oggi", "E": "Oggi"}
@@ -462,6 +462,6 @@ def build(now=None):
     part(lambda: add_zones(markets, sentiment), errors, "zones", None)
     alerts = part(lambda: alerts_part({m["market"]: m["price"] for m in markets}), errors, "alerts", {"setups": [], "moves": [], "resets": []})
     return clean({"at": now.isoformat(timespec="seconds"), "markets": markets, "classes": summaries, "overview": overview, "briefing": part(lambda: briefing(markets, summaries, lab, tech, alerts), errors, "briefing", []),
-                  "options": part(options_part, errors, "options", []), "lab": lab, "sentiment": sentiment, "zone_info": {"frames": ZN.FRAMES, "past": ZN.PAST, "byz": ZN.BYZ_BELOW, "szt": ZN.SZT_ABOVE}, "verdicts": part(VD.all_lines, errors, "verdicts", {}),
+                  "options": part(options_part, errors, "options", []), "lab": lab, "sentiment": sentiment, "zone_info": {"past": ZN.PAST}, "verdicts": part(VD.all_lines, errors, "verdicts", {}),
                   "alerts": alerts, "tests": part(tests_part, errors, "tests", None), "studies": part(studies_part, errors, "studies", []), "technical": tech, "flows": part(flows_part, errors, "flows", []), "wallets": part(WL.view, errors, "wallets", None),
                   "freshness": part(lambda: freshness(now), errors, "freshness", {"recorder_minutes": None, "ok": False}), "errors": errors})

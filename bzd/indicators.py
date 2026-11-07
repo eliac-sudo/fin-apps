@@ -1,5 +1,5 @@
 """Descriptive indicators and option metrics. Rolling values use data up to each bar only. None of this enters the frozen score."""
-import gzip, json, math, os, re
+import bisect, gzip, json, math, os, re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -35,7 +35,6 @@ def past_percentile(s, min_periods=100):
     """Percentile of each value among strictly earlier values, 0 to 100."""
     v, out = s.values.astype(float), np.full(len(s), np.nan)
     hist = []
-    import bisect
     for i, x in enumerate(v):
         if not np.isnan(x):
             if len(hist) >= min_periods:

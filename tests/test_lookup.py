@@ -1,4 +1,4 @@
-import json, unittest
+import unittest
 from unittest import mock
 
 import pandas as pd

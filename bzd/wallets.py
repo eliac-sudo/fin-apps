@@ -35,7 +35,6 @@ VAULT = "vault"
 VAULT_MIN_TVL, VAULT_MIN_DAYS, VAULTS_MAX = 100_000, 90, 40
 PROTOCOL_VAULTS = ("Hyperliquidity Provider", "HLP ")  # the exchange's own market making, not a strategy anyone runs
 FILLS_FIRST_DAYS, FILLS_KEEP_DAYS, FILL_PAGES = 30, 180, 5
-FILL = ("t", "coin", "px", "sz", "side", "start", "dir", "pnl", "fee", "maker", "twap", "tid")
 DETAIL_SECONDS = 600
 _lock, _detail = threading.Lock(), {}
 

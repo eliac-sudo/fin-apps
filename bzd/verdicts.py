@@ -14,8 +14,8 @@ PERIOD = "2008–2026"
 TEXT = {  # the reading, and what was seen when it went the other way. Prices only: no "buy" or "sell" in a message
     "O1": ("vendere straddle quando le opzioni sono care", None),
     "O2": ("comprare straddle quando le opzioni sono economiche", None),
-    "Z1": ("BYZ (oggi MOM↓)", "ha continuato a scendere più del solito"),
-    "Z2": ("SZT (oggi MOM↑)", "ha continuato a salire più del solito"),
+    "Z1": ("BYZ letto come vecchio nome (oggi «scende forte»)", "ha continuato a scendere più del solito"),
+    "Z2": ("SZT letto come vecchio nome (oggi «sale forte»)", "ha continuato a salire più del solito"),
     "R1": ("un reset in ipervenduto", None),
     "R2": ("un reset in ipercomprato", None),
     "T1": ("un mercato ipervenduto (forza sotto 20)", None),
@@ -95,6 +95,6 @@ def momentum_line():
     if n1["outcome"] != "supportata" or n2["outcome"] != "supportata":
         return "Su 50 mercati mai usati, il test v4 non conferma un effetto momentum."
     it = lambda x, sign=False: (f"{100 * x:+.2f}" if sign else f"{100 * x:.2f}").replace(".", ",") + "%"
-    return (f"Su 50 mercati mai usati dal programma (test v4), in 10 sedute dopo MOM↓ il prezzo ha fatto {it(n1['mean'])} peggio di un giorno qualsiasi, "
-            f"dopo MOM↑ {it(n2['mean'])} meglio. È un vantaggio relativo e piccolo: tolti i costi, uno short dopo MOM↓ ha perso in media ({it(n1['mean_net'], True)}) "
-            f"e un long dopo MOM↑ è rimasto in pari ({it(n2['mean_net'], True)}). Con 3 sedute di fila regge solo MOM↑; la soglia ±70 non aiuta.")
+    return (f"Su 50 mercati mai usati dal programma (test v4), in 10 sedute dopo «scende forte» il prezzo ha fatto {it(n1['mean'])} peggio di un giorno qualsiasi, "
+            f"dopo «sale forte» {it(n2['mean'])} meglio. È un vantaggio relativo e piccolo: tolti i costi, uno short dopo «scende forte» ha perso in media ({it(n1['mean_net'], True)}) "
+            f"e un long dopo «sale forte» è rimasto in pari ({it(n2['mean_net'], True)}). Con 3 sedute di fila regge solo «sale forte»; la soglia ±70 non aiuta.")

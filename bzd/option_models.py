@@ -4,10 +4,12 @@ Black-76 prices an option on its forward, the market standard, and the forward c
 SVI (Gatheral) is the usual smooth curve through a smile. HAR forecasts volatility from past returns.
 US ETF options are American, but on out-of-the-money contracts the early-exercise premium is small, so only those are used.
 """
+import math
+
 import numpy as np
 import pandas as pd
 from scipy.optimize import brentq, least_squares
-from scipy.stats import norm
+from scipy.special import ndtr  # the normal CDF as a plain ufunc: the same numbers as the scipy.stats one, many times faster on single values
 
 MAX_FIT_ERROR = .05  # five volatility points, on average across the strikes
 
@@ -18,7 +20,7 @@ def black76(forward, strike, years, vol, is_call, discount=1.0):
     sq = np.maximum(vol * np.sqrt(years), 1e-12)
     d1 = (np.log(forward / strike) + .5 * sq * sq) / sq
     d2 = d1 - sq
-    call = forward * norm.cdf(d1) - strike * norm.cdf(d2)
+    call = forward * ndtr(d1) - strike * ndtr(d2)
     value = call if np.isscalar(is_call) and is_call else call - forward + strike if np.isscalar(is_call) else np.where(is_call, call, call - forward + strike)
     return discount * value
 
@@ -28,15 +30,25 @@ def delta_gamma(spot, strike, years, vol, is_call):
     spot, strike, years, vol = map(lambda x: np.asarray(x, float), (spot, strike, years, vol))
     sq = np.maximum(vol * np.sqrt(years), 1e-12)
     d1 = (np.log(spot / strike) + .5 * sq * sq) / sq
-    return np.where(is_call, norm.cdf(d1), norm.cdf(d1) - 1), norm.pdf(d1) / (spot * sq)
+    return np.where(is_call, ndtr(d1), ndtr(d1) - 1), np.exp(-.5 * d1 * d1) / np.sqrt(2 * np.pi) / (spot * sq)
+
+
+def _black76_one(forward, strike, years, vol, is_call, discount):
+    """black76 for one contract in plain floats: the root search below calls it thousands of times, and numpy's overhead dominated."""
+    sq = max(vol * math.sqrt(years), 1e-12)
+    d1 = (math.log(forward / strike) + .5 * sq * sq) / sq
+    cdf = lambda x: .5 * math.erfc(-x / math.sqrt(2))
+    call = forward * cdf(d1) - strike * cdf(d1 - sq)
+    return discount * (call if is_call else call - forward + strike)
 
 
 def implied_vol(price, forward, strike, years, is_call, discount=1.0):
     """The volatility that reproduces a price, or None if no volatility can."""
+    forward, strike, years, discount, is_call = float(forward), float(strike), float(years), float(discount), bool(is_call)
     intrinsic = discount * max((forward - strike) if is_call else (strike - forward), 0.0)
     if not price > intrinsic or years <= 0:
         return None
-    f = lambda v: float(black76(forward, strike, years, v, is_call, discount)) - price
+    f = lambda v: _black76_one(forward, strike, years, v, is_call, discount) - price
     try:
         return brentq(f, 1e-4, 10.0, xtol=1e-5) if f(1e-4) < 0 < f(10.0) else None
     except ValueError:
@@ -55,6 +67,14 @@ def svi_total_variance(k, p):
     return a + b * (rho * (k - m) + np.sqrt((k - m) ** 2 + s * s))
 
 
+def svi_gradient(k, p):
+    """Derivatives of the total variance by a, b, rho, m and sigma: exact, so the fit needn't estimate them by finite differences."""
+    a, b, rho, m, s = p
+    x = k - m
+    r = np.sqrt(x * x + s * s)
+    return np.column_stack([np.ones_like(k), rho * x + r, b * x, -b * (rho + x / r), b * s / r])
+
+
 def fit_svi(log_moneyness, vols, years, weights=None):
     """Raw SVI through one expiry. Returns the parameters, or None with too few points or a poor fit."""
     k, v = np.asarray(log_moneyness, float), np.asarray(vols, float)
@@ -66,7 +86,7 @@ def fit_svi(log_moneyness, vols, years, weights=None):
     start = [max(atm * .5, 1e-5), max(atm, 1e-3), -.3, 0.0, .1]
     bounds = ([-1, 1e-5, -.999, -2, 1e-3], [5, 5, .999, 2, 3])
     try:
-        fit = least_squares(lambda p: wt * (svi_total_variance(k, p) - w), start, bounds=bounds, max_nfev=200)
+        fit = least_squares(lambda p: wt * (svi_total_variance(k, p) - w), start, jac=lambda p: wt[:, None] * svi_gradient(k, p), bounds=bounds, max_nfev=200)
     except ValueError:
         return None
     # stopping at the step limit is fine if the curve fits: the error decides, not the solver's flag
