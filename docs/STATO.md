@@ -4,11 +4,11 @@ Aggiornato al 23 novembre 2026. Da leggere per primo quando si riprende il lavor
 
 ## Cos'è
 
-BZD raccoglie dati gratuiti su cripto, azioni, bond, materie prime e forex. Li mostra in un'app per PC e manda alert su Telegram. Serve soprattutto a chi compra bene i minimi ma fatica a vendere i massimi. Non esegue ordini e non ha chiavi di trading.
+BZD raccoglie dati gratuiti su cripto, azioni, bond, materie prime e forex. Li mostra in un'app per PC e manda alert su Telegram. Serve soprattutto a chi compra bene i minimi ma fatica a vendere i massimi. Gli ordini li manda solo il bot Deribit, per ora sul testnet con soldi finti (`docs/BOT_DERIBIT.md`).
 
 ## Cosa gira
 
-Tutto nel Codespace: se si spegne si ferma tutto. Alla riaccensione `scripts/start-services.sh` non sempre parte (5 e 6 novembre). **Dopo ogni riaccensione:** `su codespace -c 'bash scripts/ensure-services.sh'`. Lo lancia Claude, senza chiedere. **Buco nei dati dal 7 al 23 novembre 2026:** i servizi si sono fermati il 7 verso le 14 e nessuno li ha riaccesi per 16 giorni. Quello che si scarica di nuovo (prezzi giornalieri, COT) si recupera; le fotografie dal vivo (opzioni in prova, posizioni Hyperliquid, Telegram) no.
+Tutto nel Codespace: se si spegne si ferma tutto. Alla riaccensione `scripts/start-services.sh` non sempre parte (5 e 6 novembre). **Dopo ogni riaccensione:** `su codespace -c 'bash scripts/ensure-services.sh'`. Lo lancia Claude, senza chiedere. **Buco nei dati dal 7 al 23 novembre 2026:** i servizi si sono fermati il 7 verso le 14 e nessuno li ha riaccesi per 16 giorni. Quello che si scarica di nuovo (prezzi giornalieri, COT) si recupera; le fotografie dal vivo (opzioni in prova, posizioni Hyperliquid, Telegram) no. Il 23 novembre i servizi erano di nuovo fermi da circa 4 ore, riaccesi alle 16 UTC circa.
 
 | Servizio | Comando | Note |
 |---|---|---|
@@ -17,6 +17,7 @@ Tutto nel Codespace: se si spegne si ferma tutto. Alla riaccensione `scripts/sta
 | Alert e bot | `.venv/bin/python -u -m bzd.alerts run` | invio attivo, risponde a `/piano` |
 | Portafogli HL | `python3 -u -m bzd.wallets run` | classifica ogni giorno, posizioni ogni ora |
 | App | `.venv/bin/python -u -m bzd.app` | porta 8787, privata |
+| Bot Deribit | `.venv/bin/python -u -m bzd.vol_bot run` | parte solo con `DERIBIT_CLIENT_ID` in `.env`; testnet. **Chiavi non ancora inserite** |
 
 - I servizi girano come utente `codespace`, Claude come root. Dopo ogni modifica da root: `chown -R codespace:codespace /workspaces/fin-apps` e `chmod 600 .env`. Per riavviare un servizio si cerca il PID con `pgrep -f` su un'espressione ancorata, non con `pkill -f` largo. Lo script avvia anche l'app: prima va fermata un'eventuale copia lanciata da root.
 - Revisione degli alert con l'LLM **accesa** (`BZD_AGENTS=on`), tetto 1,50 $ al mese (`BZD_LLM_BUDGET_USD`), condiviso con gli agenti di ricerca. Spesa totale 0,36 $ al 5 novembre. Il 23 novembre la chiave API Anthropic era scaduta: le revisioni fallivano e gli alert partivano senza. Sostituita lo stesso giorno. Se torna «chiave API non valida» in `data/agents/reviews.jsonl`, va rinnovata in `.env`.
@@ -52,6 +53,7 @@ Il dettaglio di ogni test è nella scheda Test e nei file `docs/V*_STORICO.md`. 
 - **Uscite:** stop + 3R taglia le perdite peggiori ma rende meno del tenere.
 - **Volatilità:** HAR batte GARCH ed EWMA, ma su BTC ed ETH la volatilità implicita prevede meglio.
 - **Opzioni in prova:** nove strategie sulla carta dal 7 novembre 2026 sui prezzi veri (`docs/OPZIONI_IN_PROVA.md`). Nessun giudizio prima del 6 novembre 2027.
+- **Premio sulla volatilità (esplorazione, non test):** dal 2021 l'implicita a 30 giorni ha superato la realizzata nel 72% dei giorni su BTC (+10 punti di mediana), 65% su ETH (+7,6) e 85% sull'S&P (+4,4). Per unità di rischio, venditore di varianza al lordo dei costi: S&P 0,38, BTC 0,26, ETH 0,00.
 - **Chi compra:** il retail cripto va contro il prezzo (−0,54 su BTC a 3 giorni), i top trader no. Seguire chi compra il dip non ha aiutato (F1, F2).
 - **Segno COT su USD/JPY, USD/CHF e USD/CAD:** i setup congelati lo leggono al contrario. L'esito di B3 non cambia; le conferme dal vivo su quelle coppie sì.
 - **Limiti delle fonti:** Google Trends solo dal feed pubblico; nessuno storico FXE ed EVZ fermo a marzo 2025; il sentiment è un conteggio di parole non validato, e Cina, Yuan e metalli rari hanno pochi testi.
@@ -64,7 +66,8 @@ Il dettaglio di ogni test è nella scheda Test e nei file `docs/V*_STORICO.md`. 
 - Paura rossa, euforia verde. App per PC, non per telefono, e fuori da AMBRA.
 - Le operazioni reali dell'utente (A2) più avanti: non proporle prima che ne riparli.
 - Gli agenti possono citare e dare un parere, non cambiare numeri o bloccare un alert.
-- L'indirizzo Hyperliquid dell'utente non va chiesto. Nessuna chiave di trading, nessun ordine.
+- L'indirizzo Hyperliquid dell'utente non va chiesto.
+- Bot che vende volatilità su Deribit (23 novembre): solo put spread a rischio definito su BTC in USDC, prima sul testnet. Il conto vero solo con una decisione esplicita dell'utente, con la cifra, e dopo il server. Il direzionale con approvazione resta fuori finché un segnale non regge un test.
 - Claude ha pieno controllo su script e servizi del progetto (7 novembre).
 
 ## Prossimi passi
