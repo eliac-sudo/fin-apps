@@ -418,7 +418,7 @@ def briefing(markets, classes, lab, tech, alerts):
     by_tag = lambda tag: [m["label"] for m in markets if (m.get("zones") or {}).get("1d", {}).get("tag") == tag]
     down, up = by_tag("GIU"), by_tag("SU")
     if down or up:
-        out.append({"tone": "zone", "text": "Momentum sul giornaliero: " + "; ".join(([f"in calo su {', '.join(down)}"] if down else []) + ([f"in salita su {', '.join(up)}"] if up else [])) + "."})
+        out.append({"tone": "zone", "text": "Momentum sul giornaliero: " + "; ".join(([f"in calo su {', '.join(down)}"] if down else []) + ([f"in salita su {', '.join(up)}"] if up else [])) + ".", "test": "momentum"})
     moved = [m for m in markets if (m.get("returns") or {}).get("7g") is not None]
     if moved:
         up, down = max(moved, key=lambda m: m["returns"]["7g"]), min(moved, key=lambda m: m["returns"]["7g"])
@@ -432,14 +432,14 @@ def briefing(markets, classes, lab, tech, alerts):
     high = [t for t in tech if (t["rsi"].get("1d") or 50) >= 70]
     if extreme or high:
         bits = ([f"ipervenduto su {', '.join(t['label'] for t in extreme)}"] if extreme else []) + ([f"ipercomprato su {', '.join(t['label'] for t in high)}"] if high else [])
-        out.append({"tone": "warn", "text": "RSI giornaliero agli estremi: " + "; ".join(bits) + "."})
+        out.append({"tone": "warn", "text": "RSI giornaliero agli estremi: " + "; ".join(bits) + ".", "test": "RSI"})
     resets = [t["label"] for t in tech if any(t["reset"].values())]
     if resets:
-        out.append({"tone": "warn", "text": f"Reset in corso su {', '.join(resets)}: l'RSI è a un estremo mentre il trend di fondo resta quello."})
+        out.append({"tone": "warn", "text": f"Reset in corso su {', '.join(resets)}: l'RSI è a un estremo mentre il trend di fondo resta quello.", "test": "RESET"})
     rated = [b for b in lab if b.get("ratio")]
     if rated:
         top, low = max(rated, key=lambda b: b["ratio"]), min(rated, key=lambda b: b["ratio"])
-        out.append({"tone": "options", "text": "Le opzioni più care sono su " + top["name"] + " (" + f"{top['ratio']:.1f}".replace(".", ",") + " volte il movimento previsto), le più economiche su " + low["name"] + " (" + f"{low['ratio']:.1f}".replace(".", ",") + " volte)."})
+        out.append({"tone": "options", "text": "Le opzioni più care sono su " + top["name"] + " (" + f"{top['ratio']:.1f}".replace(".", ",") + " volte il movimento previsto), le più economiche su " + low["name"] + " (" + f"{low['ratio']:.1f}".replace(".", ",") + " volte).", "test": "OPT"})
     return out
 
 

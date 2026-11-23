@@ -103,6 +103,7 @@ section{margin-top:14px}
 .chip{all:unset;cursor:pointer;padding:3px 11px;background:var(--surface2);font:600 13px var(--head);letter-spacing:.05em;color:var(--ink2);text-transform:uppercase;clip-path:var(--clip-tab);border-radius:var(--tab-radius)}
 .chip[aria-pressed=true]{background:var(--ui2);color:var(--on-ui2);font-weight:700}
 .tag{display:inline-block;padding:1px 8px;background:var(--surface2);font-size:11.5px;color:var(--ink2);white-space:nowrap}
+.tbadge{display:inline-block;margin-left:6px;padding:0 6px;border:1px solid var(--axis);border-radius:9px;font-size:10.5px;color:var(--ink2);text-decoration:none;white-space:nowrap;vertical-align:1px}.tbadge.un{border-style:dashed}.tbadge.ok{border-color:var(--ink2);color:var(--ink)}
 .tag.cheap{background:var(--good);color:var(--on-good);font-weight:650}.tag.dear{background:var(--crit);color:#fff;font-weight:650}
 .trend{white-space:nowrap;font-weight:600}.trend.up{color:var(--good)}.trend.down{color:var(--crit)}.trend.side{color:var(--muted)}
 ul.plain{margin:6px 0 0;padding:0 0 0 16px;color:var(--ink2);font-size:13px}ul.plain li{margin:4px 0}
@@ -551,6 +552,9 @@ let D=null,tab=location.hash.slice(1)||"oggi",optSel=null,alertFilter="tutti",al
 const ASSET={market:null,price:null,ta:null,sent:null,for:null,from:"oggi"};if(tab.startsWith("asset=")){ASSET.market=decodeURIComponent(tab.slice(6));tab="asset"}
 const $=s=>document.querySelector(s);
 function vd(id){const v=(D&&D.verdicts||{})[id];return v?v.line:""}
+/* the test badge next to a reading: a few words, the full sentence on hover, a click opens the Test tab */
+function tb(id){const v=id&&(D&&D.verdicts||{})[id];if(!v)return null;const cls=v.outcome==="supportata"?" ok":v.short==="non testato"?" un":"";
+  return el("a",{href:"#test",class:"tbadge"+cls,title:v.line,onclick:e=>{e.preventDefault();e.stopPropagation();tab="test";location.hash="test";render();scrollTo(0,0)}},v.short)}
 function testLink(t){return el("a",{href:"#test",onclick:e=>{e.preventDefault();tab="test";location.hash="test";render();scrollTo(0,0)}},t||"cosa dicono i test →")}
 function el(tag,attrs,...kids){const e=document.createElement(tag);for(const[k,v]of Object.entries(attrs||{})){if(v==null)continue;if(k==="class")e.className=v;else if(k==="style")e.style.cssText=v;else if(k.startsWith("on"))e.addEventListener(k.slice(2),v);else e.setAttribute(k,v)}for(const c of kids.flat()){if(c==null||c===false)continue;e.append(c.nodeType?c:document.createTextNode(c))}return e}
 function svg(tag,attrs,...kids){const e=document.createElementNS("http://www.w3.org/2000/svg",tag);for(const[k,v]of Object.entries(attrs||{}))e.setAttribute(k,v);e.append(...kids);return e}
@@ -684,7 +688,7 @@ oggi(){
   const wf=s?s.classes.reduce((v,c)=>v+((c.week||{}).fear||0),0):0,wg=s?s.classes.reduce((v,c)=>v+((c.week||{}).greed||0),0):0,wshare=wf+wg?wf/(wf+wg):null;
   const dot={zone:"🏷️",move:"🚀",hot:"🔺",cold:"🔻",warn:"⚠️",options:"🎯"};
   return [
-  el("div",{class:"heroCard"},el("div",null,el("p",{class:"hero",style:"margin:0"},D.overview),el("ul",{class:"brief"},(D.briefing||[]).map(x=>el("li",null,el("b",{class:"dot"},dot[x.tone]||"•"),el("span",null,x.text))))),
+  el("div",{class:"heroCard"},el("div",null,el("p",{class:"hero",style:"margin:0"},D.overview),el("ul",{class:"brief"},(D.briefing||[]).map(x=>el("li",null,el("b",{class:"dot"},dot[x.tone]||"•"),el("span",null,x.text,tb(x.test)))))),
     el("div",null,semiGauge(fg?fg.value:null,"Fear & Greed cripto",fg?(fg.value<25?"paura estrema":fg.value<45?"paura":fg.value<55?"neutro":fg.value<75?"avidità":"avidità estrema"):""))),
   el("section",{class:"grid g5"},Object.entries(D.classes).map(([k,c])=>{const col=heatColor(c.heat),n=bin(c.heat);return el("div",{class:"card cl link",role:"button",tabindex:"0",title:"Clicca per la spiegazione",style:`border-top:3px solid ${col}`,onclick:()=>classDetail(k,c),onkeydown:e=>{if(e.key==="Enter")classDetail(k,c)}},el("div",{class:"top"},el("span",{class:"small"},(CLASS_ICON[k]||"")+" "+c.name),el("span",{class:"tiny"},"forza 0–100")),
     el("div",{style:"display:flex;align-items:baseline;gap:8px;margin-top:2px"},el("div",{class:"big"},fmt(c.heat)),signed(c.change_7d)," ",el("span",{class:"tiny"},"in 7 giorni")),
@@ -1165,21 +1169,21 @@ function assetView(){const m=(D.markets||[]).find(x=>x.market===ASSET.market);if
   const tilt=c=>c?c.tilt:"–",wk=sc&&sc.week;
   /* the most relevant line from each tab, in one list */
   const brief=[];
-  if(m.byz&&m.byz.fired)brief.push(["🟢","BYZ: capitolazione in corso, tutte e 4 le condizioni ci sono."]);
-  if(m.heat!=null)brief.push(["📊","Forza "+fmt(m.heat)+" su 100: "+BANDS[n].word+(m.heat_change_7d!=null?" ("+sgn(m.heat_change_7d)+" in 7 giorni)":"")+"."]);
-  if(z1)brief.push([z1.tag==="GIU"?"▼":z1.tag==="SU"?"▲":"·",z1.tag==="NTR"?"Nessun movimento forte sul giornaliero (punteggio "+sgn(z1.score)+").":(z1.tag==="GIU"?"Scende con forza":"Sale con forza")+" sul giornaliero (punteggio "+sgn(z1.score)+")."]);
+  if(m.byz&&m.byz.fired)brief.push(["🟢","BYZ: capitolazione in corso, tutte e 4 le condizioni ci sono.","BYZ"]);
+  if(m.heat!=null)brief.push(["📊","Forza "+fmt(m.heat)+" su 100: "+BANDS[n].word+(m.heat_change_7d!=null?" ("+sgn(m.heat_change_7d)+" in 7 giorni)":"")+".",m.heat<20?"T1":m.heat>=80?"T2":null]);
+  if(z1)brief.push([z1.tag==="GIU"?"▼":z1.tag==="SU"?"▲":"·",z1.tag==="NTR"?"Nessun movimento forte sul giornaliero (punteggio "+sgn(z1.score)+").":(z1.tag==="GIU"?"Scende con forza":"Sale con forza")+" sul giornaliero (punteggio "+sgn(z1.score)+").",z1.tag==="NTR"?null:"momentum"]);
   if(m.position)brief.push(["📍","Prezzo "+m.position.label+": "+sgn(m.position.from_high)+"% dal massimo dell'anno, "+sgn(m.position.from_low)+"% dal minimo."]);
   if(t)brief.push(["📈","Trend: giornaliero "+(t.trend["1d"]||"–")+", settimanale "+(t.trend["1w"]||"–")+", mensile "+(t.trend["1M"]||"–")+". RSI giornaliero "+fmt((t.rsi||{})["1d"])+"."]);
-  if(lab)brief.push(["🎯","Opzioni "+(lab.label||"nella norma")+(lab.ratio!=null?": costano "+fmt(lab.ratio,2)+" volte il movimento previsto":"")+(lab.near?", il mercato prezza ±"+fmt(lab.near.move_pct,1)+"% in "+fmt(lab.near.days)+" giorni":"")+"."]);
-  if(sc)brief.push(["💬","Sentiment "+m.theme+": oggi "+tilt(sc)+", nella settimana "+tilt(wk)+"."]);
-  if(flow)brief.push(["👥","Retail "+flow.retail.word+" ("+fmt(flow.retail.pct)+"° percentile), "+(flow.class==="crypto"?"grossi":"fondi")+" "+flow.big.word+" ("+fmt(flow.big.pct)+"°)"+(flow.split?": su lati opposti":"")+"."]);
+  if(lab)brief.push(["🎯","Opzioni "+(lab.label||"nella norma")+(lab.ratio!=null?": costano "+fmt(lab.ratio,2)+" volte il movimento previsto":"")+(lab.near?", il mercato prezza ±"+fmt(lab.near.move_pct,1)+"% in "+fmt(lab.near.days)+" giorni":"")+".",lab.label==="economiche"?"O2":lab.label==="care"?"O1":null]);
+  if(sc)brief.push(["💬","Sentiment "+m.theme+": oggi "+tilt(sc)+", nella settimana "+tilt(wk)+".","SENT"]);
+  if(flow)brief.push(["👥","Retail "+flow.retail.word+" ("+fmt(flow.retail.pct)+"° percentile), "+(flow.class==="crypto"?"grossi":"fondi")+" "+flow.big.word+" ("+fmt(flow.big.pct)+"°)"+(flow.split?": su lati opposti":"")+".","FLOW"]);
   const chart=ASSET.price&&ASSET.price.close?lineChart([{name:"Prezzo",values:ASSET.price.close,dates:ASSET.price.dates,color:"var(--y)"}],{height:230,W:900,digits:m.price>=100?0:m.price>=1?2:4}):el("p",{class:"muted"},ASSET.price?"Grafico non disponibile.":"Carico il grafico…");
   const lvl=(name,l)=>l?el("div",null,el("b",null,price(l.price)),el("span",null,name+" · "+sgn((l.price/ta.price-1)*100,1)+"% · "+l.touches+(l.touches===1?" tocco":" tocchi"))):el("div",null,el("b",null,"–"),el("span",null,name+": nessun livello ripetuto"));
   return [
     el("div",{style:"display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px"},el("button",{class:"ghost",onclick:open(ASSET.from||"oggi")},"← Indietro"),el("span",{class:"tiny"},"Il riassunto di quello che dicono le schede su questo asset")),
     el("div",{class:"heroCard"},el("div",null,el("p",{class:"hero",style:"margin:0"},m.label+(m.price!=null?" · "+price(m.price):"")),
         el("div",{style:"display:flex;gap:14px;flex-wrap:wrap;margin:4px 0 8px"},["1g","7g","30g"].map(k=>el("span",{class:"small"},k+" ",signed(m.returns&&m.returns[k],1,"%")))),
-        el("ul",{class:"brief"},brief.map(([i,x])=>el("li",null,el("b",{class:"dot"},i),el("span",null,x))))),
+        el("ul",{class:"brief"},brief.map(([i,x,t])=>el("li",null,el("b",{class:"dot"},i),el("span",null,x,tb(t)))))),
       el("div",null,m.heat!=null?el("div",{style:"text-align:center"},el("div",{class:"tiny"},"forza"),el("div",{class:"big"},fmt(m.heat)),el("div",{class:"chipv",style:`background:var(--h${n});color:var(--i${n})`},BANDS[n].word)):null)),
     el("section",{class:"card"},chart),
     el("div",{class:"grid g2"},

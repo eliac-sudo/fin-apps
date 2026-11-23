@@ -2,6 +2,7 @@
 
 Le modifiche al motore, dalla più recente. Il dettaglio è nella storia di git; com'è il programma adesso sta in `docs/STATO.md`.
 
+- **2026-11-23** · Ogni frase di Oggi e della pagina del ticker porta l'esito del suo test in un'etichetta: poche parole, la frase intera al passaggio del mouse, un clic apre la scheda Test. Le letture mai testate da sole (BYZ, RSI agli estremi, livelli di chi compra, sentiment) dicono «non testato». O2 dice che il netto resta −1%, non più solo «test superato».
 - **2026-11-07** · Pulizia e velocità: il modello delle opzioni usa una CDF normale veloce e il gradiente esatto di SVI, e i dati dell'app si ricostruiscono in circa 30 secondi invece di 60, con gli stessi risultati ([[opzioni]]). Via codice e stili non più usati. `docs/STATO.md` riscritto come stato attuale, senza cronaca.
 - **2026-11-07** · App più chiara: «tensione» diventa «forza», con ipervenduto, sotto la norma, nella norma, sopra la norma, ipercomprato ([[tensione]]). Il momentum si legge «scende forte» e «sale forte» ([[zone]]). BYZ torna come segnale a sé, la [[capitolazione]], non testato. Ogni ticker apre una pagina che riassume le schede. Tutti i test, con ipotesi e risultati, stanno nella scheda Test. Sentiment anche sui 7 giorni.
 - **2026-11-06** · Portafogli Hyperliquid: solo profittevoli e vault, con il dettaglio di ogni conto e la strategia ricostruita dai fill ([[portafogli-hl]]).

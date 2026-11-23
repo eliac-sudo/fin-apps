@@ -1,6 +1,6 @@
 # Stato del progetto
 
-Aggiornato al 7 novembre 2026. Da leggere per primo quando si riprende il lavoro. Branch `roadmap-v0.3`: `main` non contiene questo lavoro. La cronaca delle modifiche sta in `docs/wiki/log.md` e nella storia git; qui c'è solo com'è adesso.
+Aggiornato al 23 novembre 2026. Da leggere per primo quando si riprende il lavoro. Branch `roadmap-v0.3`: `main` non contiene questo lavoro. La cronaca delle modifiche sta in `docs/wiki/log.md` e nella storia git; qui c'è solo com'è adesso.
 
 ## Cos'è
 
@@ -8,7 +8,7 @@ BZD raccoglie dati gratuiti su cripto, azioni, bond, materie prime e forex. Li m
 
 ## Cosa gira
 
-Tutto nel Codespace: se si spegne si ferma tutto. Alla riaccensione `scripts/start-services.sh` non sempre parte (5 e 6 novembre). **Dopo ogni riaccensione:** `su codespace -c 'bash scripts/ensure-services.sh'`. Lo lancia Claude, senza chiedere.
+Tutto nel Codespace: se si spegne si ferma tutto. Alla riaccensione `scripts/start-services.sh` non sempre parte (5 e 6 novembre). **Dopo ogni riaccensione:** `su codespace -c 'bash scripts/ensure-services.sh'`. Lo lancia Claude, senza chiedere. **Buco nei dati dal 7 al 23 novembre 2026:** i servizi si sono fermati il 7 verso le 14 e nessuno li ha riaccesi per 16 giorni. Quello che si scarica di nuovo (prezzi giornalieri, COT) si recupera; le fotografie dal vivo (opzioni in prova, posizioni Hyperliquid, Telegram) no.
 
 | Servizio | Comando | Note |
 |---|---|---|
@@ -33,6 +33,7 @@ Il codice sta in `bzd/app.py` (server), `bzd/app.html` (pagina) e `bzd/snapshot.
 - **Sentiment:** paura ed euforia per argomento nelle ultime 24 ore e nei 7 giorni, gli estremi sul grafico del prezzo, le 100 etichette B4 da assegnare (`bzd/sentiment.py`, `bzd/labels.py`).
 - **Chi compra:** retail e grossi come percentile sui loro ultimi 3 anni, e i portafogli Hyperliquid profittevoli (`bzd/flows.py`, `bzd/wallets.py`, `docs/CHI_COMPRA.md`).
 - **Alert e Piano:** gli alert di Telegram con i livelli, e il calcolo di dimensione, stop e obiettivo (`bzd/alerts.py`, `bzd/plan.py`).
+- **Esito accanto a ogni lettura:** ogni frase di Oggi e della pagina del ticker ha un'etichetta con l'esito del suo test, presa dai file congelati (`bzd/verdicts.py`). Quelle mai testate da sole dicono «non testato».
 - **Test:** tutte le ipotesi e i risultati, letti dai file congelati in `config/`; le strategie sulle opzioni in prova; l'elenco di ciò che non è testato. Le altre schede rimandano qui.
 - **Motore:** il wiki del programma in `docs/wiki/`, una pagina per parte. `python -m bzd.wiki lint` controlla che ogni citazione porti a un file vero e che ogni modulo abbia una pagina; lo verifica anche un test.
 

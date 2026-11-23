@@ -69,13 +69,34 @@ def short(rid):
     if not t:
         return "non testato"
     if t["outcome"] == "supportata":
+        if t.get("mean_net") is not None and t["mean_net"] <= 0:
+            return f"test: meglio del solito, ma netto {100 * t['mean_net']:+.0f}%".replace("-", "−")
         return "test superato"
     return "test: al contrario" if TEXT[rid][1] and t.get("passes_t3") else "test: nessun vantaggio"
 
 
+UNTESTED = {  # readings the app shows that no test has measured on their own
+    "BYZ": "BYZ, la capitolazione: regola scelta il 7 novembre 2026 guardando la storia, mai provata su dati nuovi.",
+    "RSI": "L'RSI a un estremo da solo non è stato testato. È stato testato dentro il reset (R1, R2) e non ha dato vantaggio.",
+    "FLOW": "I livelli di retail e grossi in percentile non sono testati da soli. Comprare il dip con loro (F1, F2) non ha dato vantaggio.",
+    "SENT": "Il sentiment del giorno e della settimana è un conteggio di parole non confrontato con i prezzi. Le fasi estreme (S1, S2) non hanno dato vantaggio.",
+}
+
+
+def momentum_short():
+    """A few words for the momentum badge, from v4: a small edge that the costs eat."""
+    if not RESULTS_V4.exists():
+        return "non testato"
+    r = json.loads(RESULTS_V4.read_text())["results"]
+    return "test: piccolo, non copre i costi" if r["N1"]["outcome"] == "supportata" and r["N2"]["outcome"] == "supportata" else "test: nessun vantaggio"
+
+
 def all_lines():
     out = {rid: {"line": line(rid), "short": short(rid), "outcome": (outcome(rid) or {}).get("outcome")} for rid in TEXT}
-    out["momentum"] = {"line": momentum_line(), "short": "v4", "outcome": None}
+    out["momentum"] = {"line": momentum_line(), "short": momentum_short(), "outcome": None}
+    out.update({k: {"line": v, "short": "non testato", "outcome": None} for k, v in UNTESTED.items()})
+    out["RESET"] = {"line": line("R1") + " " + line("R2"), "short": short("R1") if short("R1") == short("R2") else "test: vedi Test", "outcome": None}
+    out["OPT"] = {"line": line("O2") + " " + line("O1"), "short": "test: un po' meglio solo le economiche", "outcome": None}
     return out
 
 

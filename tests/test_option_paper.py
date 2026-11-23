@@ -59,7 +59,19 @@ class TestVerdicts(unittest.TestCase):
         res = json.loads(V.RESULTS.read_text())["results"]
         for rid in V.TEXT:
             self.assertTrue(V.line(rid).startswith("Testato"))
-            self.assertEqual(V.short(rid) == "test superato", res[rid]["outcome"] == "supportata")
+            passed = V.short(rid) == "test superato" or V.short(rid).startswith("test: meglio del solito")
+            self.assertEqual(passed, res[rid]["outcome"] == "supportata")
+
+    def test_a_pass_that_loses_after_costs_says_so(self):
+        self.assertIn("netto −1%", V.short("O2"))
+
+    def test_every_badge_the_app_uses_exists(self):
+        lines = V.all_lines()
+        for k in ("momentum", "OPT", "RESET", "BYZ", "RSI", "FLOW", "SENT", "O1", "O2", "T1", "T2"):
+            self.assertTrue(lines[k]["short"] and lines[k]["line"], k)
+        for k in V.UNTESTED:
+            self.assertEqual(lines[k]["short"], "non testato")
+        self.assertIn("non copre i costi", lines["momentum"]["short"])
 
     def test_byz_says_it_went_the_other_way(self):
         self.assertIn("continuato a scendere", V.line("Z1"))
