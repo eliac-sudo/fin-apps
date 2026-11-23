@@ -614,7 +614,7 @@ const trendPill=t=>t==="rialzo"?el("span",{class:"trend up",title:"Prezzo sopra 
 const costTag=l=>el("span",{class:"tag"+(l==="economiche"?" cheap":l==="care"?" dear":"")},l==="economiche"?"💚 economiche":l==="care"?"🔥 care":l||"–");
 
 const ZFRAMES=["4h","1d","1w","1M","12M"],ZNAME={"4h":"4 ore","1d":"Giorno","1w":"Settimana","1M":"Mese","12M":"12 mesi"},ZON={"4h":"sulle 4 ore","1d":"sul giornaliero","1w":"sul settimanale","1M":"sul mensile","12M":"sui 12 mesi"};
-let zoneTf="1d",zoneFilter="tutti";
+const zoneTf="1d";let zoneFilter="tutti";  /* the home table reads the daily; the other timeframes sit in the «Tutti i timeframe» column */
 const zoneOf=(m,tf)=>(m.zones||{})[tf]||null;
 const ZWORD={SU:"▲ sale forte",GIU:"▼ scende forte",NTR:"nessuno"},ZMINI={SU:"▲",GIU:"▼",NTR:"·"};
 const zName=t=>ZWORD[t]||t;
@@ -627,7 +627,7 @@ function byzCell(m){const b=m.byz;if(!b)return el("span",{class:"muted",title:"B
 function zoneTable(){const pass=m=>zoneFilter==="tutti"||(zoneFilter==="BYZ"?!!(m.byz&&m.byz.fired):(zoneOf(m,zoneTf)||{}).tag===zoneFilter),rows=D.markets.filter(hit).filter(pass);
   const count=t=>D.markets.filter(m=>(zoneOf(m,zoneTf)||{}).tag===t).length,nbyz=D.markets.filter(m=>m.byz&&m.byz.fired).length;
   const cols=[{k:"label",label:"Asset",cell:r=>el("b",{style:"font-weight:600"},r.label)},
-    {k:"tag",label:"Momentum "+ZNAME[zoneTf].toLowerCase(),val:r=>(zoneOf(r,zoneTf)||{score:null}).score,cell:r=>{const z=zoneOf(r,zoneTf);return el("span",null,zTag(z),zoneTf==="1d"?zStreak(z):null)},title:"Scende forte da −50 in giù, sale forte da +50 in su"},
+    {k:"tag",label:"Momentum giornaliero",val:r=>(zoneOf(r,zoneTf)||{score:null}).score,cell:r=>{const z=zoneOf(r,zoneTf);return el("span",null,zTag(z),zStreak(z))},title:"Scende forte da −50 in giù, sale forte da +50 in su"},
     {k:"score",label:"Punteggio",val:r=>(zoneOf(r,zoneTf)||{score:null}).score,cell:r=>zBar((zoneOf(r,zoneTf)||{score:null}).score),title:"Da −100 a +100"},
     {k:"frames",label:"Tutti i timeframe",val:r=>ZFRAMES.reduce((t,tf)=>t+((zoneOf(r,tf)||{}).score||0),0),cell:zFrames,title:"▲ sale forte · ▼ scende forte · nessun movimento forte"},
     {k:"heat",label:"Forza",num:true,cell:r=>r.heat==null?"–":el("span",null,el("b",null,fmt(r.heat))," ",el("span",{class:"tiny"},BANDS[bin(r.heat)].short)),style:r=>heatTint(r.heat),title:"Da 0 a 100 rispetto alla sua storia: 50 è la norma, sotto 20 ipervenduto, sopra 80 ipercomprato"},
@@ -636,7 +636,7 @@ function zoneTable(){const pass=m=>zoneFilter==="tutti"||(zoneFilter==="BYZ"?!!(
     {k:"byz",label:"BYZ",val:r=>r.byz?r.byz.met+(r.byz.fired?10:0):null,cell:byzCell,title:"Capitolazione: quante delle 4 condizioni ci sono"}];
   return el("section",{class:"card"},el("div",{style:"display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap"},el("div",{style:"max-width:720px"},el("h2",null,"Chi si muove con forza"),
       el("p",{class:"sub",style:"margin:2px 0 0"},"Un punteggio da −100 a +100 per asset: 6 indicatori tecnici (70%) e il sentiment del suo tema (30%). ",el("b",null,"Sotto −50 scende forte, sopra +50 sale forte"),", in mezzo nessun movimento forte. Dopo un movimento forte il prezzo di solito ha continuato nella stessa direzione per qualche giorno. Clicca un asset per la sua scheda.")),
-      el("div",{style:"display:flex;gap:8px;flex-wrap:wrap;align-items:center"},el("div",{class:"chips"},[["tutti","Tutti"],["GIU","▼ Scende forte "+count("GIU")],["SU","▲ Sale forte "+count("SU")],["BYZ","🟢 BYZ "+nbyz]].map(([k,n])=>el("button",{class:"chip","aria-pressed":String(k===zoneFilter),onclick:()=>{zoneFilter=k;render()}},n))),el("div",{class:"seg",title:"Il timeframe del momentum"},ZFRAMES.map(tf=>el("button",{"aria-pressed":String(tf===zoneTf),onclick:()=>{zoneTf=tf;render()}},ZNAME[tf]))))),
+      el("div",{style:"display:flex;gap:8px;flex-wrap:wrap;align-items:center"},el("div",{class:"chips"},[["tutti","Tutti"],["GIU","▼ Scende forte "+count("GIU")],["SU","▲ Sale forte "+count("SU")],["BYZ","🟢 BYZ "+nbyz]].map(([k,n])=>el("button",{class:"chip","aria-pressed":String(k===zoneFilter),onclick:()=>{zoneFilter=k;render()}},n))))),
     el("div",{style:"margin-top:6px"},rows.length?Table(cols,rows,{sort:"score",dir:1,onRow:detail}):el("p",{class:"small"},zoneFilter==="BYZ"?"BYZ non scatta su nessun asset adesso.":"Nessun asset in questo stato "+ZON[zoneTf]+".")),
     el("p",{class:"tiny",style:"margin:6px 2px 0"},"4 ore solo per le cripto. «da 3 gg»: sale forte da almeno 3 sedute. BYZ: vedi il riquadro qui sotto. Quanto hanno retto queste letture è nella scheda ",testLink("Test"),"."))}
 function byzCard(){const rows=D.markets.filter(m=>m.byz&&hit(m)).sort((a,b)=>(b.byz.fired-a.byz.fired)||(b.byz.met-a.byz.met)||(b.byz.fall_pct-a.byz.fall_pct)),fired=rows.filter(m=>m.byz.fired);if(!rows.length)return null;
