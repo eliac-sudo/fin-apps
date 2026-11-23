@@ -5,34 +5,43 @@ from bzd import vol_bot as B
 
 NOW = datetime(2026, 11, 23, 12, tzinfo=timezone.utc)
 EXP = datetime(2026, 12, 25, 8, tzinfo=timezone.utc)
-INST = {"tick_size": 5.0, "tick_size_steps": [{"tick_size": 20.0, "above_price": 3000.0}]}
+INST = {"tick_size": 5.0, "tick_size_steps": [{"tick_size": 20.0, "above_price": 3000.0}], "min_trade_amount": 0.01}
+COIN_INST = {"tick_size": 0.0001, "tick_size_steps": [], "min_trade_amount": 0.1}
 
 
-def put(strike, bid, ask, delta):
-    return {"name": f"BTC_USDC-25DEC26-{strike}-P", "strike": strike, "bid": bid, "ask": ask, "delta": delta}
+def put(strike, bid, ask, delta, pre="BTC_USDC"):
+    return {"name": f"{pre}-25DEC26-{strike}-P", "strike": strike, "bid": bid, "ask": ask, "delta": delta}
 
 
 CHAIN = [put(60000, 2740, 2770, -.40), put(56000, 1515, 1535, -.21), put(54000, 1125, 1145, -.15), put(50000, 640, 655, -.07), put(45000, 300, 320, -.03)]
+# the same puts paid in BTC: USDC price / 61500, on the coin tick
+COIN = [put(p["strike"], round(p["bid"] / 61500, 4), round(p["ask"] / 61500 + .00005, 4), p["delta"], pre="BTC") for p in CHAIN]
+
+
+def book(name):
+    cfg = B.load_config()
+    return B.book_cfg(cfg, next(b for b in cfg["books"] if b["name"] == name))
 
 
 class FakeClient:
     """Fills every limit order in full at its price, unless the instrument is listed in `refuse`."""
     base = B.URLS["test"]
 
-    def __init__(self, equity=10000.0, refuse=()):
+    def __init__(self, equity=10000.0, refuse=(), chain=CHAIN, inst=INST):
         self.equity, self.refuse, self.pos, self.orders, self.calls = equity, set(refuse), {}, {}, []
-        self.quotes = {p["name"]: p for p in CHAIN}
+        self.chain, self.inst = chain, inst
+        self.quotes = {p["name"]: p for p in chain}
 
     def call(self, method, **p):
         self.calls.append((method, p))
         if method == "public/get_instruments":
             return [{"instrument_name": q["name"], "base_currency": "BTC", "option_type": "put", "strike": q["strike"],
-                     "expiration_timestamp": int(EXP.timestamp() * 1000), **INST} for q in CHAIN]
+                     "expiration_timestamp": int(EXP.timestamp() * 1000), **self.inst} for q in self.chain]
         if method == "public/get_book_summary_by_currency":
             return [{"instrument_name": q["name"], "bid_price": q["bid"], "ask_price": q["ask"], "mark_iv": 55, "underlying_price": 61500}
                     for q in self.quotes.values()]
         if method == "public/get_instrument":
-            return INST
+            return self.inst
         if method == "public/ticker":
             q = self.quotes[p["instrument_name"]]
             return {"best_bid_price": q["bid"], "best_ask_price": q["ask"], "greeks": {"delta": q["delta"]}, "underlying_price": 61500}
@@ -60,7 +69,7 @@ class FakeClient:
 
 class TestRules(unittest.TestCase):
     def setUp(self):
-        self.cfg = B.load_config()
+        self.cfg = book("btc_usdc")
 
     def test_testnet_unless_live_is_asked_for_twice(self):
         old = dict(os.environ)
@@ -108,10 +117,25 @@ class TestRules(unittest.TestCase):
 
     def test_size_respects_trade_and_total_caps(self):
         # width 6000, credit 860: 5140 per BTC. 3% of 10000 = 300 -> 0.05 BTC
-        self.assertEqual(B.size(10000, 0, 6000, 860, self.cfg), 0.05)
-        self.assertEqual(B.size(10000, 1100, 6000, 860, self.cfg), 0.01)  # 100 of the 12% left
-        self.assertEqual(B.size(10000, 1200, 6000, 860, self.cfg), 0.0)
-        self.assertEqual(B.size(1000, 0, 6000, 860, self.cfg), 0.0)  # too small an account for one lot
+        self.assertEqual(B.size(10000, 0, 5140, .01, self.cfg), 0.05)
+        self.assertEqual(B.size(10000, 1100, 5140, .01, self.cfg), 0.01)  # 100 of the 12% left
+        self.assertEqual(B.size(10000, 1200, 5140, .01, self.cfg), 0.0)
+        self.assertEqual(B.size(1000, 0, 5140, .01, self.cfg), 0.0)  # too small an account for one lot
+        self.assertEqual(B.size(10000, 0, 5140, .1, self.cfg), 0.0)  # the lot is the exchange's, not ours
+
+    def test_coin_loss_is_measured_at_half_the_wing(self):
+        usdc, coin = book("btc_usdc"), book("btc_btc")
+        self.assertEqual(B.unit_loss(6000, 50000, 860, usdc), 5140)
+        # in BTC the spread pays 6000 / price: at 25000 that is 0.24 BTC, less the 0.014 BTC taken in
+        self.assertAlmostEqual(B.unit_loss(6000, 50000, .014, coin), .226)
+        self.assertEqual((B.prefix(usdc), B.prefix(coin)), ("BTC_USDC-", "BTC-"))
+
+    def test_two_books_on_one_collateral_are_refused(self):
+        cfg = B.load_config()
+        cfg = dict(cfg, books=[dict(b, enabled=True) for b in cfg["books"]] + [{"name": "eth_usdc", "underlying": "ETH", "settlement": "USDC", "enabled": True}])
+        with self.assertRaises(SystemExit):
+            B.enabled_books(cfg)
+        self.assertEqual([b["name"] for b in B.enabled_books(B.load_config())], ["btc_usdc", "btc_btc"])
 
     def test_exit_at_half_profit_or_near_expiry(self):
         pos = {"expiry": "2026-12-25", "credit": 800.0}
@@ -138,8 +162,8 @@ class TestBot(unittest.TestCase):
     def tearDown(self):
         self.dir.cleanup()
 
-    def bot(self, client, now=NOW):
-        return B.Bot(client, root=self.dir.name, notify=self.sent.append, sleep=lambda s: None, now=lambda: now, log=lambda *a: None)
+    def bot(self, client, now=NOW, cfg=None):
+        return B.Bot(client, cfg=cfg, root=self.dir.name, notify=self.sent.append, sleep=lambda s: None, now=lambda: now, log=lambda *a: None)
 
     def order_methods(self, c):
         return [(m.split("/")[1], p["instrument_name"]) for m, p in c.calls if m in ("private/buy", "private/sell")]
@@ -216,6 +240,23 @@ class TestBot(unittest.TestCase):
         b.cycle()
         self.assertIsNone(b.st["halted"])
         self.assertEqual(len(b.st["book"]), 1)
+
+    def test_coin_book_sizes_in_btc_and_never_sells_naked(self):
+        c = FakeClient(equity=1.0, chain=COIN, inst=COIN_INST)  # 1 BTC of collateral
+        b = self.bot(c, cfg=book("btc_btc"))
+        b.cycle()
+        self.assertEqual(self.order_methods(c), [("buy", COIN[3]["name"]), ("sell", COIN[2]["name"])])
+        pos = b.st["book"][0]
+        self.assertEqual(pos["short_amount"], 0.1)  # the exchange's lot; 3% of 1 BTC buys 0.1 at most
+        self.assertLessEqual(B.max_loss(pos), 1.0 * .03)
+        self.assertIn("BTC", self.sent[-1])
+        self.assertEqual(B.uncovered(b.positions()), {})
+
+    def test_coin_book_too_small_does_not_trade(self):
+        c = FakeClient(equity=0.2, chain=COIN, inst=COIN_INST)
+        b = self.bot(c, cfg=book("btc_btc"))
+        b.cycle()
+        self.assertEqual(self.order_methods(c), [])
 
     def test_expired_spreads_are_settled(self):
         c = FakeClient()

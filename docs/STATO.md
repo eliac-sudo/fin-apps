@@ -17,7 +17,7 @@ Tutto nel Codespace: se si spegne si ferma tutto. Alla riaccensione `scripts/sta
 | Alert e bot | `.venv/bin/python -u -m bzd.alerts run` | invio attivo, risponde a `/piano` |
 | Portafogli HL | `python3 -u -m bzd.wallets run` | classifica ogni giorno, posizioni ogni ora |
 | App | `.venv/bin/python -u -m bzd.app` | porta 8787, privata |
-| Bot Deribit | `.venv/bin/python -u -m bzd.vol_bot run` | parte solo con `DERIBIT_CLIENT_ID` in `.env`; testnet. **Chiavi non ancora inserite** |
+| Bot Deribit | `.venv/bin/python -u -m bzd.vol_bot run` | parte solo con `DERIBIT_CLIENT_ID` in `.env`; testnet. **C'è il secret, manca il Client ID** |
 
 - I servizi girano come utente `codespace`, Claude come root. Dopo ogni modifica da root: `chown -R codespace:codespace /workspaces/fin-apps` e `chmod 600 .env`. Per riavviare un servizio si cerca il PID con `pgrep -f` su un'espressione ancorata, non con `pkill -f` largo. Lo script avvia anche l'app: prima va fermata un'eventuale copia lanciata da root.
 - Revisione degli alert con l'LLM **accesa** (`BZD_AGENTS=on`), tetto 1,50 $ al mese (`BZD_LLM_BUDGET_USD`), condiviso con gli agenti di ricerca. Spesa totale 0,36 $ al 5 novembre. Il 23 novembre la chiave API Anthropic era scaduta: le revisioni fallivano e gli alert partivano senza. Sostituita lo stesso giorno. Se torna «chiave API non valida» in `data/agents/reviews.jsonl`, va rinnovata in `.env`.
@@ -67,7 +67,7 @@ Il dettaglio di ogni test è nella scheda Test e nei file `docs/V*_STORICO.md`. 
 - Le operazioni reali dell'utente (A2) più avanti: non proporle prima che ne riparli.
 - Gli agenti possono citare e dare un parere, non cambiare numeri o bloccare un alert.
 - L'indirizzo Hyperliquid dell'utente non va chiesto.
-- Bot che vende volatilità su Deribit (23 novembre): solo put spread a rischio definito su BTC in USDC, prima sul testnet. Il conto vero solo con una decisione esplicita dell'utente, con la cifra, e dopo il server. Il direzionale con approvazione resta fuori finché un segnale non regge un test.
+- Bot che vende volatilità su Deribit (23 novembre): solo put spread a rischio definito, prima sul testnet. Libri accesi: BTC in USDC e BTC in BTC (chiesto dall'utente); ETH in ETH c'è ma spento. Il conto vero solo con una decisione esplicita dell'utente, con la cifra, e dopo il server. Il direzionale con approvazione resta fuori finché un segnale non regge un test.
 - Claude ha pieno controllo su script e servizi del progetto (7 novembre).
 
 ## Prossimi passi

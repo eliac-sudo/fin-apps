@@ -1,4 +1,4 @@
-"""Deribit bot that sells BTC put spreads settled in USDC (config/vol_bot_v1.json, docs/BOT_DERIBIT.md).
+"""Deribit bot that sells put spreads, one book per collateral: BTC in USDC, BTC in BTC, ETH in ETH (config/vol_bot_v1.json, docs/BOT_DERIBIT.md).
 
     python -m bzd.vol_bot run        loop forever
     python -m bzd.vol_bot once       one cycle, then stop
@@ -10,7 +10,8 @@
 It runs on the Deribit testnet unless DERIBIT_NETWORK=live and BZD_BOT_LIVE=ho-capito are both set by hand.
 Risk is defined before any order: the wing is always bought before the put is sold, and closed after it, so the
 account never holds a sold put without its wing. The worst case of all open spreads together is capped by the config.
-Every cycle it checks the exchange's positions against its own book: a sold leg with no wing gets bought back at once,
+With coin collateral (BTC options paid in BTC) the loss in coin grows as the price falls even past the wing, so those books
+size the worst case at a stress price, half the wing's strike, not at the wing. Every cycle it checks the exchange's positions against its own book: a sold leg with no wing gets bought back at once,
 any other difference stops new entries and sends a message.
 """
 import fcntl, json, math, os, sys, time, urllib.error, urllib.request, uuid
@@ -32,6 +33,28 @@ def load_config(path=CONFIG):
 
 def bot_dir(root=None):
     return Path(root or os.environ.get("BZD_DATA", BASE / "data")) / "vol_bot"
+
+
+def book_cfg(cfg, book):
+    """The shared rules with one book's market and collateral on top."""
+    return {**cfg, **book}
+
+
+def enabled_books(cfg):
+    books = [book_cfg(cfg, b) for b in cfg["books"] if b.get("enabled")]
+    coll = [b["settlement"] for b in books]
+    if len(set(coll)) < len(coll):
+        raise SystemExit("Due libri accesi usano la stessa garanzia: i tetti di rischio si sommerebbero. Lasciane acceso uno per valuta.")
+    return books
+
+
+def is_coin(cfg):
+    """Options paid and margined in the underlying itself (BTC-25DEC26-55000-P), not in USDC."""
+    return cfg["settlement"] == cfg["underlying"]
+
+
+def prefix(cfg):
+    return f"{cfg['underlying']}-" if is_coin(cfg) else f"{cfg['underlying']}_{cfg['settlement']}-"
 
 
 def network():
@@ -147,7 +170,7 @@ def chain_quotes(book, exp_ms, now):
         if not (is_put and f and iv and 0.5 * f <= k < f and years > 0):
             continue
         out.append({"name": b["instrument_name"], "strike": k, "bid": b.get("bid_price") or 0, "ask": b.get("ask_price") or 0,
-                    "delta": float(delta_gamma(f, k, years, iv / 100, False)[0])})
+                    "delta": float(delta_gamma(f, k, years, iv / 100, False)[0]), "under": f})
     return out
 
 
@@ -169,27 +192,35 @@ def choose_legs(puts, cfg):
         return None
     wing = min(wings, key=lambda p: abs(abs(p["delta"]) - e["long_delta"]))
     width = short["strike"] - wing["strike"]
-    credit = short["bid"] - wing["ask"]  # what it gets if both fill at the far side
-    if credit <= 0 or credit / width < e["min_credit_frac_of_width"]:
+    credit = short["bid"] - wing["ask"]  # what it gets if both fill at the far side, in the price's currency
+    credit_usd = credit * (short.get("under") or 0) if is_coin(cfg) else credit
+    if credit <= 0 or credit_usd / width < e["min_credit_frac_of_width"]:
         return None
     return {"short": short, "long": wing, "width": width, "credit": credit}
 
 
-def size(equity, open_risk, width, credit, cfg):
-    """Contracts so this spread loses at most max_loss_per_trade of equity and all of them together max_loss_open."""
+def unit_loss(width, long_strike, credit, cfg):
+    """Worst case per contract, in the collateral's currency. In USDC: width less credit. In coin the put spread pays
+    width / price in coin, which keeps growing as the price falls, so it is measured at the stress price."""
+    if is_coin(cfg):
+        return width / (long_strike * cfg["risk"]["coin_stress"]) - credit
+    return width - credit
+
+
+def size(equity, open_risk, per_unit, lot, cfg):
+    """Contracts, in steps of the exchange's lot, so this spread loses at most max_loss_per_trade of equity and all of them together max_loss_open."""
     r = cfg["risk"]
-    per_unit = width - credit
     budget = min(equity * r["max_loss_per_trade"], equity * r["max_loss_open"] - open_risk)
     if per_unit <= 0 or budget <= 0:
         return 0.0
-    lot = r["min_amount"]
     n = math.floor(budget / per_unit / lot + EPS)
     return round(n * lot, 8) if n >= 1 else 0.0
 
 
 def max_loss(pos):
-    """Worst case at expiry of what is still open: width less credit on the covered part, and the wing's cost already paid on any extra wing."""
-    return max(pos["width"] - pos["credit"], 0) * pos["short_amount"]
+    """Worst case of the part still open (see unit_loss)."""
+    per = pos.get("unit_loss", pos["width"] - pos["credit"])
+    return max(per, 0) * pos["short_amount"]
 
 
 def exit_reason(pos, short_ask, long_bid, now, cfg):
@@ -249,21 +280,21 @@ def new_state():
     return {"book": [], "closed": [], "peak": None, "last_entry": None, "paused": False, "halted": None, "blocked": None, "sent": {}}
 
 
-def load_state(root=None):
-    p = bot_dir(root) / "state.json"
+def load_state(root=None, book="btc_usdc"):
+    p = bot_dir(root) / book / "state.json"
     return {**new_state(), **json.loads(p.read_text())} if p.exists() else new_state()
 
 
-def save_state(st, root=None):
-    d = bot_dir(root)
+def save_state(st, root=None, book="btc_usdc"):
+    d = bot_dir(root) / book
     d.mkdir(parents=True, exist_ok=True)
     tmp = d / "state.json.tmp"
     tmp.write_text(json.dumps(st, indent=1, default=str))
     tmp.replace(d / "state.json")
 
 
-def journal(event, root=None, **kw):
-    d = bot_dir(root)
+def journal(event, root=None, book="btc_usdc", **kw):
+    d = bot_dir(root) / book
     d.mkdir(parents=True, exist_ok=True)
     with open(d / "journal.jsonl", "a") as f:
         f.write(json.dumps({"t": datetime.now(timezone.utc).isoformat(timespec="seconds"), "event": event, **kw}, default=str) + "\n")
@@ -286,14 +317,19 @@ def write_control(ctrl, root=None):
 
 class Bot:
     def __init__(self, client, cfg=None, root=None, notify=None, sleep=time.sleep, now=lambda: datetime.now(timezone.utc), log=print):
-        self.c, self.cfg, self.root = client, cfg or load_config(), root
+        self.c, self.root = client, root
+        self.cfg = cfg or enabled_books(load_config())[0]
+        self.book, self.cur = self.cfg["name"], self.cfg["settlement"]
         self.notify_fn, self.sleep, self.now, self.log = notify, sleep, now, log
-        self.st = load_state(root)
+        self.st = load_state(root, self.book)
         self.net = "test" if client.base == URLS["test"] else "live"
         self._inst = {}
 
     def save(self):
-        save_state(self.st, self.root)
+        save_state(self.st, self.root, self.book)
+
+    def money(self, x):
+        return f"{x:.5f} {self.cur}" if is_coin(self.cfg) else f"{x:.2f} {self.cur}"
 
     def say(self, text, key=None, every_s=3600):
         """Message on Telegram; a repeated problem goes out at most once an hour."""
@@ -305,7 +341,7 @@ class Bot:
             self.st["sent"][key] = time.time()
         if self.notify_fn:
             try:
-                self.notify_fn(f"🤖 Bot Deribit ({'TESTNET' if self.net == 'test' else 'CONTO VERO'})\n{text}")
+                self.notify_fn(f"🤖 Bot Deribit {self.book} ({'TESTNET' if self.net == 'test' else 'CONTO VERO'})\n{text}")
             except Exception as e:  # noqa: BLE001 - a lost message must not stop the bot
                 self.log(f"telegram: {e}")
 
@@ -314,7 +350,7 @@ class Bot:
     def instruments(self):
         r = self.c.call("public/get_instruments", currency=self.cfg["settlement"], kind="option", expired=False)
         self._inst = {i["instrument_name"]: i for i in r}
-        return [i for i in r if i["base_currency"] == self.cfg["underlying"]]
+        return [i for i in r if i["instrument_name"].startswith(prefix(self.cfg))]
 
     def inst(self, name):
         if name not in self._inst:
@@ -331,14 +367,15 @@ class Bot:
 
     def positions(self):
         r = self.c.call("private/get_positions", currency=self.cfg["settlement"], kind="option")
-        return [p for p in r if p["instrument_name"].startswith(self.cfg["underlying"] + "_")]
+        return [p for p in r if p["instrument_name"].startswith(prefix(self.cfg))]
 
     # -- orders
 
     def execute(self, side, name, amount, reduce_only=False, label=None):
         """A limit order that starts at the mid and moves to the far side in steps. Returns (filled, average price)."""
-        amount = round(amount, 8)
-        if amount < self.cfg["risk"]["min_amount"] - EPS:
+        inst = self.inst(name)
+        amount = round(math.floor(amount / inst["min_trade_amount"] + EPS) * inst["min_trade_amount"], 8)
+        if amount < inst["min_trade_amount"] - EPS:
             return 0.0, None
         o = self.cfg["orders"]
         q = self.ticker(name)
@@ -348,7 +385,7 @@ class Bot:
             else:
                 self.log(f"{name}: nessun prezzo per {side}")
                 return 0.0, None
-        inst, order = self.inst(name), None
+        order = None
         for step in range(o["steps"] + 1):
             px = limit_price(side, q["bid"], q["ask"], step, o["steps"], inst)
             if order is None:
@@ -368,7 +405,7 @@ class Bot:
             except DeribitError:
                 order = self.c.call("private/get_order_state", order_id=order["order_id"])
         filled = float(order.get("filled_amount") or 0)
-        journal("ordine", self.root, side=side, name=name, amount=amount, filled=filled, price=order.get("average_price"), state=order["order_state"])
+        journal("ordine", self.root, self.book, side=side, name=name, amount=amount, filled=filled, price=order.get("average_price"), state=order["order_state"])
         return filled, (float(order["average_price"]) if filled > 0 else None)
 
     # -- the cycle
@@ -409,8 +446,8 @@ class Bot:
     def close_record(self, pos, reason, pnl):
         self.st["book"].remove(pos)
         self.st["closed"].append({**pos, "closed": self.now().isoformat(timespec="seconds"), "reason": reason, "pnl": pnl})
-        journal("chiusa", self.root, id=pos["id"], reason=reason, pnl=pnl)
-        self.say(f"Chiuso {pos['short']} / {pos['long']} ({reason})" + (f": {pnl:+.2f} USDC" if pnl is not None else ""))
+        journal("chiusa", self.root, self.book, id=pos["id"], reason=reason, pnl=pnl)
+        self.say(f"Chiuso {pos['short']} / {pos['long']} ({reason})" + (f": {'+' if pnl >= 0 else ''}{self.money(pnl)}" if pnl is not None else ""))
         self.save()
 
     def close(self, pos, reason):
@@ -434,7 +471,7 @@ class Bot:
                 self.save()
         if pos["short_amount"] < EPS and pos["long_amount"] < EPS:
             pnl = pos["cash_in"] - pos.get("paid_back", 0) + pos.get("wing_back", 0)
-            self.close_record(pos, reason, round(pnl, 2))
+            self.close_record(pos, reason, round(pnl, 8))
             return True
         return False
 
@@ -468,7 +505,8 @@ class Bot:
         legs = choose_legs(chain_quotes(book, exp, now), self.cfg)
         if not legs:
             return self.skip("prezzi troppo larghi o premio troppo basso")
-        amount = size(equity, self.open_risk(), legs["width"], legs["credit"], self.cfg)
+        per = unit_loss(legs["width"], legs["long"]["strike"], legs["credit"], self.cfg)
+        amount = size(equity, self.open_risk(), per, self.inst(legs["short"]["name"])["min_trade_amount"], self.cfg)
         if amount <= 0:
             return self.skip("rischio già al tetto")
         pid = uuid.uuid4().hex[:8]
@@ -487,17 +525,19 @@ class Bot:
             pos["short_amount"] = got_s
             pos["cash_in"] += got_s * px_s
             pos["credit"] = round(px_s - px_l, 8)
+            pos["unit_loss"] = unit_loss(pos["width"], legs["long"]["strike"], pos["credit"], self.cfg)
         self.save()
         if got_s < got_l - EPS:
             self.trim(pos, "entrata a metà")
         if got_s > 0:
-            self.say(f"Aperto put spread {legs['short']['name']} / {legs['long']['strike']:.0f}, {got_s} BTC, premio {pos['credit'] * got_s:.2f} USDC, "
-                     f"perdita massima {max_loss(pos):.2f} USDC ({max_loss(pos) / equity:.1%} del conto). Rischio aperto totale {self.open_risk() / equity:.1%}.")
+            worst = "perdita massima" if not is_coin(self.cfg) else f"perdita con {self.cfg['underlying']} a {legs['long']['strike'] * self.cfg['risk']['coin_stress']:.0f}"
+            self.say(f"Aperto put spread {legs['short']['name']} / {legs['long']['strike']:.0f}, {got_s} {self.cfg['underlying']}, premio {self.money(pos['credit'] * got_s)}, "
+                     f"{worst} {self.money(max_loss(pos))} ({max_loss(pos) / equity:.1%} del conto). Rischio aperto totale {self.open_risk() / equity:.1%}.")
         return pos
 
     def skip(self, why):
         self.log(f"entrata saltata: {why}")
-        journal("saltata", self.root, why=why)
+        journal("saltata", self.root, self.book, why=why)
         return None
 
     def kill_switch(self, equity):
@@ -509,7 +549,7 @@ class Bot:
                      f"Per ripartire: python -m bzd.vol_bot riprendi")
 
     def apply_control(self):
-        ctrl = read_control(self.root)
+        ctrl = read_control(self.root)  # shared by every book
         self.st["paused"] = bool(ctrl.get("paused"))
         if ctrl.get("resume") and ctrl["resume"] != self.st.get("resumed"):
             self.st["halted"], self.st["resumed"] = None, ctrl["resume"]
@@ -533,16 +573,16 @@ class Bot:
 
     def status(self):
         eq = self.equity() or EPS
-        lines = [f"Rete: {self.net}. Conto: {eq:.2f} USDC, massimo {self.st['peak'] or eq:.2f}."]
+        lines = [f"[{self.book}] Rete: {self.net}. Conto: {self.money(eq)}, massimo {self.money(self.st['peak'] or eq)}."]
         for k in ("paused", "halted", "blocked"):
             if self.st[k]:
                 lines.append({"paused": "In pausa.", "halted": f"Fermo: {self.st['halted']}.", "blocked": f"Bloccato: {self.st['blocked']}."}[k])
         for p in self.st["book"]:
-            lines.append(f"  {p['short']} / {p['long']}: {p['short_amount']} vendute, premio {p['credit']:.0f}, perdita massima {max_loss(p):.2f}")
-        lines.append(f"Rischio aperto {self.open_risk():.2f} USDC ({self.open_risk() / eq:.1%} del conto, tetto {self.cfg['risk']['max_loss_open']:.0%}).")
+            lines.append(f"  {p['short']} / {p['long']}: {p['short_amount']} vendute, premio {self.money(p['credit'] * p['short_amount'])}, perdita massima {self.money(max_loss(p))}")
+        lines.append(f"Rischio aperto {self.money(self.open_risk())} ({self.open_risk() / eq:.1%} del conto, tetto {self.cfg['risk']['max_loss_open']:.0%}).")
         done = [c for c in self.st["closed"] if c["pnl"] is not None]
         if done:
-            lines.append(f"Chiusi: {len(self.st['closed'])}, somma {sum(c['pnl'] for c in done):+.2f} USDC.")
+            lines.append(f"Chiusi: {len(self.st['closed'])}, somma {self.money(sum(c['pnl'] for c in done))}.")
         return "\n".join(lines)
 
 
@@ -571,26 +611,29 @@ def main(argv):
         write_control({"paused": True} if cmd == "pausa" else {"paused": False, "resume": datetime.now(timezone.utc).isoformat()})
         print("In pausa: niente entrate nuove." if cmd == "pausa" else "Ripreso.")
         return
-    bot = Bot(client_from_env(), notify=telegram_notify())
+    cfg, client, notify = load_config(), client_from_env(), telegram_notify()
+    bots = [Bot(client, b, notify=notify) for b in enabled_books(cfg)]
     if cmd == "stato":
-        print(bot.status())
+        print("\n\n".join(b.status() for b in bots))
     elif cmd == "chiudi":
         _l = lock()
-        bot.close_all()
-        print(bot.status())
+        for b in bots:
+            b.close_all()
+        print("\n\n".join(b.status() for b in bots))
     elif cmd in ("once", "run"):
         _l = lock()
-        bot.say(f"Acceso sul {'testnet' if bot.net == 'test' else 'CONTO VERO'}.")
+        bots[0].say(f"Acceso sul {'testnet' if bots[0].net == 'test' else 'CONTO VERO'}: {', '.join(b.book for b in bots)}.")
         while True:
-            try:
-                bot.cycle()
-            except DeribitError as e:
-                bot.say(f"Errore da Deribit: {e}", key=f"err:{str(e)[:60]}")
-            except Exception as e:  # noqa: BLE001 - keep running, but say so
-                bot.say(f"Errore: {type(e).__name__}: {e}", key=f"err:{type(e).__name__}")
+            for bot in bots:  # one book failing does not stop the others
+                try:
+                    bot.cycle()
+                except DeribitError as e:
+                    bot.say(f"Errore da Deribit: {e}", key=f"err:{str(e)[:60]}")
+                except Exception as e:  # noqa: BLE001 - keep running, but say so
+                    bot.say(f"Errore: {type(e).__name__}: {e}", key=f"err:{type(e).__name__}")
             if cmd == "once":
                 break
-            time.sleep(bot.cfg["loop_seconds"])
+            time.sleep(cfg["loop_seconds"])
     else:
         print(__doc__)
 

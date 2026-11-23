@@ -1,10 +1,22 @@
-# Bot Deribit: put spread venduti su BTC
+# Bot Deribit: put spread venduti su BTC ed ETH
 
 Scritto il 23 novembre 2026. Codice `bzd/vol_bot.py`, regole `config/vol_bot_v1.json`, test `tests/test_vol_bot.py`. Non è consulenza finanziaria.
 
 ## Cosa fa
 
-Vende volatilità su BTC con rischio definito: ogni settimana vende la put vicina a 20 delta e compra l'ala vicina a 7 delta, sulla scadenza più vicina a 30 giorni (tra 21 e 45). Opzioni regolate in USDC, così il margine non crolla insieme a BTC come succede con le opzioni in BTC.
+Vende volatilità con rischio definito: ogni settimana vende la put vicina a 20 delta e compra l'ala vicina a 7 delta, sulla scadenza più vicina a 30 giorni (tra 21 e 45).
+
+Un **libro** per garanzia, ognuno con il suo registro, i suoi tetti e il suo interruttore:
+
+| Libro | Opzioni | Garanzia | Acceso | Conto minimo oggi* |
+|---|---|---|---|---|
+| `btc_usdc` | BTC_USDC-… | USDC | sì | ~3.000 USDC (lotto 0,01 BTC) |
+| `btc_btc` | BTC-… | BTC | sì | ~1,4 BTC (lotto 0,1 BTC) |
+| `eth_eth` | ETH-… | ETH | no: il premio di ETH dal 2021 è circa zero | ~16 ETH (lotto 1 ETH) |
+
+\*Il conto per cui il lotto più piccolo perde al massimo il 3%, sugli spread che il bot sceglierebbe il 23 novembre 2026 sul mercato vero. Due libri accesi sulla stessa garanzia non sono ammessi, perché i tetti di rischio si sommerebbero.
+
+**Garanzia in cripto:** con BTC come garanzia, la perdita in BTC di uno spread non si ferma all'ala: lo spread paga la larghezza diviso il prezzo, quindi più BTC scende, più BTC costa. Il bot la misura a un prezzo di stress, metà dello strike dell'ala (`coin_stress`): per questo il conto minimo è molto più alto. In dollari conta anche che la garanzia stessa scende con BTC: tenere BTC e vendere put è una scommessa al rialzo più grossa, non solo vendita di volatilità.
 
 **Perché un put spread e non la put nuda:** l'ala comprata è la gestione delle code. La perdita massima si conosce prima di entrare ed è la larghezza meno il premio. Uno stop su un'opzione venduta nuda, in un crollo, si esegue a prezzi pessimi o non si esegue.
 
@@ -13,7 +25,7 @@ Vende volatilità su BTC con rischio definito: ogni settimana vende la put vicin
 | | |
 |---|---|
 | Entrata | una ogni 7 giorni; spread bid/ask di ogni gamba entro il 15% del medio; premio almeno l'8% della larghezza |
-| Dimensione | perdita massima per operazione 3% del conto; tutte le aperte insieme al massimo 12% |
+| Dimensione | perdita massima per operazione 3% del conto; tutte le aperte insieme al massimo 12%; in multipli del lotto dell'exchange |
 | Uscita | al 50% del premio incassato, oppure a 7 giorni dalla scadenza |
 | Interruttore | drawdown del 15% dal massimo: niente entrate nuove finché non si lancia `riprendi`; le aperte restano protette dall'ala |
 | Ordini | limite al prezzo medio, poi in 5 passi verso il lato peggiore, 20 secondi a passo; quello che non si esegue si cancella |
@@ -41,7 +53,7 @@ Vende volatilità su BTC con rischio definito: ogni settimana vende la put vicin
 .venv/bin/python -m bzd.vol_bot chiudi     # chiude tutto adesso
 ```
 
-Registro in `data/vol_bot/`: `state.json` (spread aperti e chiusi), `journal.jsonl` (ogni ordine), `control.json` (pausa e ripresa).
+Registro in `data/vol_bot/<libro>/`: `state.json` (spread aperti e chiusi), `journal.jsonl` (ogni ordine). `data/vol_bot/control.json` (pausa e ripresa) vale per tutti i libri.
 
 ## Cosa non sappiamo
 
