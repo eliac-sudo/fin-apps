@@ -24,7 +24,7 @@ from . import history as H
 from .events import first_of_runs, ret_z
 from .recorder import BASE, UA, load_env
 from .setups import all_markets, config_hash, load_config, load_crypto, load_daily
-from .thermo import LABELS as THERMO_LABELS, market_position, position_text
+from .thermo import COT_AGAINST_PAIR, LABELS as THERMO_LABELS, market_position, position_text
 
 MIN_SCORE_TO_SEND = 0  # every trigger is sent, also price alone: about 7 messages a week over the last 12 months
 MAX_AGE = {"4h": pd.Timedelta(hours=8), "1d": pd.Timedelta(days=4)}  # older triggers are stale, e.g. after a pause
@@ -214,7 +214,14 @@ def format_item(a):
         out.append("  Mancano: " + ", ".join(COND_IT[n] for n in a["not_met"]))
     if a["unknown"]:
         out.append("  Non ancora noto: " + ", ".join(COND_IT[n] for n in a["unknown"]))
+    if cot_reversed(a):
+        out.append("  ⚠️ Su questa coppia le regole congelate leggono il COT al contrario: la conferma sugli speculatori va letta girata.")
     return "\n".join(out)
+
+
+def cot_reversed(a):
+    """True when a frozen v1 rule read the COT sign the wrong way for this pair. The rule stays frozen; the message says so."""
+    return a["market"] in COT_AGAINST_PAIR and any(n in ("spec_low", "spec_high") for n in a["met"] + a["not_met"])
 
 
 def format_group(alerts, review=None):

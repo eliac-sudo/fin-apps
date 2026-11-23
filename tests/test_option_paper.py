@@ -67,7 +67,7 @@ class TestVerdicts(unittest.TestCase):
 
     def test_every_badge_the_app_uses_exists(self):
         lines = V.all_lines()
-        for k in ("momentum", "OPT", "RESET", "BYZ", "RSI", "FLOW", "SENT", "O1", "O2", "T1", "T2"):
+        for k in ("momentum", "OPT", "RESET", "RESET_W", "BYZ", "RSI", "FLOW", "SENT", "O1", "O2", "T1", "T2"):
             self.assertTrue(lines[k]["short"] and lines[k]["line"], k)
         for k in V.UNTESTED:
             self.assertEqual(lines[k]["short"], "non testato")

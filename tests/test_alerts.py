@@ -185,6 +185,12 @@ class TestItem(unittest.TestCase):
         self.assertIn("presa di profitto, ma il prezzo è economico", self.item("overheating", "economico"))
         self.assertNotIn("In contrasto", self.item("panic", "economico"))
 
+    def test_flags_the_reversed_cot_sign_on_three_pairs(self):
+        a = {"market": "USDJPY=X", "setup": "panic", "z": -3.1, "met": ["spec_low"], "not_met": ["vol_index_high"], "unknown": []}
+        with mock.patch.object(A, "safe_position", return_value=None), mock.patch.object(A.K, "context_line", return_value=""):
+            self.assertIn("COT al contrario", A.format_item(a))
+            self.assertNotIn("COT al contrario", A.format_item({**a, "market": "EURUSD=X"}))
+
 
 class TestDelivery(unittest.TestCase):
     def setUp(self):

@@ -79,6 +79,7 @@ UNTESTED = {  # readings the app shows that no test has measured on their own
     "BYZ": "BYZ, la capitolazione: regola scelta il 7 novembre 2026 guardando la storia, mai provata su dati nuovi.",
     "RSI": "L'RSI a un estremo da solo non è stato testato. È stato testato dentro il reset (R1, R2) e non ha dato vantaggio.",
     "FLOW": "I livelli di retail e grossi in percentile non sono testati da soli. Comprare il dip con loro (F1, F2) non ha dato vantaggio.",
+    "RESET_W": "Il reset su settimanale e mensile (soglia RSI 40/60) non è mai stato testato. Sul giornaliero, con soglia 30/70, non ha dato vantaggio (R1, R2).",
     "SENT": "Il sentiment del giorno e della settimana è un conteggio di parole non confrontato con i prezzi. Le fasi estreme (S1, S2) non hanno dato vantaggio.",
 }
 

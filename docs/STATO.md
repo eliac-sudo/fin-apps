@@ -19,7 +19,7 @@ Tutto nel Codespace: se si spegne si ferma tutto. Alla riaccensione `scripts/sta
 | App | `.venv/bin/python -u -m bzd.app` | porta 8787, privata |
 
 - I servizi girano come utente `codespace`, Claude come root. Dopo ogni modifica da root: `chown -R codespace:codespace /workspaces/fin-apps` e `chmod 600 .env`. Per riavviare un servizio si cerca il PID con `pgrep -f` su un'espressione ancorata, non con `pkill -f` largo. Lo script avvia anche l'app: prima va fermata un'eventuale copia lanciata da root.
-- Revisione degli alert con l'LLM **accesa** (`BZD_AGENTS=on`), tetto 1,50 $ al mese (`BZD_LLM_BUDGET_USD`), condiviso con gli agenti di ricerca. Spesa totale 0,36 $ al 5 novembre.
+- Revisione degli alert con l'LLM **accesa** (`BZD_AGENTS=on`), tetto 1,50 $ al mese (`BZD_LLM_BUDGET_USD`), condiviso con gli agenti di ricerca. Spesa totale 0,36 $ al 5 novembre. **Dal 23 novembre la chiave API Anthropic risulta non valida o scaduta:** le revisioni falliscono e gli alert partono senza. Va sostituita in `.env`.
 - Il push su GitHub usa il token copiato con `gl` da un terminale di VS Code: quando scade, il push fallisce finché l'utente non rilancia `gl`.
 
 ## L'app, scheda per scheda
@@ -34,6 +34,7 @@ Il codice sta in `bzd/app.py` (server), `bzd/app.html` (pagina) e `bzd/snapshot.
 - **Chi compra:** retail e grossi come percentile sui loro ultimi 3 anni, e i portafogli Hyperliquid profittevoli (`bzd/flows.py`, `bzd/wallets.py`, `docs/CHI_COMPRA.md`).
 - **Alert e Piano:** gli alert di Telegram con i livelli, e il calcolo di dimensione, stop e obiettivo (`bzd/alerts.py`, `bzd/plan.py`).
 - **Esito accanto a ogni lettura:** ogni frase di Oggi e della pagina del ticker ha un'etichetta con l'esito del suo test, presa dai file congelati (`bzd/verdicts.py`). Quelle mai testate da sole dicono «non testato».
+- **Reset:** testato solo sul giornaliero; su settimanale e mensile app e alert dicono «non testato».
 - **Test:** tutte le ipotesi e i risultati, letti dai file congelati in `config/`; le strategie sulle opzioni in prova; l'elenco di ciò che non è testato. Le altre schede rimandano qui.
 - **Motore:** il wiki del programma in `docs/wiki/`, una pagina per parte. `python -m bzd.wiki lint` controlla che ogni citazione porti a un file vero e che ogni modulo abbia una pagina; lo verifica anche un test.
 
@@ -79,6 +80,6 @@ Deciso il 5 novembre: **prima l'app, gli alert e le indicazioni devono avere sen
 - Avvio automatico anche da `~/.bashrc` o `postAttachCommand`, visto che il `postStartCommand` a volte non parte?
 - BYZ capitolazione: pre-registrarla per una prova sui dati futuri? È rara, quindi servirebbero anni.
 - Momentum anche sul bot? Consiglio: prima la prova sui dati futuri.
-- Segno COT dal vivo su USD/JPY, USD/CHF e USD/CAD: correggerlo ora o nella prossima versione dei setup?
+- Segno COT dal vivo su USD/JPY, USD/CHF e USD/CAD: correggerlo ora o nella prossima versione dei setup? Intanto l'alert lo segnala.
 - Prezzi di bond non USA, per la forza e la tecnica?
 - Portare il lavoro su `main` con una pull request.

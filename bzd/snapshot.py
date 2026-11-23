@@ -433,9 +433,13 @@ def briefing(markets, classes, lab, tech, alerts):
     if extreme or high:
         bits = ([f"ipervenduto su {', '.join(t['label'] for t in extreme)}"] if extreme else []) + ([f"ipercomprato su {', '.join(t['label'] for t in high)}"] if high else [])
         out.append({"tone": "warn", "text": "RSI giornaliero agli estremi: " + "; ".join(bits) + ".", "test": "RSI"})
-    resets = [t["label"] for t in tech if any(t["reset"].values())]
+    frames = {"1M": "mensile", "1w": "settimanale", "1d": "giornaliero"}
+    resets = {tf: [t["label"] for t in tech if t["reset"].get(tf)] for tf in frames}
+    resets = {tf: names for tf, names in resets.items() if names}
     if resets:
-        out.append({"tone": "warn", "text": f"Reset in corso su {', '.join(resets)}: l'RSI è a un estremo mentre il trend di fondo resta quello.", "test": "RESET"})
+        where = "; ".join(f"{frames[tf]} su {', '.join(names)}" for tf, names in resets.items())
+        out.append({"tone": "warn", "text": f"Reset in corso, {where}: l'RSI è a un estremo mentre il trend di fondo resta quello.",
+                    "test": "RESET" if set(resets) == {"1d"} else "RESET_W"})  # v3 tested the daily reset only
     rated = [b for b in lab if b.get("ratio")]
     if rated:
         top, low = max(rated, key=lambda b: b["ratio"]), min(rated, key=lambda b: b["ratio"])
