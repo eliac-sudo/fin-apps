@@ -19,7 +19,7 @@ Tutto nel Codespace: se si spegne si ferma tutto. Alla riaccensione `scripts/sta
 | App | `.venv/bin/python -u -m bzd.app` | porta 8787, privata |
 
 - I servizi girano come utente `codespace`, Claude come root. Dopo ogni modifica da root: `chown -R codespace:codespace /workspaces/fin-apps` e `chmod 600 .env`. Per riavviare un servizio si cerca il PID con `pgrep -f` su un'espressione ancorata, non con `pkill -f` largo. Lo script avvia anche l'app: prima va fermata un'eventuale copia lanciata da root.
-- Revisione degli alert con l'LLM **accesa** (`BZD_AGENTS=on`), tetto 1,50 $ al mese (`BZD_LLM_BUDGET_USD`), condiviso con gli agenti di ricerca. Spesa totale 0,36 $ al 5 novembre. **Dal 23 novembre la chiave API Anthropic risulta non valida o scaduta:** le revisioni falliscono e gli alert partono senza. Va sostituita in `.env`.
+- Revisione degli alert con l'LLM **accesa** (`BZD_AGENTS=on`), tetto 1,50 $ al mese (`BZD_LLM_BUDGET_USD`), condiviso con gli agenti di ricerca. Spesa totale 0,36 $ al 5 novembre. Il 23 novembre la chiave API Anthropic era scaduta: le revisioni fallivano e gli alert partivano senza. Sostituita lo stesso giorno. Se torna «chiave API non valida» in `data/agents/reviews.jsonl`, va rinnovata in `.env`.
 - Il push su GitHub usa il token copiato con `gl` da un terminale di VS Code: quando scade, il push fallisce finché l'utente non rilancia `gl`.
 
 ## L'app, scheda per scheda
