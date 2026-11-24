@@ -13,7 +13,7 @@ feeds: v2
 - La ricerca si ferma 0,50 $ sotto il tetto mensile, così al revisore degli [[agenti-alert]] resta budget (`bzd/research.py#room_for_research`). Il tetto è 3 $ dal 24 novembre 2026.
 - `python -m bzd.research stima` dice quanto costerebbe, gratis; `python -m bzd.research scopri` fa solo la ricerca.
 - Il **lettore** legge l'abstract di un lavoro della [[letteratura]] e scrive una nota; il codice scarta citazioni e numeri senza fonte (`bzd/research.py#check_note`).
-- Il **supervisore** ricontrolla ogni nota sul suo abstract (regge, da correggere, forzata) e scrive bozze solo dalle note che reggono.
+- Il **supervisore** ricontrolla ogni nota sul suo abstract (regge, da correggere, forzata) e scrive bozze solo dalle note che reggono. Rivede al massimo 40 note nuove per giro, le più pertinenti per prime (`bzd/research.py#supervisor_batch`), e parte solo se il costo stimato sta sotto il tetto meno la riserva (`bzd/research.py#supervisor_fits`): le altre aspettano il mese dopo. `docs/letteratura/IDEE_V2.md` mostra le bozze dell'ultimo giro; quelle precedenti restano in `data/literature/ideas.jsonl`.
 
 ## Stato
 Primo giro il 6 novembre: 13 note, 10 reggono, 3 forzate. Una bozza, il trend lungo, è diventata la pre-registrazione [[v2]]. Il 24 novembre il lettore ha cominciato a leggere tutto il catalogo (352 lavori), su richiesta dell'utente.

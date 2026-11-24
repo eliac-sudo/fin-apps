@@ -517,6 +517,26 @@ def discover(sleep=time.sleep, search=None, cite=None, log=print):
     return rows
 
 
+SUPERVISE_MAX_NOTES = 40  # one call can't review hundreds of notes: the rest wait for the next run
+
+
+def supervisor_batch():
+    """The notes the supervisor hasn't reviewed in a run that passed, most relevant first, at most SUPERVISE_MAX_NOTES.
+    With none reviewed yet beyond the first run, this is every usable note, as before."""
+    p = store() / "ideas.jsonl"
+    runs = [json.loads(x) for x in p.read_text().splitlines() if x.strip()] if p.exists() else []
+    seen = {k for r in runs if r.get("status", "ok") == "ok" for k in r.get("notes", [])}
+    usable = [n for n in notes() if n["status"] == "ok" and n["note"]["pertinenza"] != "nessuna" and n["key"] not in seen]
+    rank = {"alta": 0, "media": 1, "bassa": 2}
+    return sorted(usable, key=lambda n: (rank.get(n["note"]["pertinenza"], 3), n["title"]))[:SUPERVISE_MAX_NOTES]
+
+
+def supervisor_fits():
+    """Run the supervisor only if its estimated cost stays under the cap minus the reviews' reserve."""
+    cost = estimate([], n_ideas_notes=len(supervisor_batch()))["ideas"]
+    return G.spent_this_month() + cost <= G.budget() - REVIEW_RESERVE_USD, cost
+
+
 SUPERVISE_EVERY_DAYS = 30
 SUPERVISE_AFTER_NOTES = 10
 
@@ -530,7 +550,8 @@ def supervisor_due(now=None):
     if not runs:
         return bool(ok), f"mai eseguito, {len(ok)} note da rivedere" if ok else "nessuna nota da rivedere"
     last = runs[-1]
-    new = [n for n in ok if n["key"] not in set(last.get("notes", []))]
+    seen = {k for r in runs if r.get("status", "ok") == "ok" for k in r.get("notes", [])}
+    new = [n for n in ok if n["key"] not in seen]
     days = (now - datetime.fromisoformat(last["ts"])).days
     if len(new) >= SUPERVISE_AFTER_NOTES:
         return True, f"{len(new)} note nuove dall'ultimo giro"
@@ -627,7 +648,10 @@ def main(argv, client=None, sleep=time.sleep):
         main(["leggi", "--paga", "100000"], client, sleep)
         due, reason = supervisor_due()
         print(f"supervisore: {reason}")
-        if due and room_for_research():
+        fits, cost = supervisor_fits()
+        if due and not fits:
+            print(f"supervisore rimandato: costerebbe circa {cost:.2f} $ e sforerebbe il tetto del mese")
+        if due and fits:
             return main(["idee", "--paga"], client, sleep)
         return 0
     extra = next((int(a) for a in argv[1:] if a.isdigit()), 0)
@@ -667,9 +691,9 @@ def main(argv, client=None, sleep=time.sleep):
         (DOCS / "NOTE.md").write_text(notes_page(notes(), last_verdicts()))
         return 0
     if cmd == "idee":
-        usable = [n for n in notes() if n["status"] == "ok" and n["note"]["pertinenza"] != "nessuna"]
+        usable = supervisor_batch()
         if not usable:
-            print("nessuna nota utilizzabile: lancia prima `leggi`")
+            print("nessuna nota nuova da rivedere: lancia prima `leggi`")
             return 1
         rec = draft_ideas(client, usable)
         with open(store() / "ideas.jsonl", "a") as f:

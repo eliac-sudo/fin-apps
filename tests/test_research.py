@@ -279,3 +279,23 @@ class TestDiscover(Base):
         self.assertIn("works/doi:10.1/abc", urls[0])
         self.assertIn("cites%3AW9", urls[1])
         self.assertEqual(rows[0]["topics"], [L.SNOWBALL])
+
+
+class TestSupervisorBatches(Base):
+    def test_reviews_new_notes_in_batches_most_relevant_first(self):
+        with open(R.store() / "notes.jsonl", "w") as f:
+            for i in range(50):
+                f.write(json.dumps({"key": f"p{i:02}", "title": f"T{i:02}", "status": "ok", "note": note(pertinenza="alta" if i >= 45 else "bassa")}) + "\n")
+        batch = R.supervisor_batch()
+        self.assertEqual(len(batch), R.SUPERVISE_MAX_NOTES)
+        self.assertEqual([n["key"] for n in batch[:5]], [f"p{i}" for i in range(45, 50)])
+        (R.store() / "ideas.jsonl").write_text(json.dumps({"ts": "2026-11-24T00:00:00+00:00", "status": "ok", "notes": [n["key"] for n in batch]}) + "\n")
+        self.assertEqual(len(R.supervisor_batch()), 10)
+
+    def test_the_supervisor_waits_when_it_would_break_the_cap(self):
+        with open(R.store() / "notes.jsonl", "w") as f:
+            f.write(json.dumps({"key": "a", "title": "A", "status": "ok", "note": note()}) + "\n")
+        with mock.patch.object(G, "spent_this_month", return_value=4.45):
+            self.assertFalse(R.supervisor_fits()[0])
+        with mock.patch.object(G, "spent_this_month", return_value=0.5):
+            self.assertTrue(R.supervisor_fits()[0])
