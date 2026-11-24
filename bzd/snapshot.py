@@ -397,6 +397,14 @@ def studies_part():
         out.append({"id": vid, "title": title, "date": date, "question": question, "prereg": prereg, "report": report,
                     "rows": [study_row(k, h, results.get(k, {})) if vid != "v6" else {**study_row(k, h, results.get(k, {})), "id": f"{k} (v6)", "where": "Oggi"}
                              for k, h in hyp.items()]})
+    v7 = BASE / "config" / "validation_v7_esame.json"
+    if v7.exists():
+        res = json.loads(v7.read_text())["results"]
+        out.append({"id": "v7", "title": "Tutte le coppie di letture", "date": "24 novembre 2026",
+                    "question": "Fra 484 regole (ogni lettura e ogni coppia, long e short), cercate sul 2008–2018 e controllate sul 2019–2022, qualcuna regge all'esame 2023–2026?",
+                    "prereg": "docs/PREREGISTRAZIONE_v7.md", "report": "docs/V7_ESAME.md",
+                    "rows": [{**study_row(k, {"reading": x["label"], "rule": x["label"], "trade": x["label"].rsplit("→ ", 1)[-1], "horizon_bars": 10}, x), "id": f"{k} (v7)", "where": "Oggi"}
+                             for k, x in res.items()]})
     return out
 
 

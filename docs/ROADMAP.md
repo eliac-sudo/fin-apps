@@ -4,7 +4,7 @@ Scritta il 24 novembre 2026. Cosa manca, in ordine di urgenza. Lo stato di oggi 
 
 ## Cosa ci dicono i test fino a oggi
 
-Su 46 ipotesi pre-registrate (B3, v2–v6) reggono solo il panico cripto (B3, di poco), le opzioni «economiche» (v3, O2, ma il netto resta negativo) e il momentum (v4, che tolti i costi è in pari). Il v6 di oggi ([V6_STORICO.md](V6_STORICO.md)) non ne aggiunge: liquidità della Fed, dollaro forte e impatto alto non reggono alla correzione per test multipli, e stablecoin e proiezioni della Fed hanno troppi pochi casi. Il programma descrive bene i mercati, ma non ha ancora un segnale con un vantaggio netto dimostrato. La roadmap mette prima ciò che protegge i dati, poi ciò che può trovare un vantaggio vero.
+Su 46 ipotesi pre-registrate (B3, v2–v6) più 484 combinazioni (v7) reggono solo il panico cripto (B3, di poco), le opzioni «economiche» (v3, O2, ma il netto resta negativo) e il momentum (v4, che tolti i costi è in pari). Il v6 e il v7 di oggi ([V6_STORICO.md](V6_STORICO.md), [V7_ESAME.md](V7_ESAME.md)) non ne aggiungono. Nel v7, 484 combinazioni di letture cercate e controllate su periodi separati: all'esame nessuna regge. Nel v6: liquidità della Fed, dollaro forte e impatto alto non reggono alla correzione per test multipli, e stablecoin e proiezioni della Fed hanno troppi pochi casi. Il programma descrive bene i mercati, ma non ha ancora un segnale con un vantaggio netto dimostrato. La roadmap mette prima ciò che protegge i dati, poi ciò che può trovare un vantaggio vero.
 
 ## 1. Subito: non perdere dati
 
@@ -37,7 +37,7 @@ Su 46 ipotesi pre-registrate (B3, v2–v6) reggono solo il panico cripto (B3, di
 
 Si scrivono prima, si conta, si lancia una volta. Le idee nate guardando i risultati del v6 **non si riprovano sullo stesso storico**: si provano solo sui dati che arrivano da ora.
 
-1. **v7, prova sui dati futuri di ciò che è andato vicino:** dollaro in forte rialzo (L3, p 0,015 contro soglia 0,0125) e impatto alto (L4, p 0,012 contro 0,010). Regole identiche al v6, giudizio dopo almeno 100 cluster nuovi.
+1. **v8, prova sui dati futuri di ciò che è andato vicino:** «posizione bassa nell'anno → long 10 sedute» (v7: positiva nei tre periodi, p 0,025 all'esame contro soglia 0,017), dollaro in forte rialzo (L3, p 0,015 contro soglia 0,0125) e impatto alto (L4, p 0,012 contro 0,010). Regole identiche a v6 e v7, giudizio dopo almeno 100 cluster nuovi.
 2. **Stablecoin sulle cripto (L2):** stessa regola, sui dati futuri. Serve tempo: oggi i casi sono 29.
 3. **BZD, la capitolazione:** pre-registrarla per i dati futuri. È rara, quindi servono anni.
 4. **Proiezioni della Fed (F1):** solo 12 edizioni dure dal 2016; si riguarda tra qualche anno.
