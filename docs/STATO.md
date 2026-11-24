@@ -1,6 +1,6 @@
 # Stato del progetto
 
-Aggiornato al 23 novembre 2026. Da leggere per primo quando si riprende il lavoro. Branch `roadmap-v0.3`: `main` non contiene questo lavoro. La cronaca delle modifiche sta in `docs/wiki/log.md` e nella storia git; qui c'è solo com'è adesso.
+Aggiornato al 23 novembre 2026. Da leggere per primo quando si riprende il lavoro. Branch `roadmap-v0.3`, unito in `main` il 24 novembre 2026 (pull request 2). La cronaca delle modifiche sta in `docs/wiki/log.md` e nella storia git; qui c'è solo com'è adesso.
 
 ## Cos'è
 
