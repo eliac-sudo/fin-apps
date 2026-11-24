@@ -19,8 +19,7 @@
   },
   "hedge": {
     "hour_utc": 8,
-    "min_trade": 0.001,
-    "emergency_delta_per_btc": 0.2
+    "min_trade": 0.001
   },
   "risk": {
     "kill_drawdown": 0.15,
@@ -33,5 +32,6 @@
     "min_entries": 52,
     "rule": "media del risultato settimanale (variazione del conto) sopra zero, test a una coda al 5% con le entrate sovrapposte contate come cluster di 4; confronto con il backtest DH2m (+0,81% del nozionale per entrata)"
   },
-  "safety_not_in_backtest": "copertura d'emergenza fuori orario se il delta netto supera 0,2 BTC per BTC di strangle; entrate bloccate con margine sopra il 50% del conto; tutto chiuso sopra l'80%"
+  "safety_not_in_backtest": "entrate bloccate con margine sopra il 50% del conto; tutto chiuso sopra l'80%",
+  "changed": "24 novembre 2026, prima della prima entrata: tolta la copertura d'emergenza fuori orario (delta netto oltre 0,2 BTC per BTC di strangle). Simulata ora per ora sullo storico, abbassava la media da +0,81% a +0,64% del nozionale per entrata e peggiorava l'operazione peggiore da -11% a -15% (docs/BOT_DERIBIT_STORICO.md, quarta prova)."
 }

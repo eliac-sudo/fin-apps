@@ -33,3 +33,38 @@ Nessuna delle 412 catene ha fatto 11 raddoppi. Il massimo è 10, con 5× long; c
 2. **Il compromesso tra velocità e probabilità è 10–20× su una piattaforma con mantenimento basso:** un lancio dura da 3 a 10 giorni e si vince circa 48–49 volte su 100.
 3. **11 raddoppi di fila riescono circa 1 volta su 2.500–3.500** nel caso neutro. Con il long in un mercato che sale come nel 2019–2026, circa 1 su 900–2.000.
 4. **Valore atteso:** con 48% per lancio, 100 € giocati valgono in media circa 65 €.
+
+## Seconda prova (24 novembre)
+
+Script: `scripts/research/double_sim2.py`.
+
+**Costi veri di Hyperliquid** (mantenimento 1,25%, maker 0,015% su entrata e obiettivo):
+
+| Leva | Long | Short | Media | 11 di fila |
+|---|---|---|---|---|
+| 5× | 53,1% | 44,3% | 48,7% | 1 su ~2.700 |
+| 10× | 51,5% | 42,4% | 47,0% | 1 su ~4.100 |
+| 20× | 44,9% | 40,7% | 42,8% | 1 su ~11.000 |
+| 40× | 32,6% | 33,4% | 33,0% | 1 su ~200.000 |
+
+**Solo dopo il segnale di momentum testato** (v4: long il giorno dopo «sale forte», short dopo «scende forte»; Deribit). Ci sono 634 giorni di «sale forte» e 290 di «scende forte», ma molto sovrapposti.
+
+| Leva | Long dopo sale forte | Long ogni giorno | Short dopo scende forte | Short ogni giorno | Insieme, contro ogni giorno |
+|---|---|---|---|---|---|
+| 5× | 59,8% | 54,2% | 43,7% | 44,9% | 54,9% contro 51,3% |
+| 10× | 59,0% | 53,8% | 42,2% | 44,1% | 53,7% contro 50,8% |
+| 20× | 55,8% | 50,2% | 48,8% | 45,0% | 53,6% contro 48,5% |
+
+Il segnale aggiunge 3–5 punti per lancio, quasi tutti dal lato long. I giorni di segnale consecutivi sono in pratica lo stesso evento, quindi i casi indipendenti sono forse un centinaio: la differenza non si distingue dal caso. E il long ha avuto il vento a favore di un mercato salito di 30 volte.
+
+**Incassare per strada** (1 milione di tentativi simulati, 11 lanci al massimo, posta iniziale = 1):
+
+| Lancio vinto | Messo da parte a ogni raddoppio | Torni con qualcosa | Almeno la posta | Almeno ×10 | Almeno ×100 | In media |
+|---|---|---|---|---|---|---|
+| 49% | 0% | 0,04% | 0,04% | 0,04% | 0,04% | 0,83 |
+| 49% | 25% | 49% | 24% | 1,4% | 0,04% | 0,93 |
+| 49% | 50% | 49% | 49% | 0,08% | 0% | 0,96 |
+| 47,6% | 0% | 0,03% | 0,03% | 0,03% | 0,03% | 0,62 |
+| 47,6% | 50% | 47,6% | 47,6% | 0,06% | 0% | 0,91 |
+
+Mettere da parte a ogni raddoppio non crea guadagno: il valore medio resta sotto la posta. Cambia solo la forma: si torna più spesso con qualcosa, ma non si arriva mai lontano.

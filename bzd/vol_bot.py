@@ -16,9 +16,9 @@ Testnet unless DERIBIT_NETWORK=live and BZD_BOT_LIVE=ho-capito are both set by h
 Every Monday 10-16 UTC it offers the put and the call nearest 25 delta, 21-45 days out, at the mid of the order book with
 post-only orders, re-pricing as the book moves; what isn't filled by 16:00 is cancelled. The strangle is held to expiry.
 The delta of every open option is hedged on the perpetual once a day at 08:00 UTC and right after a fill, as in the backtest.
-Safety beyond the backtest: an emergency hedge when the net delta drifts past a threshold, no entries with margin above 50%
-of equity, everything closed above 80% so the exchange never liquidates, and no entries after a 15% drawdown.
-A strangle has no wing: these rules are what stands between the account and the tail.
+Safety beyond the backtest: no entries with margin above 50% of equity, everything closed above 80% so the exchange never
+liquidates, and no entries after a 15% drawdown. There is no hedge between two 08:00s: hour by hour it made the strategy
+worse, tails included (docs/BOT_DERIBIT_STORICO.md, fourth pass), so the bot hedges exactly as tested.
 """
 import fcntl, json, math, os, sys, time, urllib.error, urllib.request, uuid
 from datetime import datetime, timedelta, timezone
@@ -402,14 +402,6 @@ class Bot:
             if got < abs(trade) - EPS:
                 self.say(f"⚠️ Copertura incompleta: {got} su {abs(trade):.4f} BTC. Riprovo al prossimo giro.", key="hedge_short")
 
-    def emergency(self):
-        opts, perp = self.positions()
-        size = sum(abs(p["size"]) for p in opts) / 2  # BTC of strangle: each one is a put and a call
-        net = sum(float(p.get("delta") or 0) for p in opts) + perp
-        if size and abs(net) > self.cfg["hedge"]["emergency_delta_per_btc"] * size:
-            self.say(f"⚡ Delta netto {net:+.3f} BTC su {size:.2f} BTC di strangle: copertura subito, fuori orario.", key="emergency", every_s=900)
-            self.hedge("emergenza")
-
     # -- entry as a maker
 
     def entry(self, equity):
@@ -575,8 +567,6 @@ class Bot:
             self.hedge("08:00 UTC")
             self.st["last_hedge_day"] = now.date().isoformat()
             journal("conto", self.root, equity=equity, maintenance=maint)
-        else:
-            self.emergency()
         if not stop or self.st["working"]:
             self.entry(equity)
         self.save()

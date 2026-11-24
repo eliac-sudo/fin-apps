@@ -8,7 +8,7 @@ Funding is paid hour by hour on the notional (longs pay when the rate is positiv
 If one hour touches both the target and the liquidation price, the throw counts as lost. One throw starts every day at
 00:00 UTC; chains of throws, one after the other, start every Monday.
 """
-import bisect, json, math, sys
+import json, sys
 from pathlib import Path
 
 import numpy as np

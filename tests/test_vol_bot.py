@@ -231,16 +231,18 @@ class TestBot(unittest.TestCase):
         self.bot(c, tue.replace(hour=14)).cycle()
         self.assertEqual(n, len(self.perp_trades(c)))
 
-    def test_emergency_hedge_when_delta_drifts_far(self):
+    def test_no_hedge_between_two_eight_oclocks(self):
+        """As tested: hedging off-hours made the strategy worse in the history, so a big drift waits for 08:00."""
         c = FakeClient()
         self.bot(c, MON).cycle()
         self.bot(c, MON.replace(hour=16)).cycle()
         put = next(x for x in c.pos if x.endswith("-P"))
         c.q[put] = dict(c.q[put], delta=-.9)  # a crash: the sold put is now deep in the money
-        b = self.bot(c, (MON + timedelta(days=1)).replace(hour=3))  # before 08:00
-        b.cycle()
+        n = len(self.perp_trades(c))
+        self.bot(c, (MON + timedelta(days=1)).replace(hour=3)).cycle()
+        self.assertEqual(len(self.perp_trades(c)), n)
+        self.bot(c, (MON + timedelta(days=1)).replace(hour=8)).cycle()
         self.assertLess(abs(self.net_delta(c)), .001)
-        self.assertTrue(any("fuori orario" in m for m in self.sent))
 
     def test_margin_above_eighty_percent_closes_everything(self):
         c = FakeClient()

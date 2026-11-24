@@ -21,7 +21,7 @@ Il put spread della prima versione (`config/vol_bot_v1.json`) e le opzioni con g
 ## Sicurezza (non c'è nel backtest)
 
 Lo strangle non ha ali, quindi la coda la gestiscono queste regole:
-- **Copertura d'emergenza:** fuori orario, se il delta netto supera 0,2 BTC per BTC di strangle.
+- **Niente copertura fuori orario:** c'era, ed è stata tolta il 24 novembre prima della prima entrata. Simulata ora per ora sullo storico abbassava la media (+0,64% contro +0,81% per entrata) e peggiorava l'operazione peggiore (−15% contro −11%): coprire in fretta dopo ogni scossone fissa le perdite quando il prezzo poi torna indietro.
 - **Margine:** sopra il 50% del conto niente entrate nuove; sopra l'80% il bot chiude tutto da solo, prima che Deribit liquidi.
 - **Interruttore:** drawdown del 15% dal massimo, niente entrate nuove finché non si lancia `riprendi`.
 - **Controllo del registro:** il conto deve tornare con il registro; ogni differenza blocca le entrate e manda un messaggio.
@@ -58,6 +58,6 @@ Il lotto minimo è 0,01 BTC per gamba; con il 25% del conto per entrata servono 
 
 ## Prima del conto vero
 
-1. Mesi sul testnet senza differenze né errori, con almeno una copertura d'emergenza e una scadenza.
+1. Mesi sul testnet senza differenze né errori, con almeno una scadenza e una chiusura d'emergenza provata dall'app.
 2. Il server: il Codespace si è fermato più volte, e uno strangle scoperto con il bot spento non ha protezione.
 3. La decisione esplicita dell'utente, con la cifra.

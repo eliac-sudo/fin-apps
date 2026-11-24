@@ -91,3 +91,14 @@ Tre filtri presi dalla letteratura, fissati prima del calcolo, sullo strangle co
 | F3 regime calmo (implicita sotto la mediana di un anno) | +0,26% | +1,88% | −1,7 |
 
 Su ETH lo stesso quadro (t +0,6, −1,0, −1,2). Nessun filtro migliora la strategia. F2 e F3 vanno al contrario: le settimane di volatilità alta e di panico hanno reso di più, coerente con Bakshi e Kapadia (2003). È stato visto dopo, quindi resta un'ipotesi da provare sui dati futuri, non una regola.
+
+## Quarta prova: il bot come costruito, ora per ora (24 novembre)
+
+Lo strangle coperto da maker (DH2m) rifatto sulle barre orarie del perpetuo, con il funding ora per ora e lo 0,05% a ogni copertura. Script: `scripts/research/vol_backtest4.py`, dati orari da `scripts/research/vol_fetch_ohlc.py`.
+
+| BTC, 280 entrate | Medio per entrata | t | Peggiore | 5% peggiori | All'anno | max DD |
+|---|---|---|---|---|---|---|
+| Copertura solo alle 08:00 (come testato) | +0,81% | 1,9 | −11,1% | −7,7% | +7,3% | −12% |
+| 08:00 + emergenza oltre 0,2 di delta netto | +0,64% | 1,5 | −15,3% | −7,9% | +5,7% | −14% |
+
+La prima riga ridà esattamente il risultato della seconda prova: il motore orario è coerente con quello giornaliero. La copertura d'emergenza scattava in media 3,8 volte per entrata e peggiorava sia la media sia la coda. Chi vende uno strangle perde quando il prezzo va avanti e indietro, e coprire in fretta dopo ogni scossone fissa quelle perdite. Per questo è stata tolta dal bot prima della prima entrata (`config/vol_bot_v2.json`, voce `changed`). Non sono state provate altre soglie, per non scegliere la migliore a posteriori.

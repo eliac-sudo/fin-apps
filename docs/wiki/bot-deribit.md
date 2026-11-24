@@ -12,7 +12,7 @@ tab: bots
 1. Ogni lunedì tra le 10 e le 16 UTC offre la put e la call più vicine a 25 delta, sulla scadenza vicina a 30 giorni, al prezzo medio del book ([[opzioni]]).
 2. Il 25% del conto come nozionale per entrata, al massimo 1× in tutto.
 3. Copre il delta sul perpetuo ogni giorno alle 08:00 UTC e dopo ogni esecuzione; tiene fino a scadenza.
-4. Sicurezza: copertura d'emergenza fuori orario, niente entrate con margine sopra il 50%, tutto chiuso sopra l'80%, stop dopo un drawdown del 15%, blocco se il conto non torna con il registro.
+4. Sicurezza: niente entrate con margine sopra il 50%, tutto chiuso sopra l'80%, stop dopo un drawdown del 15%, blocco se il conto non torna con il registro.
 
 5. Nella scheda BOTS dell'app ([[app]]) si vede lo stato scritto dal bot a ogni giro, e si mette in pausa, si riprende, si abbassa la dimensione o si chiude tutto in emergenza. L'app scrive solo un file di comandi che il bot legge entro 10 secondi: non ha le chiavi e non manda ordini.
 
