@@ -639,6 +639,32 @@ function zoneTable(){const pass=m=>zoneFilter==="tutti"||(zoneFilter==="BYZ"?!!(
       el("div",{style:"display:flex;gap:8px;flex-wrap:wrap;align-items:center"},el("div",{class:"chips"},[["tutti","Tutti"],["GIU","▼ Scende forte "+count("GIU")],["SU","▲ Sale forte "+count("SU")],["BYZ","🟢 BYZ "+nbyz]].map(([k,n])=>el("button",{class:"chip","aria-pressed":String(k===zoneFilter),onclick:()=>{zoneFilter=k;render()}},n))))),
     el("div",{style:"margin-top:6px"},rows.length?Table(cols,rows,{sort:"score",dir:1,onRow:detail}):el("p",{class:"small"},zoneFilter==="BYZ"?"BYZ non scatta su nessun asset adesso.":"Nessun asset in questo stato "+ZON[zoneTf]+".")),
     el("p",{class:"tiny",style:"margin:6px 2px 0"},"4 ore solo per le cripto. «da 3 gg»: sale forte da almeno 3 sedute. BYZ: vedi il riquadro qui sotto. Quanto hanno retto queste letture è nella scheda ",testLink("Test"),"."))}
+function liqCard(){const L=D.liquidity;if(!L||!L.macro)return null;const M=L.macro,LM=L.markets||{};
+  const num=(v,k)=>v==null?"–":(+v).toLocaleString("it-IT",{maximumFractionDigits:k});
+  const usdM=v=>v==null?"–":v>=1e6?num(v/1e6,1)+" mln $":num(v/1e3,0)+" mila $";
+  const tone=t=>t?el("span",{class:"chipv",style:`background:${t==="più"?"var(--h3)":"var(--h1)"};color:${t==="più"?"var(--i3)":"var(--i1)"}`},t+" liquidità"):null;
+  const weeks=d=>d>=80?Math.round(d/7)+" settimane":d+" giorni";
+  const tile=r=>el("div",{class:"card",style:"padding:10px 12px",title:r.meaning},el("div",{class:"tiny muted"},r.label),
+    el("div",{style:"display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"},el("div",{class:"mid"},num(r.value,r.unit===" mld $"?0:2)+r.unit),tone(r.tone)),
+    el("div",{class:"tiny"},r.change==null?"":(r.change>0?"+":"")+num(r.change,2)+r.change_unit+" in "+weeks(r.days)+(r.pct_3y!=null?" · "+Math.round(r.pct_3y)+"° percentile in 3 anni":"")),
+    el("div",{class:"tiny muted",style:"margin-top:3px"},r.meaning));
+  const ch=(k,name,color)=>M.charts[k]?el("div",null,el("div",{class:"tiny muted"},name),lineChart([{name,dates:M.charts[k].dates,values:M.charts[k].values,color}],{height:150,W:600,digits:0,suffix:" mld"})):null;
+  const rows=D.markets.filter(hit).map(m=>({...m,lq:LM[m.market]})).filter(m=>m.lq);
+  const lb=m=>m.lq.score==null?null:bin(m.lq.score);
+  const cols=[{k:"label",label:"Mercato",cell:m=>el("b",null,m.label)},
+    {k:"score",label:"Liquidità",num:true,val:m=>m.lq.score,cell:m=>m.lq.score==null?el("span",{class:"tiny muted"},"senza volumi"):el("span",{class:"chipv",style:`background:var(--h${4-lb(m)});color:var(--i${4-lb(m)})`},fmt(m.lq.score)+" · "+m.lq.band),title:"Media tra volumi e il contrario dell'impatto, 0–100 rispetto agli ultimi 3 anni del mercato"},
+    {k:"vol",label:"Volumi",num:true,val:m=>m.lq.volume_pct,cell:m=>m.lq.volume_pct==null?"–":fmt(m.lq.volume_pct)+"°",title:"Volume medio delle ultime 20 sedute, percentile sugli ultimi 3 anni"},
+    {k:"imp",label:"Impatto",num:true,val:m=>m.lq.impact_pct,cell:m=>m.lq.impact_pct==null?"–":fmt(m.lq.impact_pct)+"°",title:"Quanto si muove il prezzo per ogni dollaro scambiato (Amihud), percentile sugli ultimi 3 anni: alto vuol dire meno liquido"},
+    {k:"spread",label:"Spread HL",num:true,val:m=>m.lq.book&&m.lq.book.spread_bps,cell:m=>m.lq.book?el("span",{title:"mediana da quando lo registriamo: "+num(m.lq.book.spread_median,2)+" pb"},num(m.lq.book.spread_bps,2)+" pb"):"–"},
+    {k:"depth",label:"Profondità HL ±0,5%",num:true,val:m=>m.lq.book&&m.lq.book.depth_usd,cell:m=>m.lq.book?el("span",{title:"mediana: "+usdM(m.lq.book.depth_median)},usdM(m.lq.book.depth_usd)," ",el("span",{class:"tiny muted"},m.lq.book.depth_usd>m.lq.book.depth_median?"▲":"▼")):"–"}];
+  const since=Object.values(LM).map(x=>x.book&&x.book.since).filter(Boolean).sort()[0];
+  return el("section",{class:"card"},el("h2",null,"Liquidità"),
+    el("p",{class:"small",style:"margin:4px 0 8px"},el("b",null,M.more+" indicatori su "+M.rows.length+" segnano più liquidità rispetto a 3 mesi fa, "+M.less+" meno. "),"Quanta moneta gira (Fed, M2, stablecoin, credito, dollaro) e quanto facilmente si scambia ogni mercato. Descrive e non prevede: nessuna lettura della liquidità è stata testata come segnale."),
+    el("div",{class:"grid",style:"grid-template-columns:repeat(auto-fill,minmax(230px,1fr))"},M.rows.map(tile)),
+    el("div",{class:"grid",style:"grid-template-columns:repeat(auto-fit,minmax(300px,1fr));margin-top:8px"},ch("net","Liquidità netta della Fed, 2 anni","var(--s1)"),ch("stable","Stablecoin in circolazione, 2 anni","var(--s4)")),
+    el("h3",{style:"margin-top:12px"},"Mercato per mercato"),
+    el("p",{class:"tiny",style:"margin:2px 0 6px"},"Volumi e impatto dalle sedute giornaliere (per i futures il volume in contratti; le coppie forex non hanno volumi). Spread e profondità dal book di Hyperliquid, un'istantanea all'ora"+(since?" dal "+short(since)+": storico ancora breve, il confronto è con la mediana di questi giorni":"")+". Clicca un mercato per la sua pagina."),
+    Table(cols,rows,{sort:"score",dir:1,onRow:m=>openAsset(m.market),maxH:420}))}
 function byzCard(){const rows=D.markets.filter(m=>m.byz&&hit(m)).sort((a,b)=>(b.byz.fired-a.byz.fired)||(b.byz.met-a.byz.met)||(b.byz.fall_pct-a.byz.fall_pct)),fired=rows.filter(m=>m.byz.fired);if(!rows.length)return null;
   const cell=c=>el("div",{class:"ccell"+(c.ok?" ok":""),title:c.label+": "+c.detail},el("b",null,c.ok?"✓":"✗"),el("span",null,c.short));
   return el("section",{class:"card"},el("div",{class:"selectline"},el("h2",null,"🟢 BYZ: la capitolazione"),el("span",{class:"tag",title:"Regola scelta il 7 novembre 2026 guardando la storia: non è mai stata provata su dati nuovi"},"regola nuova, non testata")),
@@ -695,7 +721,7 @@ oggi(){
     el("div",{class:"chipv",style:`background:var(--h${n});color:var(--i${n});margin-top:3px`},bandWord(c.band)),
     spark(c.history,col),el("div",{class:"tiny"},"▲ "+c.hottest.label+" "+fmt(c.hottest.heat)+"  ▼ "+c.coldest.label+" "+fmt(c.coldest.heat)),el("div",{class:"tiny",style:"margin-top:1px;color:var(--ink2)"},c.why))})),
   el("p",{class:"tiny",style:"margin:5px 2px 0"},"La forza va da 0 a 100 e confronta ogni mercato con la sua storia: 50 è la sua norma, sotto 20 è ipervenduto, sopra 80 ipercomprato. Nei riquadri la curva mostra gli ultimi 4 mesi, con la fascia della norma in grigio. Clicca un gruppo per capire cosa lo muove. Descrive la situazione e non prevede il futuro."),
-  zoneTable(),byzCard(),
+  zoneTable(),byzCard(),liqCard(),
   el("section",{class:"grid",style:"grid-template-columns:minmax(0,5fr) minmax(0,6fr)"},
     el("div",{class:"card"},el("div",{style:"display:flex;justify-content:space-between;gap:8px;align-items:center"},el("h2",null,"Chi si è mosso di più"),el("div",{class:"seg"},["1g","7g","30g"].map(p=>el("button",{"aria-pressed":String(p===moverWindow),onclick:()=>{moverWindow=p;render()}},p)))),el("div",{style:"margin-top:6px"},movers(D.markets.filter(hit),moverWindow))),
     el("div",{class:"card"},el("h2",null,"Forza e prezzo a confronto"),el("p",{class:"sub",style:"margin:2px 0 2px"},"In basso a sinistra i mercati deboli e vicini ai minimi dell'anno, in alto a destra quelli forti e vicini ai massimi. Clicca un punto per aprirlo."),scatter(D.markets.filter(m=>m.position&&m.heat!=null&&hit(m))))),
@@ -1238,6 +1264,8 @@ function assetView(){const m=(D.markets||[]).find(x=>x.market===ASSET.market);if
   if(t)brief.push(["📈","Trend: giornaliero "+(t.trend["1d"]||"–")+", settimanale "+(t.trend["1w"]||"–")+", mensile "+(t.trend["1M"]||"–")+". RSI giornaliero "+fmt((t.rsi||{})["1d"])+"."]);
   if(lab)brief.push(["🎯","Opzioni "+(lab.label||"nella norma")+(lab.ratio!=null?": costano "+fmt(lab.ratio,2)+" volte il movimento previsto":"")+(lab.near?", il mercato prezza ±"+fmt(lab.near.move_pct,1)+"% in "+fmt(lab.near.days)+" giorni":"")+".",lab.label==="economiche"?"O2":lab.label==="care"?"O1":null]);
   if(sc)brief.push(["💬","Sentiment "+m.theme+": oggi "+tilt(sc)+", nella settimana "+tilt(wk)+".","SENT"]);
+  const lq=D.liquidity&&D.liquidity.markets&&D.liquidity.markets[m.market];
+  if(lq&&(lq.score!=null||lq.book))brief.push(["💧","Liquidità "+(lq.score!=null?lq.band+" ("+fmt(lq.score)+" su 100: volumi al "+fmt(lq.volume_pct)+"° percentile, impatto al "+fmt(lq.impact_pct)+"°)":"senza volumi")+(lq.book?". Su Hyperliquid spread "+(+lq.book.spread_bps).toLocaleString("it-IT",{maximumFractionDigits:2})+" pb, profondità ±0,5% "+(lq.book.depth_usd>lq.book.depth_median?"sopra":"sotto")+" la mediana":"")+".","LIQ"]);
   if(flow)brief.push(["👥","Retail "+flow.retail.word+" ("+fmt(flow.retail.pct)+"° percentile), "+(flow.class==="crypto"?"grossi":"fondi")+" "+flow.big.word+" ("+fmt(flow.big.pct)+"°)"+(flow.split?": su lati opposti":"")+".","FLOW"]);
   const chart=ASSET.price&&ASSET.price.close?lineChart([{name:"Prezzo",values:ASSET.price.close,dates:ASSET.price.dates,color:"var(--y)"}],{height:230,W:900,digits:m.price>=100?0:m.price>=1?2:4}):el("p",{class:"muted"},ASSET.price?"Grafico non disponibile.":"Carico il grafico…");
   const lvl=(name,l)=>l?el("div",null,el("b",null,price(l.price)),el("span",null,name+" · "+sgn((l.price/ta.price-1)*100,1)+"% · "+l.touches+(l.touches===1?" tocco":" tocchi"))):el("div",null,el("b",null,"–"),el("span",null,name+": nessun livello ripetuto"));

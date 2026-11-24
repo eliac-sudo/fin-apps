@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from . import flows as FL
+from . import liquidity as LQ
 from . import wallets as WL
 from . import indicators as I
 from . import option_lab as L
@@ -468,4 +469,5 @@ def build(now=None):
     return clean({"at": now.isoformat(timespec="seconds"), "markets": markets, "classes": summaries, "overview": overview, "briefing": part(lambda: briefing(markets, summaries, lab, tech, alerts), errors, "briefing", []),
                   "options": part(options_part, errors, "options", []), "lab": lab, "sentiment": sentiment, "zone_info": {"past": ZN.PAST}, "verdicts": part(VD.all_lines, errors, "verdicts", {}),
                   "alerts": alerts, "tests": part(tests_part, errors, "tests", None), "studies": part(studies_part, errors, "studies", []), "technical": tech, "flows": part(flows_part, errors, "flows", []), "wallets": part(WL.view, errors, "wallets", None),
+                  "liquidity": part(LQ.view, errors, "liquidity", None),
                   "freshness": part(lambda: freshness(now), errors, "freshness", {"recorder_minutes": None, "ok": False}), "errors": errors})
