@@ -81,6 +81,74 @@ class Forecasts(unittest.TestCase):
         self.assertIsNone(v["fed"])
         self.assertEqual(v["markets"], [])
 
+    def test_names_with_a_comma_before_any_digit_are_not_strikes(self):
+        self.assertIsNone(F._strike("Hold, no change"))
+        self.assertEqual(F._strike("Jan, 2027"), 2027.0)
+        self.assertEqual(F._strike("Above -75,000"), -75000.0)
+
+    def test_ten_cent_spread_uses_the_midpoint(self):
+        self.assertEqual(F._prob({"yes_bid_dollars": "0.4500", "yes_ask_dollars": "0.5500", "last_price_dollars": "0.0000"}), 0.5)
+        self.assertEqual(F._prob({"yes_bid_dollars": "0.3000", "yes_ask_dollars": "0.5500", "last_price_dollars": "0.2000"}), 0.2)
+        self.assertIsNone(F._prob({"yes_bid_dollars": "0", "yes_ask_dollars": "0.9", "last_price_dollars": "0"}))
+
+    def test_event_period_from_ticker(self):
+        self.assertEqual(F.event_period("KXFED-27JAN"), "gen 2027")
+        self.assertEqual(F.event_period("KXINXY-26DEC31"), "dic 2026")
+        self.assertEqual(F.event_period("KXRECSSNBER-27"), "2027")
+        self.assertIsNone(F.event_period("KXFED-ABC"))
+
+    def _with_raw(self, files, fn):
+        import gzip, json, os, tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as t:
+            for job, body in files.items():
+                p = Path(t) / "raw" / job / "2026-11-24" / "120000Z.json.gz"
+                p.parent.mkdir(parents=True)
+                p.write_bytes(gzip.compress(body if isinstance(body, bytes) else json.dumps(body).encode()))
+            old = os.environ.get("BZD_DATA")
+            os.environ["BZD_DATA"] = t
+            try:
+                return fn()
+            finally:
+                os.environ.pop("BZD_DATA") if old is None else os.environ.__setitem__("BZD_DATA", old)
+
+    def test_kalshi_skips_settled_events_keeps_likely_rungs_and_one_broken_source_hides_nothing(self):
+        def m(ev, close, name, p, vol):
+            return {"event_ticker": ev, "close_time": close, "title": "t", "yes_sub_title": name, "yes_bid_dollars": str(p - .01),
+                    "yes_ask_dollars": str(p + .01), "last_price_dollars": "0", "volume_fp": str(vol)}
+        settled = [m("KXFED-26DEC", "2026-12-09", "Above 4.00%", .99, 9)]
+        ladder = [m("KXFED-27JAN", "2027-01-27", f"Above {k}", p, v) for k, p, v in
+                  [(5, .04, 1), (4.75, .05, 1), (4.5, .2, 50), (4.25, .6, 90), (4, .9, 80)]]
+        nxt = [m("KXFED-27MAR", "2027-03-18", "Above 4.25%", .5, 5)]
+        later = [m("KXFED-27APR", "2027-04-28", "Above 4.25%", .5, 5)]
+        files = {"fc_kalshi_kxfed": {"markets": settled + ladder + nxt + later}, "fc_kalshi_kxcpi": b"not json",
+                 "fc_polymarket_fed": [{"id": "1", "title": "Fed in Jan?", "endDate": "2027-01-28", "volume24hr": 5,
+                                        "markets": [{"groupItemTitle": "Hold", "outcomePrices": "[\"0.4\", \"0.6\"]"}]}]}
+        old = F.MAX_OPTIONS
+        F.MAX_OPTIONS = 3
+        try:
+            v = self._with_raw(files, F.view)
+        finally:
+            F.MAX_OPTIONS = old
+        kx = [x for x in v["markets"] if x["source"] == "Kalshi"]
+        self.assertEqual([x["label"] for x in kx], ["Tasso Fed (limite alto) dopo la riunione · gen 2027", "Tasso Fed (limite alto) dopo la riunione · mar 2027"])
+        self.assertEqual([o["name"] for o in kx[0]["options"]], ["Above 4.5", "Above 4.25", "Above 4"])
+        self.assertTrue(any(x["source"] == "Polymarket" for x in v["markets"]))
+        self.assertEqual(v["errors"], ["Kalshi KXCPI: JSONDecodeError"])
+
+    def test_polymarket_overlap_does_not_shrink_the_second_feed(self):
+        ev = lambda i, vol: {"id": str(i), "title": f"E{i}", "volume24hr": vol, "markets": [{"groupItemTitle": "x", "outcomePrices": "[\"0.5\", \"0.5\"]"}]}
+        eco = [ev(i, 100 - i) for i in range(10)]  # read first
+        fed = [ev(i, 100 - i) for i in range(5)] + [ev(i, 50 - i) for i in range(20, 35)]
+        v = self._with_raw({"fc_polymarket_fed": fed, "fc_polymarket_economy": eco}, F.polymarket_view)
+        self.assertEqual(len(v), 20)
+
+    def test_longer_run_date_is_not_an_edition(self):
+        d = pd.DataFrame({"made": ["2026-09-16", "2026-09-17"], "series": ["fed_funds_median", "fed_funds_longer_run"],
+                          "target": ["2027", "longer_run"], "value": [4.1, 3.2]})
+        v = F.fed_view(d)
+        self.assertEqual((v["made"], v["targets"], v["longer_run"]), ("2026-09-16", ["2027"], 3.2))
+
 
 if __name__ == "__main__":
     unittest.main()

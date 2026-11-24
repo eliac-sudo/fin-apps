@@ -903,8 +903,8 @@ previsioni(){
     el("p",{class:"small",style:"margin:4px 0 8px"},"Ultima edizione "+mdate(F.made)+". I membri del FOMC scrivono dove vedono tasso, crescita, disoccupazione e inflazione a fine anno. Le frecce dicono di quanto è cambiato rispetto all'edizione di "+mdate(F.prev_made)+". Tasso di lungo periodo: "+n(F.longer_run)+"%"+(F.longer_run_prev!=null&&F.longer_run_prev!==F.longer_run?" (prima "+n(F.longer_run_prev)+"%)":"")+"."),
     grid(F.rows,F.targets),
     el("h3",{style:"margin-top:12px"},"Come è cambiata l'attesa per la fine dell'anno dopo"),
-    chart(F.chart,{fed_funds_median:["Tasso Fed, mediana","var(--s1)"],core_pce_inflation:["Inflazione PCE core","var(--s4)"],unemployment:["Disoccupazione","var(--muted)"]}),
-    G?el("p",{class:"small",style:"margin-top:8px"},el("b",null,"GDPNow (Fed di Atlanta). "),"Stima in tempo reale della crescita del PIL USA nel trimestre che inizia il "+mdate(G.quarter)+": "+n(G.value)+"% annualizzato. Per il trimestre prima diceva "+n(G.prev)+"%."):null);
+    chart(F.chart,{fed_funds_median:["Tasso Fed, mediana","var(--s1)"],core_pce_inflation:["Inflazione PCE core","var(--s4)"],unemployment:["Disoccupazione","var(--muted)"]}));
+  const gdp=G&&el("div",{class:"notice"},el("b",null,"GDPNow (Fed di Atlanta). "),"Stima in tempo reale della crescita del PIL USA nel trimestre che inizia il "+mdate(G.quarter)+": "+n(G.value)+"% annualizzato. Per il trimestre prima diceva "+n(G.prev)+"%.");
   const survey=(S,title,who,names)=>S&&el("section",{class:"card"},el("h2",null,title),
     el("p",{class:"small",style:"margin:4px 0 8px"},who+" Sondaggio del "+mdate(S.made)+", media annua. Le frecce lo confrontano con il sondaggio del "+mdate(S.prev_made)+"."),
     grid(S.rows,S.years.concat(S.has_lt?["LT"]:[]),c=>c==="LT"?"Lungo periodo":c),
@@ -926,7 +926,7 @@ previsioni(){
   return [el("p",{class:"hero"},"Previsioni"),
     el("p",{class:"sub"},"Cosa si aspettano la Fed, i previsori professionali, l'OCSE e chi scommette soldi su tassi, inflazione, crescita e lavoro. Sono attese, non fatti: nessuna è stata testata come segnale in questa app, e i previsori sbagliano spesso proprio nelle svolte. Servono a sapere cosa il mercato dà già per scontato."),
     (d.errors||[]).length?el("p",{class:"notice bad"},"Parti non disponibili: "+d.errors.join(", ")):null,
-    fed,mk,us,ecb,oecd].filter(Boolean)},
+    fed,gdp,mk,us,ecb,oecd].filter(Boolean)},
 asset(){return assetView()},
 test(){
   const SD=D.studies||[],T=D.tests||[];setTimeout(drawPaper);

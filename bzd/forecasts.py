@@ -16,7 +16,7 @@ import gzip, io, json, os, re, time
 import pandas as pd
 
 from . import history as H
-from .jobs import ECB_SPF, FRED_FORECASTS, OECD_EO, PHILLY_SPF
+from .jobs import ECB_SPF, FRED_FORECASTS, KALSHI, OECD_EO, PHILLY_SPF, POLYMARKET_TAGS
 
 # Annual SEP series. FEDTARMDLR is the longer run, with no target year.
 SEP_NAMES = {"FEDTARMD": "fed_funds_median", "FEDTARRH": "fed_funds_high", "FEDTARRL": "fed_funds_low", "FEDTARMDLR": "fed_funds_longer_run",
@@ -147,7 +147,10 @@ def _quarter_date(q):
 def fed_view(d):
     if d is None or d.empty:
         return None
-    eds = sorted(d.made.unique())
+    # editions come from the annual series: the longer-run rows are dated by their own observation, which may not match
+    eds = sorted(d[d.series != "fed_funds_longer_run"].made.unique())
+    if not eds:
+        return None
     last, prev = eds[-1], eds[-2] if len(eds) > 1 else None
     cur = d[d.made == last]
     targets = sorted(t for t in cur.target.unique() if t != "longer_run")
@@ -208,12 +211,13 @@ def oecd_view(d):
 
 
 def _prob(m):
-    bid, ask, last = (float(m.get(k) or 0) for k in ("yes_bid_dollars", "yes_ask_dollars", "last_price_dollars"))
-    return (bid + ask) / 2 if bid and ask and ask - bid <= 0.1 else last or None
+    """Midpoint when the spread is 10 cents or less, else the last trade. Prices compared in whole cents to avoid float noise."""
+    bid, ask, last = (round(float(m.get(k) or 0) * 100) for k in ("yes_bid_dollars", "yes_ask_dollars", "last_price_dollars"))
+    return (bid + ask) / 200 if bid and ask and ask - bid <= 10 else (last / 100 if last else None)
 
 
 def _strike(name):
-    m = re.search(r"-?[\d,]+(?:\.\d+)?", name or "")
+    m = re.search(r"-?\d[\d,]*(?:\.\d+)?", name or "")
     return float(m.group().replace(",", "")) if m else None
 
 
@@ -223,46 +227,75 @@ def by_strike(opts):
     return [o for _, o in sorted(zip(k, opts), key=lambda x: -x[0])] if all(v is not None for v in k) else opts
 
 
+MONTHS = {m: i for i, m in enumerate(("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"), 1)}
+MESI = ("gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic")
+
+
+def event_period(event_ticker):
+    """KXFED-27JAN -> «gen 2027», KXINXY-26DEC31 -> «dic 2026», KXRECSSNBER-27 -> «2027». None when the ticker says nothing."""
+    tail = event_ticker.rsplit("-", 1)[-1]
+    m = re.fullmatch(r"(\d{2})([A-Z]{3})\d{0,2}", tail)
+    if m and m.group(2) in MONTHS:
+        return f"{MESI[MONTHS[m.group(2)] - 1]} 20{m.group(1)}"
+    return f"20{tail}" if re.fullmatch(r"\d{2}", tail) else None
+
+
+MAX_OPTIONS = 10
+_market_errors = []  # sources that failed in the last view(), shown in the tab
+
+
 def kalshi_view():
     out = []
-    for s, label in KALSHI_LABELS.items():
-        x, ts = _raw(f"fc_kalshi_{s.lower()}")
-        if not x:
-            continue
-        events = {}
-        for m in x.get("markets", []):
-            events.setdefault(m["event_ticker"], []).append(m)
-        # the nearest event that still has an open question, then the next one
-        for ev, ms in sorted(events.items(), key=lambda kv: min(m["close_time"] for m in kv[1]))[:2]:
-            opts = [{"name": m.get("yes_sub_title") or m.get("subtitle") or m["title"], "p": _prob(m), "vol": float(m.get("volume_fp") or 0)} for m in ms]
-            opts = [o for o in opts if o["p"] is not None and SHOWN[0] <= o["p"] <= SHOWN[1]]
-            if opts:
-                out.append({"source": "Kalshi", "label": label, "question": label, "closes": min(m["close_time"] for m in ms), "seen": ts,
-                            "options": by_strike(opts)[:10], "volume": sum(o["vol"] for o in opts)})
+    for s in KALSHI:
+        label = KALSHI_LABELS.get(s, s)
+        try:
+            x, ts = _raw(f"fc_kalshi_{s.lower()}")
+            events = {}
+            for m in (x or {}).get("markets", []):
+                events.setdefault(m["event_ticker"], []).append(m)
+            shown = 0
+            # the nearest two events that still have an open question
+            for ev, ms in sorted(events.items(), key=lambda kv: min(m["close_time"] for m in kv[1])):
+                opts = [{"name": m.get("yes_sub_title") or m.get("subtitle") or m["title"], "p": _prob(m), "vol": float(m.get("volume_fp") or 0)} for m in ms]
+                opts = [o for o in opts if o["p"] is not None and SHOWN[0] <= o["p"] <= SHOWN[1]]
+                if not opts:
+                    continue
+                # keep the most traded answers, then order them as a ladder
+                keep = sorted(opts, key=lambda o: -o["vol"])[:MAX_OPTIONS]
+                period = event_period(ev)
+                out.append({"source": "Kalshi", "label": label + (f" · {period}" if period else ""), "question": label, "closes": min(m["close_time"] for m in ms),
+                            "seen": ts, "options": by_strike(keep), "volume": sum(o["vol"] for o in keep)})
+                shown += 1
+                if shown == 2:
+                    break
+        except Exception as e:  # one broken series must not hide the others
+            _market_errors.append(f"Kalshi {s}: {type(e).__name__}")
     return out
 
 
 def polymarket_view():
     out, seen_ids = [], set()
-    for t in ("fed", "economy"):
-        x, ts = _raw(f"fc_polymarket_{t}")
-        for e in sorted(x or [], key=lambda e: -(e.get("volume24hr") or 0))[:10]:
-            if e["id"] in seen_ids:
-                continue
-            seen_ids.add(e["id"])
-            opts = []
-            for m in e.get("markets", []):
-                if m.get("closed") or not m.get("active", True):
-                    continue
-                try:
-                    p = float(json.loads(m["outcomePrices"])[0])
-                except (KeyError, ValueError, TypeError, IndexError):
-                    continue
-                if SHOWN[0] <= p <= SHOWN[1]:
-                    opts.append({"name": m.get("groupItemTitle") or m.get("question"), "p": p})
-            if opts:
-                out.append({"source": "Polymarket", "label": e["title"], "question": e["title"], "closes": e.get("endDate"), "seen": ts,
-                            "options": sorted(opts, key=lambda o: -o["p"])[:8], "volume": e.get("volume24hr") or 0})
+    for t in POLYMARKET_TAGS:
+        try:
+            x, ts = _raw(f"fc_polymarket_{t}")
+            fresh = [e for e in sorted(x or [], key=lambda e: -(e.get("volume24hr") or 0)) if e.get("id") not in seen_ids]
+            for e in fresh[:10]:
+                seen_ids.add(e.get("id"))
+                opts = []
+                for m in e.get("markets", []):
+                    if m.get("closed") or not m.get("active", True):
+                        continue
+                    try:
+                        p = float(json.loads(m["outcomePrices"])[0])
+                    except (KeyError, ValueError, TypeError, IndexError):
+                        continue
+                    if SHOWN[0] <= p <= SHOWN[1]:
+                        opts.append({"name": m.get("groupItemTitle") or m.get("question"), "p": p})
+                if opts and e.get("title"):
+                    out.append({"source": "Polymarket", "label": e["title"], "question": e["title"], "closes": e.get("endDate") or "", "seen": ts,
+                                "options": sorted(opts, key=lambda o: -o["p"])[:8], "volume": e.get("volume24hr") or 0})
+        except Exception as e:
+            _market_errors.append(f"Polymarket {t}: {type(e).__name__}")
     return out
 
 
@@ -277,15 +310,16 @@ def gdpnow_view():
 def view():
     """Everything the Forecasts tab shows. Each part is optional: a missing file leaves its part out."""
     parts, errors = {}, []
+    _market_errors.clear()
     for k, f in (("fed", lambda: fed_view(_read("fomc_sep"))),
                  ("us_spf", lambda: survey_view(_read("us_spf"), ["cpi", "corepce", "unemp", "tbill", "tbond"],
                                                 {"cpi": "Inflazione CPI", "corepce": "Inflazione PCE core", "unemp": "Disoccupazione", "tbill": "Treasury 3 mesi", "tbond": "Treasury 10 anni"}, "2015Q1")),
                  ("ecb_spf", lambda: survey_view(_read("ecb_spf"), ["hicp", "core", "rgdp", "unem"],
                                                  {"hicp": "Inflazione", "core": "Inflazione core", "rgdp": "PIL reale", "unem": "Disoccupazione"}, "2015Q1")),
                  ("oecd", lambda: oecd_view(_read("oecd_outlook"))), ("gdpnow", gdpnow_view),
-                 ("markets", lambda: sorted(kalshi_view(), key=lambda e: e["closes"]) + polymarket_view())):
+                 ("kalshi", lambda: sorted(kalshi_view(), key=lambda e: e["closes"])), ("polymarket", polymarket_view)):
         try:
             parts[k] = f()
         except Exception as e:  # one broken source must not hide the others
             parts[k], errors = None, errors + [f"{k}: {type(e).__name__}"]
-    return {**parts, "errors": errors}
+    return {**parts, "markets": (parts.get("kalshi") or []) + (parts.get("polymarket") or []), "errors": errors + _market_errors}
