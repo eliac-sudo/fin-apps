@@ -30,7 +30,11 @@ Poi il passaggio, che deve lasciare **il bot in un posto solo**:
 
 ## L'app
 
-Ascolta solo sul server stesso (`127.0.0.1:8787`), e non va esposta su Internet perché non ha password. Per aprirla: `ssh -L 8787:127.0.0.1:8787 utente@server`, poi `http://127.0.0.1:8787`.
+Ascolta solo sul server stesso (`127.0.0.1:8787`) e non va esposta su Internet: non ha password, e dalla scheda Bots si comanda il bot Deribit. La si apre in due modi:
+- **Da PC e telefono, ovunque:** `https://bzd.tail5e1e60.ts.net`, attraverso Tailscale. Il server è nella rete Tailscale dell'utente (nodo `bzd`, Tailscale SSH acceso) e `tailscale serve --bg 8787` porta l'app solo dentro quella rete, con HTTPS. Per farla usare a qualcun altro si condivide il nodo `bzd` dalla console di Tailscale (Share): la persona installa Tailscale e vede solo il server. Per spegnere l'accesso: `tailscale serve --https=443 off`.
+- **Dal Codespace:** il tunnel di `start-services.sh` porta l'app sulla porta 8787.
+
+Tailscale SSH permette anche di entrare nel server dai dispositivi dell'utente se la chiave del Codespace si perde.
 
 ## Backup
 
