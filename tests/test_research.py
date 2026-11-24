@@ -230,3 +230,52 @@ class TestCommands(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDiscover(Base):
+    def write_notes(self, *rows):
+        with open(R.store() / "notes.jsonl", "w") as f:
+            for r in rows:
+                f.write(json.dumps(r) + "\n")
+
+    def test_follows_citations_of_relevant_notes_once_each(self):
+        self.write_notes({"key": "a", "title": "A", "url": "https://doi.org/10.1/a", "status": "ok", "note": note(pertinenza="alta")},
+                         {"key": "b", "title": "B", "url": "https://doi.org/10.1/b", "status": "ok", "note": note(pertinenza="bassa")},
+                         {"key": "c", "title": "C", "url": "https://doi.org/10.1/c", "status": "no_abstract"})
+        newer = {"title": "Newer on A", "year": 2025, "authors": ["X"], "venue": "J", "cited": 3, "url": "n", "open_url": None, "source": "OpenAlex", "topics": [L.SNOWBALL]}
+        cite = mock.Mock(return_value=[newer])
+        with mock.patch.object(R, "BASE", Path(self.tmp.name)):
+            (Path(self.tmp.name) / "docs").mkdir()
+            rows = R.discover(sleep=lambda s: None, search=lambda: ([], []), cite=cite, log=lambda m: None)
+            self.assertEqual(cite.call_args_list, [mock.call("https://doi.org/10.1/a", L.SNOWBALL)])
+            self.assertEqual([r["title"] for r in rows], ["Newer on A"])
+            self.assertIn(L.SNOWBALL, (Path(self.tmp.name) / "docs" / "CATALOGO.md").read_text())
+            cite.reset_mock()
+            R.discover(sleep=lambda s: None, search=lambda: (L.load(), []), cite=cite, log=lambda m: None)
+            cite.assert_not_called()
+
+    def test_a_note_the_supervisor_rejected_is_not_followed(self):
+        self.write_notes({"key": "a", "title": "A", "url": "u", "status": "ok", "note": note()})
+        (R.store() / "ideas.jsonl").write_text(json.dumps({"status": "ok", "ideas": {"revisione": [{"nota": "a", "esito": "sbagliata"}]}}) + "\n")
+        cite = mock.Mock(return_value=[])
+        with mock.patch.object(R, "BASE", Path(self.tmp.name)):
+            (Path(self.tmp.name) / "docs").mkdir()
+            R.discover(sleep=lambda s: None, search=lambda: ([], []), cite=cite, log=lambda m: None)
+        cite.assert_not_called()
+
+    def test_research_leaves_a_reserve_for_the_alert_reviews(self):
+        with mock.patch.object(G, "spent_this_month", return_value=4.6):
+            self.assertFalse(R.room_for_research())
+        with mock.patch.object(G, "spent_this_month", return_value=4.4):
+            self.assertTrue(R.room_for_research())
+
+    def test_citing_resolves_a_doi_then_asks_who_cites_it(self):
+        urls = []
+        def fetch(url):
+            urls.append(url)
+            return json.dumps({"id": "https://openalex.org/W9"} if "/works/" in url else {"results": [{"title": "Later", "publication_year": 2024, "cited_by_count": 2}]}).encode()
+        with mock.patch.object(L, "fetch", fetch):
+            rows = L.citing("https://doi.org/10.1/abc", L.SNOWBALL)
+        self.assertIn("works/doi:10.1/abc", urls[0])
+        self.assertIn("cites%3AW9", urls[1])
+        self.assertEqual(rows[0]["topics"], [L.SNOWBALL])

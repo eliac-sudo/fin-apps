@@ -1,0 +1,12 @@
+[Unit]
+Description=BZD research agent: find new papers, read their abstracts, supervisor when due
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=bzd
+WorkingDirectory=/opt/bzd
+ExecStart=/opt/bzd/.venv/bin/python -u -m bzd.research mese --paga
+StandardOutput=append:/opt/bzd/data/research.log
+StandardError=append:/opt/bzd/data/research.log

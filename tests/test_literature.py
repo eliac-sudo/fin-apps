@@ -59,7 +59,7 @@ class TestUse(unittest.TestCase):
     def test_the_page_groups_by_topic_and_warns(self):
         with mock.patch.object(L, "TOPICS", {"T": "q"}):
             md = L.markdown([rec("Dips | more")], "01/01/2026")
-        self.assertIn("Nessuno è stato letto", md)
+        self.assertIn("Esserci non vuol dire che sostenga una tesi", md)
         self.assertIn("Dips / more", md)
 
 

@@ -7,7 +7,7 @@ It lists papers and doesn't read them, so a paper here supports nothing until so
 A reference list from a PDF can be added later with the same record shape.
 """
 import json, os, re, sys, time, urllib.error, urllib.parse, urllib.request, xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from difflib import SequenceMatcher
 from pathlib import Path
 
@@ -29,7 +29,14 @@ TOPICS = {
     "Volatilità implicita": "implied volatility forecasting HAR realized volatility options",
     "Esposizione gamma": "dealer gamma exposure options market maker hedging volatility",
     "Test multipli": "backtest overfitting multiple testing trading strategies",
+    "Premio sulla volatilità": "variance risk premium option returns equity index bitcoin",
+    "Opzioni cripto": "bitcoin options implied volatility smile Deribit",
+    "Momentum delle serie storiche": "time series momentum futures trend following returns",
+    "Correlazione azioni e bond": "stock bond correlation inflation regime change",
+    "Liquidazioni cripto": "cryptocurrency liquidation cascades leverage crash",
 }
+SNOWBALL = "Citano lavori letti"  # newer works that cite a paper the reader found relevant (bzd.research scopri)
+RECENT_DAYS = 730
 
 
 def path(root=None):
@@ -58,8 +65,12 @@ def openalex_record(w, topic):
             "url": w.get("doi") or w.get("id"), "open_url": oa.get("oa_url"), "source": "OpenAlex", "topics": [topic]}
 
 
-def search_openalex(query, topic):
-    q = urllib.parse.urlencode({"search": query, "per-page": PER_TOPIC, "select": "id,doi,title,publication_year,cited_by_count,authorships,open_access,primary_location"})
+SELECT = "id,doi,title,publication_year,cited_by_count,authorships,open_access,primary_location"
+
+
+def search_openalex(query, topic, since=None):
+    """Most relevant works; with `since` (YYYY-MM-DD) only those published after it, so new work isn't buried under old citations."""
+    q = urllib.parse.urlencode({"search": query, "per-page": PER_TOPIC, "select": SELECT, **({"filter": f"from_publication_date:{since}"} if since else {})})
     rows = (openalex_record(w, topic) for w in json.loads(fetch("https://api.openalex.org/works?" + q)).get("results", []))
     return [r for r in rows if r]
 
@@ -97,27 +108,47 @@ def merge(old, new):
     return list(out.values())
 
 
-def run(root=None, sleep=time.sleep):
-    p, found, failed = path(root), [], []
-    old = json.loads(p.read_text()) if p.exists() else []
+def citing(work, topic, n=8):
+    """The most cited works that cite `work` (an OpenAlex id or a DOI), newest research building on a paper already read."""
+    ident = work.rsplit("/", 1)[1] if "openalex.org/" in work else "doi:" + re.sub(r"^https?://(dx\.)?doi\.org/", "", work)
+    wid = json.loads(fetch("https://api.openalex.org/works/" + urllib.parse.quote(ident, safe=":/") + "?select=id"))["id"].rsplit("/", 1)[1]
+    q = urllib.parse.urlencode({"filter": f"cites:{wid}", "sort": "cited_by_count:desc", "per-page": n, "select": SELECT})
+    rows = (openalex_record(w, topic) for w in json.loads(fetch("https://api.openalex.org/works?" + q)).get("results", []))
+    return [r for r in rows if r]
+
+
+def save(rows, root=None):
+    p = path(root)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(sorted(rows, key=lambda r: (-r["cited"], r["title"])), ensure_ascii=False, indent=0))
+
+
+def load(root=None):
+    p = path(root)
+    return json.loads(p.read_text()) if p.exists() else []
+
+
+def run(root=None, sleep=time.sleep, today=None):
+    found, failed = [], []
+    old = load(root)
+    since = ((today or datetime.now(timezone.utc)) - timedelta(days=RECENT_DAYS)).strftime("%Y-%m-%d")
     for topic, query in TOPICS.items():
-        for name, search in (("OpenAlex", search_openalex), ("arXiv", search_arxiv)):
+        for name, search in (("OpenAlex", search_openalex), ("OpenAlex recenti", lambda q, t: search_openalex(q, t, since)), ("arXiv", search_arxiv)):
             try:
                 found += search(query, topic)
             except Exception as e:  # one source being down must not lose the other
                 failed.append(f"{name}/{topic}: {type(e).__name__}")
             sleep(GAP_SECONDS)
-    rows = sorted(merge(old, found), key=lambda r: (-r["cited"], r["title"]))
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(rows, ensure_ascii=False, indent=0))
-    return rows, failed
+    rows = merge(old, found)
+    save(rows, root)
+    return load(root), failed
 
 
 def markdown(rows, today=None):
     today = today or datetime.now(timezone.utc).strftime("%d/%m/%Y")
-    lines = ["# Catalogo della letteratura", "", f"Aggiornato al {today}: {len(rows)} lavori da OpenAlex e arXiv, con `python -m bzd.literature run`. L'elenco completo è in `data/literature/catalog.json`.", "",
-             "Sono risultati di ricerca per pertinenza, ordinati per citazioni. **Nessuno è stato letto**: esserci non vuol dire che sostenga una tesi, e alcuni possono essere fuori tema. I preprint arXiv hanno 0 citazioni perché la fonte non le dà.", ""]
-    for topic in TOPICS:
+    lines = ["# Catalogo della letteratura", "", f"Aggiornato al {today}: {len(rows)} lavori da OpenAlex e arXiv, con `python -m bzd.literature run` e, ogni mese, `python -m bzd.research mese`. L'elenco completo è in `data/literature/catalog.json`.", "",
+             "Sono risultati di ricerca per pertinenza, ordinati per citazioni. **Esserci non vuol dire che sostenga una tesi**, e alcuni possono essere fuori tema. Quelli letti hanno una nota in `docs/letteratura/NOTE.md`. I preprint arXiv hanno 0 citazioni perché la fonte non le dà.", ""]
+    for topic in [*TOPICS, SNOWBALL]:
         picked = [r for r in rows if topic in r["topics"]][:KEEP_PER_TOPIC]
         if not picked:
             continue

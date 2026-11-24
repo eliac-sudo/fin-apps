@@ -3,6 +3,8 @@
     python -m bzd.research verifica            free: checks every paper the Gemini report cites against OpenAlex
     python -m bzd.research stima               free: what reading and drafting would cost, before spending anything
     python -m bzd.research leggi --paga [N]    paid: notes on the Gemini papers, plus the N most cited from the catalogue
+    python -m bzd.research scopri              free: searches OpenAlex and arXiv again, recent work too, and follows who cites the papers read
+    python -m bzd.research mese --paga         the monthly research agent: scopri, then leggi on everything new, then the supervisor if due
     python -m bzd.research idee --paga         paid: the supervisor rechecks every note against its abstract, then drafts up to three
                                                setups from the notes that hold, for a v2 pre-registration (`supervisore` is the same)
 
@@ -463,7 +465,7 @@ def to_read(extra=0):
     have = {L.key(x["title"]) for x in out}
     cat = L.path()
     rows = json.loads(cat.read_text()) if cat.exists() else []
-    queues = [[c for c in rows if topic in c["topics"]] for topic in L.TOPICS]  # each topic's most cited first, taken in turn
+    queues = [[c for c in rows if topic in c["topics"]] for topic in [*L.TOPICS, L.SNOWBALL]]  # each topic's most cited first, taken in turn
     added = 0
     while added < extra and any(queues):
         for q in queues:
@@ -476,6 +478,43 @@ def to_read(extra=0):
                 have.add(L.key(c["title"]))
                 added += 1
     return out
+
+
+SEEDS_PER_RUN = 15
+REVIEW_RESERVE_USD = 0.50  # research stops this far below the monthly cap, so the alert reviews keep some budget
+
+
+def room_for_research():
+    return G.spent_this_month() < G.budget() - REVIEW_RESERVE_USD
+
+
+def discover(sleep=time.sleep, search=None, cite=None, log=print):
+    """Free: the topic searches (all years and the last two), then newer works citing up to SEEDS_PER_RUN papers the reader found relevant
+    and the supervisor didn't reject. Each seed is used once, so every month follows different papers."""
+    rows, failed = L.run(sleep=sleep) if search is None else search()
+    cite = cite or L.citing
+    seen_p = store() / "snowball.json"
+    seen = set(json.loads(seen_p.read_text())) if seen_p.exists() else set()
+    verdicts = last_verdicts()
+    seeds = [n for n in notes() if n["status"] == "ok" and n["note"]["pertinenza"] in ("alta", "media") and n["key"] not in seen
+             and (verdicts.get(n["key"]) or {}).get("esito") in (None, "regge")]
+    seeds.sort(key=lambda n: (n["note"]["pertinenza"] != "alta", n["title"]))
+    found = []
+    for n in seeds[:SEEDS_PER_RUN]:
+        try:
+            found += cite(n["url"], L.SNOWBALL)
+            seen.add(n["key"])
+        except Exception as e:  # a paper OpenAlex can't resolve is skipped, not retried forever
+            failed.append(f"citazioni/{n['key']}: {type(e).__name__}")
+            seen.add(n["key"])
+        sleep(L.GAP_SECONDS)
+    before = len(rows)
+    rows = L.merge(rows, found)
+    L.save(rows)
+    seen_p.write_text(json.dumps(sorted(seen)))
+    (BASE / "docs" / "CATALOGO.md").write_text(L.markdown(L.load()))
+    log(f"catalogo: {len(rows)} lavori ({len(rows) - before} dalle citazioni di {min(len(seeds), SEEDS_PER_RUN)} lavori letti); errori: {failed or 'nessuno'}")
+    return rows
 
 
 SUPERVISE_EVERY_DAYS = 30
@@ -576,6 +615,21 @@ def main(argv, client=None, sleep=time.sleep):
         for r in rows:
             print(f"{r['esito']:26} {r['authors']} ({r['year']})")
         return 0
+    if cmd == "scopri":
+        discover()
+        return 0
+    if cmd == "mese":
+        why = paid_ok(argv) if client is None else None
+        if why:
+            print(why)
+            return 1
+        discover(**({"sleep": sleep} if client is not None else {}))
+        main(["leggi", "--paga", "100000"], client, sleep)
+        due, reason = supervisor_due()
+        print(f"supervisore: {reason}")
+        if due and room_for_research():
+            return main(["idee", "--paga"], client, sleep)
+        return 0
     extra = next((int(a) for a in argv[1:] if a.isdigit()), 0)
     if cmd == "stima":
         e = estimate(to_read(extra))
@@ -600,8 +654,8 @@ def main(argv, client=None, sleep=time.sleep):
             for p in to_read(extra):
                 if p["key"] in done:
                     continue
-                if G.spent_this_month() >= G.budget():
-                    print("tetto mensile raggiunto, mi fermo")
+                if not room_for_research():
+                    print(f"tetto mensile quasi raggiunto (riserva di {REVIEW_RESERVE_USD:.2f} $ per il revisore degli alert), mi fermo")
                     break
                 abstract = abstract_of(p["id"])
                 sleep(L.GAP_SECONDS)
