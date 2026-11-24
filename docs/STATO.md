@@ -38,6 +38,7 @@ Il codice sta in `bzd/app.py` (server), `bzd/app.html` (pagina) e `bzd/snapshot.
 - **Reset:** testato solo sul giornaliero; su settimanale e mensile app e alert dicono «non testato».
 - **Test:** tutte le ipotesi in un'unica tabella (setup degli alert B3, v2–v5 e ciò che non è testato), con filtri per esito e per test; un clic apre la scheda o il resoconto. Sotto, le strategie sulle opzioni in prova. Le altre schede rimandano qui.
 - **Bots:** il bot Deribit con stato, posizioni, delta, margine ed eventi, e i comandi pausa, riprendi, dimensione (solo più bassa) e chiusura d'emergenza (`bzd/bots.py`). L'app scrive solo il file di comandi, il bot lo legge ogni 10 secondi.
+- **AIsetups:** due volte al giorno (06:30 e 13:30 UTC) Haiku legge ciò che mostra l'app e propone 5 operazioni da approfondire: 2 di breve, 2 di medio e 1 di lungo periodo. Il codice controlla numeri e lati di invalidazione e obiettivo, e segue ogni proposta fino alla chiusura (`bzd/aisetups.py`, circa 0,004 $ a giro). Sono idee senza vantaggio dimostrato: la tabella «Come sono andate» dirà se valgono qualcosa.
 - **Motore:** il wiki del programma in `docs/wiki/`, una pagina per parte. `python -m bzd.wiki lint` controlla che ogni citazione porti a un file vero e che ogni modulo abbia una pagina; lo verifica anche un test.
 
 Fuori dall'app: catalogo di 334 lavori (`docs/CATALOGO.md`), note degli agenti di ricerca (`docs/letteratura/`), backup e kit per il server mai provato su un server vero (`docs/SERVER.md`), vecchi progetti in `docs/archivio/`.

@@ -27,7 +27,7 @@ from .recorder import BASE, load_env
 DOCS = BASE / "docs" / "letteratura"
 REPORT = DOCS / "REPORT_GEMINI.md"
 MAX_TOKENS = 16000
-EFFORT = {"read": "medium", "ideas": "high"}
+EFFORT = {"read": "medium", "ideas": "high", "aisetups": "medium"}
 # A rough guess for `stima`, overstated on purpose: thinking counts as output and its length isn't known in advance
 GUESS_OUT = {"read": 4000, "ideas": 16000}
 CHARS_PER_TOKEN = 3.5
@@ -36,7 +36,7 @@ READER_MODEL = "claude-haiku-5-5"
 
 
 def model_for(purpose):
-    return (os.environ.get("BZD_READER_MODEL") or READER_MODEL) if purpose == "read" else G.model_name()
+    return (os.environ.get("BZD_READER_MODEL") or READER_MODEL) if purpose in ("read", "aisetups") else G.model_name()
 
 # Every paper the report names, as the report names it. `claims` are its sentences about that paper, copied word for word.
 GEMINI_REFS = [

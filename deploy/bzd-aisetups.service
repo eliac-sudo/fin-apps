@@ -1,0 +1,12 @@
+[Unit]
+Description=BZD AIsetups: five trade ideas from what the app shows
+After=network-online.target bzd-app.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=bzd
+WorkingDirectory=/opt/bzd
+ExecStart=/opt/bzd/.venv/bin/python -u -m bzd.aisetups run --paga
+StandardOutput=append:/opt/bzd/data/aisetups.log
+StandardError=append:/opt/bzd/data/aisetups.log

@@ -530,7 +530,7 @@ function drawLabels(){const box=$("#lbBox");if(!box||!LB)return;if(LB.error){box
   box.replaceChildren(...head,el("p",{class:"sub",style:"margin:0 0 6px"},"Che umore esprime questo testo sul mercato di cui parla? Giudica il tono, non se la notizia è buona per i prezzi. «Non pertinente» se non parla di mercati. Servono per misurare se il sentiment dell'app legge i testi come te."),
     el("div",{class:"text",style:"font-size:1.05em;padding:10px 12px;border:1px solid var(--line);border-radius:8px"},t.text),el("div",{class:"tiny muted",style:"margin:4px 0 8px"},t.source.replace(/^(news|soc)_/,"")+" · "+when(t.time)+(/^https?:\/\//.test(t.url||"")?" · ":""),/^https?:\/\//.test(t.url||"")?el("a",{href:t.url,target:"_blank",rel:"noopener noreferrer"},"fonte"):null),
     el("div",{class:"chips"},LB.labels.map(l=>el("button",{class:"chip",onclick:()=>sendLabel(t.id,l)},names[l]||l))),LB.failed?el("p",{class:"notice bad"},"Non salvata, riprova."):"")}
-const TABS=[["oggi","Oggi"],["opzioni","Opzioni"],["tecnica","Analisi tecnica"],["sentiment","Sentiment"],["chi","Chi compra"],["alert","Alert"],["piano","Piano"],["bots","Bots"],["test","Test"],["motore","Motore"]];
+const TABS=[["oggi","Oggi"],["opzioni","Opzioni"],["tecnica","Analisi tecnica"],["sentiment","Sentiment"],["chi","Chi compra"],["alert","Alert"],["piano","Piano"],["bots","Bots"],["aisetups","AIsetups"],["test","Test"],["motore","Motore"]];
 const PARTS={slancio:"Slancio",rsi:"RSI",estensione:"Distanza dalla media",funding:"Funding",oi:"Leva (OI)",posizionamento:"Speculatori",calma:"Calma (volatilità bassa)"};
 const BANDS=[
   {word:"ipervenduto",short:"ipervenduto",range:"0–19",brief:"Venduto forte e in fretta: quasi tutto è ai minimi della sua storia.",long:"Quasi tutti i fattori sono ai minimi rispetto alla storia di questo mercato: è stato venduto forte e in fretta, e chi usava la leva è già in buona parte uscito. Lo spazio per nuove vendite forzate si riduce, ma un mercato così può continuare a scendere: non è un segnale d'acquisto."},
@@ -862,6 +862,33 @@ bots(){
   if(BOTS.data.error)return el("p",{class:"notice bad"},"Non riesco a leggere lo stato dei bot.");
   return [el("p",{class:"hero"},"I bot"),el("p",{class:"sub"},"Qui guardi cosa fanno i bot e li fermi. L'app non ha le chiavi e non manda ordini: scrive un comando che il bot legge entro 10 secondi. Per ora c'è un solo bot, l'unica strategia che ha retto nello storico."),
     BOTS.msg?el("div",{class:"notice"+(BOTS.msgBad?" bad":"")},BOTS.msg):null,...BOTS.data.bots.flatMap(botCard)].filter(Boolean)},
+aisetups(){
+  if(!AIS.data){loadAis();return el("p",{class:"muted"},"Leggo le proposte…")}
+  if(AIS.data.error)return el("p",{class:"notice bad"},"Non riesco a leggere le proposte.");
+  const d=AIS.data,L=d.latest,S=d.summary||{},HZ={breve:"Breve · 1–10 giorni",medio:"Medio · 2–8 settimane",lungo:"Lungo · 3–12 mesi"};
+  const num=v=>v==null?"–":(Math.abs(v)>=1000?Math.round(v).toLocaleString("it-IT"):(+v).toLocaleString("it-IT",{maximumSignificantDigits:5}));
+  const pctOf=(a,b)=>b?sgn((a/b-1)*100,1)+"%":"";
+  const card=p=>el("section",{class:"card",style:"padding:12px 14px"},
+    el("div",{class:"selectline"},el("h2",{style:"margin:0"},(p.direzione==="long"?"▲ Long ":"▼ Short ")+p.mercato),el("span",{class:"tiny muted"},HZ[p.orizzonte]||p.orizzonte)),
+    el("p",{style:"margin:6px 0"},p.tesi),
+    el("div",{class:"small",style:"display:flex;gap:16px;flex-wrap:wrap;margin:4px 0"},el("span",null,"Prezzo allora ",el("b",null,num(p.prezzo))),el("span",null,"Invalidazione ",el("b",null,num(p.invalidazione)),el("span",{class:"tiny muted"}," ("+pctOf(p.invalidazione,p.prezzo)+")")),el("span",null,"Obiettivo ",el("b",null,num(p.obiettivo)),el("span",{class:"tiny muted"}," ("+pctOf(p.obiettivo,p.prezzo)+")"))),
+    p.fatti&&p.fatti.length?el("ul",{class:"alist small",style:"margin:4px 0"},p.fatti.map(f=>el("li",null,f))):null,
+    el("p",{class:"tiny",style:"margin:4px 0"},el("b",null,"Test: "),p.test&&p.test!=="nessuno"?el("span",{class:"tbadge ok"},p.test+" ha retto"):el("span",{class:"tbadge un"},"nessun test a sostegno")),
+    el("p",{class:"tiny muted",style:"margin:4px 0"},el("b",null,"Rischi. "),p.rischi),
+    el("button",{class:"ghost",onclick:()=>openPlan({key:p.plan_key||p.mercato,why:"proposta AIsetups ("+p.direzione+", "+p.orizzonte+")",short:p.direzione==="short"})},"Calcola il piano →"));
+  const ST={aperta:"⏳ aperta",obiettivo:"🎯 obiettivo",invalidata:"✖ invalidata",scaduta:"⌛ scaduta","senza prezzo":"–"};
+  const cols=[{k:"ts",label:"Proposta",cell:r=>el("span",{class:"small"},when(r.ts))},{k:"mercato",label:"Mercato",cell:r=>el("b",null,r.mercato)},{k:"direzione",label:"Dir."},{k:"orizzonte",label:"Orizzonte"},
+    {k:"stato",label:"Stato",cell:r=>ST[r.stato]||r.stato},{k:"rend_pct",label:"Risultato",num:true,cell:r=>r.rend_pct==null?"–":el("span",{class:r.rend_pct>0?"pos":r.rend_pct<0?"neg":"muted"},sgn(r.rend_pct,1)+"%")}];
+  const lastErr=d.last_try&&d.last_try.status!=="ok"?el("p",{class:"notice bad"},"L'ultimo giro ("+when(d.last_try.ts)+") non è andato: "+(d.last_try.detail||"errore")+". Restano le proposte precedenti."):null;
+  return [el("p",{class:"hero"},"AIsetups"),
+    el("p",{class:"sub"},"Due volte al giorno (06:30 e 13:30 UTC) un modello economico, "+(L?L.model:"Haiku")+", legge tutto ciò che mostra l'app e propone 5 operazioni da approfondire: 2 di breve, 2 di medio e 1 di lungo periodo. Sono idee, non segnali: quasi nessuna lettura dell'app ha retto ai test, e un modello che sceglie tra quelle letture non ha un vantaggio dimostrato. Il codice controlla che ogni proposta usi solo numeri dell'app e che invalidazione e obiettivo stiano dalla parte giusta del prezzo. Ogni proposta viene seguita: la tabella sotto dice com'è andata, ed è l'unico modo per capire se valgono qualcosa."),
+    lastErr,
+    L?el("div",{class:"notice"},el("b",null,"Quadro ("+when(L.ts)+"). "),L.quadro):el("p",{class:"muted"},"Nessuna proposta ancora: il primo giro parte al prossimo orario."),
+    L?el("div",{class:"grid",style:"grid-template-columns:repeat(auto-fill,minmax(330px,1fr));align-items:start"},L.proposte.map(card)):null,
+    el("section",{class:"card"},el("h2",null,"Come sono andate"),
+      el("p",{class:"small",style:"margin:4px 0 8px"},S.chiuse?("Chiuse "+S.chiuse+": in guadagno "+S.vinte+", risultato medio "+sgn(S.media_pct,2)+"% (prima dei costi). Aperte "+S.aperte+"."):("Nessuna proposta chiusa ancora. Aperte "+(S.aperte||0)+".")+" Una proposta si chiude quando tocca invalidazione o obiettivo, o alla fine del suo orizzonte. Il controllo usa il prezzo a ogni lettura, non ogni tick: è un'approssimazione."),
+      d.history&&d.history.length?Table(cols,d.history,{sort:"ts",dir:-1,maxH:420}):null,
+      el("p",{class:"tiny muted",style:"margin:6px 2px 0"},"Spesa del mese per AIsetups: "+(d.cost_month||0).toLocaleString("it-IT",{maximumFractionDigits:3})+" $. Non è consulenza finanziaria."))].filter(Boolean)},
 asset(){return assetView()},
 test(){
   const SD=D.studies||[],T=D.tests||[];setTimeout(drawPaper);
@@ -1207,6 +1234,9 @@ function classDetail(k,c){const d=$("#dlg");hideTip();const n=bin(c.heat),rows=D
     el("p",{class:"tiny",style:"margin-top:10px"},"Clicca un mercato per la sua scheda. Descrive uno stato e non prevede il futuro."));d.showModal()}
 function render(){if(!VIEWS[tab])tab="oggi";$("#nav").replaceChildren(...TABS.map(([k,n])=>el("button",{role:"tab","aria-selected":String(k===tab),onclick:()=>{tab=k;location.hash=k;render();scrollTo(0,0)}},n)));
   const m=$("#main");const parts=[];if(Object.keys(D.errors||{}).length)parts.push(el("div",{class:"notice bad"},"▲ Parti non disponibili: "+Object.keys(D.errors).join(", ")));if(Q)parts.push(el("div",{class:"small",style:"margin-top:6px"},"Filtro attivo: «"+$("#q").value+"» ",el("button",{class:"ghost",onclick:()=>{$("#q").value="";Q="";closeSugg();render()}},"Togli")));parts.push(...[VIEWS[tab]()].flat());parts.push(el("p",{class:"foot"},"Descrive e non prevede. Non è consulenza finanziaria. L'app legge dati salvati e pubblici e non esegue ordini."));m.replaceChildren(...parts)}
+/* AIsetups: the model's proposals and how they went, read-only */
+const AIS={data:null};
+async function loadAis(){try{const r=await fetch("/api/aisetups");AIS.data=r.ok?await r.json():{error:true}}catch(e){AIS.data={error:true}}if(tab==="aisetups")render()}
 /* BOTS: status written by the bot, commands written to its control file */
 const BOTS={data:null,msg:"",msgBad:false};
 async function loadBots(){try{const r=await fetch("/api/bots");BOTS.data=r.ok?await r.json():{error:true}}catch(e){BOTS.data={error:true}}if(tab==="bots")render()}

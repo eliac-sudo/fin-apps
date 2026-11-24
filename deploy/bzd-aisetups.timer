@@ -1,0 +1,10 @@
+[Unit]
+Description=BZD AIsetups, twice a day
+
+[Timer]
+OnCalendar=*-*-* 06:30:00 UTC
+OnCalendar=*-*-* 13:30:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

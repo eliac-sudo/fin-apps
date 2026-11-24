@@ -9,6 +9,7 @@ import json, os, re, sys, threading, time, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from . import aisetups as AI
 from . import bots as BT
 from . import labels as LB
 from . import lookup as LK
@@ -160,6 +161,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.send(200, json.dumps(LB.next_text()).encode())
             elif url.path == "/api/bots":
                 self.send(200, json.dumps(S.clean(BT.view())).encode())
+            elif url.path == "/api/aisetups":
+                self.send(200, json.dumps(S.clean(AI.view(get=lambda path, **k: json.loads(snapshot())))).encode())
             elif url.path == "/api/wiki":
                 self.send(200, json.dumps(WK.pages()).encode())
             elif url.path in ("/api/source", "/api/data"):
