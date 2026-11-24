@@ -484,7 +484,17 @@ def fred_rows(x):
     return pd.DataFrame({"date": [o["date"] for o in x], "value": pd.to_numeric([o["value"] for o in x], errors="coerce")}).dropna()
 
 
+def get_stablecoins(tag=0):
+    """Total stablecoin supply in billions of dollars, daily since 2017 (DefiLlama). The whole history is one small file."""
+    x = json.loads(get("macro", "stablecoins", tag, "https://stablecoins.llama.fi/stablecoincharts/all"))
+    d = pd.DataFrame({"date": pd.to_datetime([int(o["date"]) for o in x], unit="s").strftime("%Y-%m-%d"),
+                      "usd_bn": [sum((o.get("totalCirculatingUSD") or {}).values()) / 1e9 for o in x]})
+    save("macro", "stablecoins", d[d.usd_bn > 0].drop_duplicates("date", keep="last"), quiet=bool(tag))
+
+
 def get_macro(force=False):
+    if force or not done("macro", "stablecoins"):
+        get_stablecoins()
     key = os.environ.get("FRED_API_KEY")
     if not key:
         print("  FRED_API_KEY missing: skipping FRED", flush=True)
@@ -501,6 +511,7 @@ def get_macro(force=False):
 
 def refresh_macro():
     """Last 400 days of every FRED series already downloaded, so revisions land too. Series not yet downloaded are fetched whole."""
+    get_stablecoins(int(time.time()))
     key = os.environ.get("FRED_API_KEY")
     if not key:
         return
