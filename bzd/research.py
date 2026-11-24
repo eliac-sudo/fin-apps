@@ -3,6 +3,8 @@
     python -m bzd.research verifica            free: checks every paper the Gemini report cites against OpenAlex
     python -m bzd.research stima               free: what reading and drafting would cost, before spending anything
     python -m bzd.research leggi --paga [N]    paid: notes on the Gemini papers, plus the N most cited from the catalogue
+    python -m bzd.research scopri              free: searches OpenAlex and arXiv again, recent work too, and follows who cites the papers read
+    python -m bzd.research mese --paga         the monthly research agent: scopri, then leggi on everything new, then the supervisor if due
     python -m bzd.research idee --paga         paid: the supervisor rechecks every note against its abstract, then drafts up to three
                                                setups from the notes that hold, for a v2 pre-registration (`supervisore` is the same)
 
@@ -25,7 +27,7 @@ from .recorder import BASE, load_env
 DOCS = BASE / "docs" / "letteratura"
 REPORT = DOCS / "REPORT_GEMINI.md"
 MAX_TOKENS = 16000
-EFFORT = {"read": "medium", "ideas": "high"}
+EFFORT = {"read": "medium", "ideas": "high", "aisetups": "medium"}
 # A rough guess for `stima`, overstated on purpose: thinking counts as output and its length isn't known in advance
 GUESS_OUT = {"read": 4000, "ideas": 16000}
 CHARS_PER_TOKEN = 3.5
@@ -34,7 +36,7 @@ READER_MODEL = "claude-haiku-5-5"
 
 
 def model_for(purpose):
-    return (os.environ.get("BZD_READER_MODEL") or READER_MODEL) if purpose == "read" else G.model_name()
+    return (os.environ.get("BZD_READER_MODEL") or READER_MODEL) if purpose in ("read", "aisetups") else G.model_name()
 
 # Every paper the report names, as the report names it. `claims` are its sentences about that paper, copied word for word.
 GEMINI_REFS = [
@@ -463,7 +465,7 @@ def to_read(extra=0):
     have = {L.key(x["title"]) for x in out}
     cat = L.path()
     rows = json.loads(cat.read_text()) if cat.exists() else []
-    queues = [[c for c in rows if topic in c["topics"]] for topic in L.TOPICS]  # each topic's most cited first, taken in turn
+    queues = [[c for c in rows if topic in c["topics"]] for topic in [*L.TOPICS, L.SNOWBALL]]  # each topic's most cited first, taken in turn
     added = 0
     while added < extra and any(queues):
         for q in queues:
@@ -476,6 +478,63 @@ def to_read(extra=0):
                 have.add(L.key(c["title"]))
                 added += 1
     return out
+
+
+SEEDS_PER_RUN = 15
+REVIEW_RESERVE_USD = 0.50  # research stops this far below the monthly cap, so the alert reviews keep some budget
+
+
+def room_for_research():
+    return G.spent_this_month() < G.budget() - REVIEW_RESERVE_USD
+
+
+def discover(sleep=time.sleep, search=None, cite=None, log=print):
+    """Free: the topic searches (all years and the last two), then newer works citing up to SEEDS_PER_RUN papers the reader found relevant
+    and the supervisor didn't reject. Each seed is used once, so every month follows different papers."""
+    rows, failed = L.run(sleep=sleep) if search is None else search()
+    cite = cite or L.citing
+    seen_p = store() / "snowball.json"
+    seen = set(json.loads(seen_p.read_text())) if seen_p.exists() else set()
+    verdicts = last_verdicts()
+    seeds = [n for n in notes() if n["status"] == "ok" and n["note"]["pertinenza"] in ("alta", "media") and n["key"] not in seen
+             and (verdicts.get(n["key"]) or {}).get("esito") in (None, "regge")]
+    seeds.sort(key=lambda n: (n["note"]["pertinenza"] != "alta", n["title"]))
+    found = []
+    for n in seeds[:SEEDS_PER_RUN]:
+        try:
+            found += cite(n["url"], L.SNOWBALL)
+            seen.add(n["key"])
+        except Exception as e:  # a paper OpenAlex can't resolve is skipped, not retried forever
+            failed.append(f"citazioni/{n['key']}: {type(e).__name__}")
+            seen.add(n["key"])
+        sleep(L.GAP_SECONDS)
+    before = len(rows)
+    rows = L.merge(rows, found)
+    L.save(rows)
+    seen_p.write_text(json.dumps(sorted(seen)))
+    (BASE / "docs" / "CATALOGO.md").write_text(L.markdown(L.load()))
+    log(f"catalogo: {len(rows)} lavori ({len(rows) - before} dalle citazioni di {min(len(seeds), SEEDS_PER_RUN)} lavori letti); errori: {failed or 'nessuno'}")
+    return rows
+
+
+SUPERVISE_MAX_NOTES = 40  # one call can't review hundreds of notes: the rest wait for the next run
+
+
+def supervisor_batch():
+    """The notes the supervisor hasn't reviewed in a run that passed, most relevant first, at most SUPERVISE_MAX_NOTES.
+    With none reviewed yet beyond the first run, this is every usable note, as before."""
+    p = store() / "ideas.jsonl"
+    runs = [json.loads(x) for x in p.read_text().splitlines() if x.strip()] if p.exists() else []
+    seen = {k for r in runs if r.get("status", "ok") == "ok" for k in r.get("notes", [])}
+    usable = [n for n in notes() if n["status"] == "ok" and n["note"]["pertinenza"] != "nessuna" and n["key"] not in seen]
+    rank = {"alta": 0, "media": 1, "bassa": 2}
+    return sorted(usable, key=lambda n: (rank.get(n["note"]["pertinenza"], 3), n["title"]))[:SUPERVISE_MAX_NOTES]
+
+
+def supervisor_fits():
+    """Run the supervisor only if its estimated cost stays under the cap minus the reviews' reserve."""
+    cost = estimate([], n_ideas_notes=len(supervisor_batch()))["ideas"]
+    return G.spent_this_month() + cost <= G.budget() - REVIEW_RESERVE_USD, cost
 
 
 SUPERVISE_EVERY_DAYS = 30
@@ -491,7 +550,8 @@ def supervisor_due(now=None):
     if not runs:
         return bool(ok), f"mai eseguito, {len(ok)} note da rivedere" if ok else "nessuna nota da rivedere"
     last = runs[-1]
-    new = [n for n in ok if n["key"] not in set(last.get("notes", []))]
+    seen = {k for r in runs if r.get("status", "ok") == "ok" for k in r.get("notes", [])}
+    new = [n for n in ok if n["key"] not in seen]
     days = (now - datetime.fromisoformat(last["ts"])).days
     if len(new) >= SUPERVISE_AFTER_NOTES:
         return True, f"{len(new)} note nuove dall'ultimo giro"
@@ -576,6 +636,24 @@ def main(argv, client=None, sleep=time.sleep):
         for r in rows:
             print(f"{r['esito']:26} {r['authors']} ({r['year']})")
         return 0
+    if cmd == "scopri":
+        discover()
+        return 0
+    if cmd == "mese":
+        why = paid_ok(argv) if client is None else None
+        if why:
+            print(why)
+            return 1
+        discover(**({"sleep": sleep} if client is not None else {}))
+        main(["leggi", "--paga", "100000"], client, sleep)
+        due, reason = supervisor_due()
+        print(f"supervisore: {reason}")
+        fits, cost = supervisor_fits()
+        if due and not fits:
+            print(f"supervisore rimandato: costerebbe circa {cost:.2f} $ e sforerebbe il tetto del mese")
+        if due and fits:
+            return main(["idee", "--paga"], client, sleep)
+        return 0
     extra = next((int(a) for a in argv[1:] if a.isdigit()), 0)
     if cmd == "stima":
         e = estimate(to_read(extra))
@@ -600,8 +678,8 @@ def main(argv, client=None, sleep=time.sleep):
             for p in to_read(extra):
                 if p["key"] in done:
                     continue
-                if G.spent_this_month() >= G.budget():
-                    print("tetto mensile raggiunto, mi fermo")
+                if not room_for_research():
+                    print(f"tetto mensile quasi raggiunto (riserva di {REVIEW_RESERVE_USD:.2f} $ per il revisore degli alert), mi fermo")
                     break
                 abstract = abstract_of(p["id"])
                 sleep(L.GAP_SECONDS)
@@ -613,9 +691,9 @@ def main(argv, client=None, sleep=time.sleep):
         (DOCS / "NOTE.md").write_text(notes_page(notes(), last_verdicts()))
         return 0
     if cmd == "idee":
-        usable = [n for n in notes() if n["status"] == "ok" and n["note"]["pertinenza"] != "nessuna"]
+        usable = supervisor_batch()
         if not usable:
-            print("nessuna nota utilizzabile: lancia prima `leggi`")
+            print("nessuna nota nuova da rivedere: lancia prima `leggi`")
             return 1
         rec = draft_ideas(client, usable)
         with open(store() / "ideas.jsonl", "a") as f:

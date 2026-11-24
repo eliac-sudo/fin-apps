@@ -118,14 +118,13 @@ class TestThermo(unittest.TestCase):
                 mock.patch.object(Th, "market_position", return_value=None):
             t, _ = Th.build_digest(NOW)
         self.assertNotIn("GEX", t)
-        self.assertIn("0 ipervenduto", t)
-        self.assertIn("Sopra la norma: Cripto. Sotto la norma: Azioni.", t)
-        self.assertIn("Cripto (+10)", t)
-        self.assertIn("+10 in 7 giorni", t)
-        self.assertIn("Più in alto BTC 90 · più in basso ETH 70", t)
-        self.assertIn("Spinge: funding, slancio. Frena: leva (OI).", t)
-        self.assertIn("Frena: volatilità alta.", t)
+        self.assertIn("Forza 0–100", t)
+        self.assertIn("▰▰▰▰▰▰▰▰▱▱  80 ▲10", t)  # crypto: a bar, the score, the change in 7 days
+        self.assertIn("Più forti: BTC 90", t)
         self.assertIn("S&amp;P 500 30", t)
+        self.assertNotIn("S&amp;amp;", t)
+        self.assertIn("paura", t)
+        self.assertLess(len(t), 900)
 
     def test_quiet_markets_say_so(self):
         s = {"crypto": {"band": Th.band(50), "change_7d": 1.0}}
@@ -150,11 +149,10 @@ class TestOptionsReport(unittest.TestCase):
         chain = {"skew_25d": .048, "iv_7d": .13, "iv_30d": .14, "term_inverted": False, "gex_call_long": 1e9}
         with mock.patch.object(O, "level_line", return_value=block), mock.patch.object(O, "iv_line", return_value=None), mock.patch.object(O.I, "latest_options", return_value=chain), mock.patch.object(O, "index_series", return_value=None):
             t = O.build_report(NOW)
-        self.assertIn("<b>alta</b>", t)
-        self.assertIn("put più care", t)
-        self.assertIn("Più tesa", t)
+        self.assertIn("●●●●○", t)  # 71st percentile of fear
+        self.assertIn("OPZIONI", t)
         self.assertNotIn("GEX", t)
-        self.assertIn("Testato 2008", t)
+        self.assertLess(len(t), 900)
 
     def test_term_flags_near_term_fear(self):
         from unittest import mock

@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Start the services if the recorder isn't running. Safe to run any time: the Codespace doesn't always run postStartCommand on a restart.
 cd "$(dirname "$0")/.." || exit 1
+# On the server the services are systemd units in /opt/bzd: a development copy there must never start a second set (two Telegram and Deribit bots).
+if [ -d /opt/bzd ] && [ "$(pwd -P)" != /opt/bzd ]; then
+    echo "BZD: sei sul server, i servizi sono quelli systemd: systemctl is-active bzd-recorder bzd-alerts bzd-vol-bot bzd-app"; exit 0
+fi
 if [ -s .sul-server ]; then
     bash scripts/start-services.sh
     echo "BZD: i servizi girano sul server $(cat .sul-server); qui solo il tunnel per l'app"; exit 0

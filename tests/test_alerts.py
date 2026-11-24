@@ -71,8 +71,9 @@ class TestMessages(unittest.TestCase):
         for setup in ("panic", "squeeze", "overheating"):
             with mock.patch.object(A, "market_position", return_value=pos):
                 t = A.format_group([alert(setup=setup)])
-            self.assertIn("molto economico", t)
-            self.assertIn("Non è consulenza", t)
+            self.assertIn("−40% dal max annuo", t)
+            self.assertIn("nell'app", t)
+            self.assertLess(len(t), 900)  # short: what moved and where, the detail in the app
             for word in ("NON superato", "non lo confermano", "Non ancora noto", "Mancano"):  # the misses stay in the app (24 Nov 2026)
                 self.assertNotIn(word, t)
             for word in ("95.0000", "115.0000", "stop", "Ingresso", "/piano", "3R", "valuta di ridurla"):
@@ -81,7 +82,7 @@ class TestMessages(unittest.TestCase):
     def test_alert_leans_only_where_the_test_held(self):
         self.assertIn("Potenziale long", A.format_group([alert()]))
         self.assertIn("testato", A.bias_line("crypto", "panic"))
-        self.assertIn("24 ore", A.bias_line("crypto", "panic"))
+        self.assertIn("24h", A.bias_line("crypto", "panic"))
         for cls, setup in (("commodities", "panic"), ("crypto", "overheating"), ("bonds", "panic")):
             self.assertIsNone(A.bias_line(cls, setup))
         t = A.format_group([alert(setup="overheating")])
@@ -172,12 +173,12 @@ class TestItem(unittest.TestCase):
     def item(self, setup, label, lean=True):
         a = {"market": "X", "setup": setup, "z": 2.0, "met": ["volume_high"], "not_met": ["spec_low"], "unknown": ["oi_rising"]}
         pos = {"label": label, "from_high": -5.0, "from_low": 30.0}
-        with mock.patch.object(A, "safe_position", return_value=pos), mock.patch.object(A.K, "context_line", return_value=""):
+        with mock.patch.object(A, "safe_position", return_value=pos), mock.patch.object(A.K, "levels_of", return_value=None):
             return A.format_item(a, lean=lean)
 
     def test_counts_and_names_what_is_missing(self):
         t = self.item("squeeze", "nella media")
-        self.assertIn("Conferme 1 su 3: volume alto", t)
+        self.assertIn("conferme 1/3", t)
         self.assertNotIn("Mancano", t)
         self.assertNotIn("Non ancora noto", t)
         self.assertNotIn("⚠️", t)
@@ -190,9 +191,9 @@ class TestItem(unittest.TestCase):
 
     def test_flags_the_reversed_cot_sign_on_three_pairs(self):
         a = {"market": "USDJPY=X", "setup": "panic", "z": -3.1, "met": ["spec_low"], "not_met": ["vol_index_high"], "unknown": []}
-        with mock.patch.object(A, "safe_position", return_value=None), mock.patch.object(A.K, "context_line", return_value=""):
-            self.assertIn("va letta al contrario", A.format_item(a))
-            self.assertNotIn("va letta al contrario", A.format_item({**a, "market": "EURUSD=X"}))
+        with mock.patch.object(A, "safe_position", return_value=None), mock.patch.object(A.K, "levels_of", return_value=None):
+            self.assertIn("al contrario", A.format_item(a))
+            self.assertNotIn("al contrario", A.format_item({**a, "market": "EURUSD=X"}))
 
 
 class TestDelivery(unittest.TestCase):
@@ -221,9 +222,9 @@ class TestDelivery(unittest.TestCase):
         with mock.patch("bzd.options_report.options_note", side_effect=ValueError):
             self.assertIn("PANICO", A.format_group([alert()]))
 
-    def test_alert_carries_options_context(self):
+    def test_options_stay_in_the_daily_report(self):
         with mock.patch("bzd.options_report.options_note", return_value="OPZ-QUI"):
-            self.assertIn("OPZ-QUI", A.format_group([alert()]))
+            self.assertNotIn("OPZ-QUI", A.format_group([alert()]))
 
     def test_same_move_on_many_coins_is_one_message(self):
         st = self.empty()

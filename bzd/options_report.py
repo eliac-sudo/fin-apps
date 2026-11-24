@@ -167,25 +167,52 @@ def options_note(markets):
     return "\n".join(["📊 Opzioni (contesto)"] + out + ([tested] if tested else [])) if out else ""
 
 
+def inverted(block, chain):
+    """True when near-term fear sits above longer-term fear, None if unknown."""
+    if block.get("short"):
+        a, b = index_series("vol", block["short"]), index_series("vol", block["long"])
+        if a is not None and b is not None:
+            return bool(a.iloc[-1] > b.iloc[-1])
+    if chain and chain.get("iv_7d") and chain.get("iv_30d"):
+        return bool(chain["term_inverted"])
+    return None
+
+
+def block_data(b):
+    """One market's options in numbers, for the short report."""
+    try:
+        chain = I.latest_options(b["chain"]) if b.get("chain") else None
+    except Exception:
+        chain = None
+    lv, iv = level_line(b), iv_line(b["iv"]) if b.get("iv") else None
+    pct = lv["pct"] if lv else iv["pct"] if iv else None
+    return {"name": b["name"], "pct": pct, "cost": price_of_options(b, chain), "inverted": inverted(b, chain),
+            "skew": chain["skew_25d"] * 100 if chain and chain.get("skew_25d") is not None else None}
+
+
+SHORT_NAME = {"Euro/dollaro": "EUR/USD"}
+
+
 def build_report(now=None):
-    now = now or datetime.now(timezone.utc)
-    out, ranks, costs = [], [], []
-    for b in BLOCKS:
-        lines, pct, cost = block_lines(b)
-        if pct is not None:
-            ranks.append((pct, b["name"]))
-        if cost:
-            costs.append((cost["ratio"], b["name"]))
-        if lines:
-            out += ["", f"<b>{b['name']}</b>"] + [f"• {x}" for x in lines]
-    head = [f"📊 <b>Opzioni</b> · {now:%d/%m %H:%M} UTC", "Quanta paura prezzano le opzioni, rispetto al passato di ogni mercato."]
-    if ranks:
-        ranks.sort()
-        head.append(f"Più tesa: {ranks[-1][1]}. Più calma: {ranks[0][1]}.")
-    if costs:
-        costs.sort()
-        head.append(f"Opzioni più care rispetto al movimento previsto: {costs[-1][1]}. Più economiche: {costs[0][1]}.")
-    return "\n".join(head + out + ["", *[x for x in [V.alert_line("O2")] if x], "Le strategie in prova sui prezzi veri sono nell'app, in Opzioni. Non è consulenza finanziaria."])
+    """A small table: how much fear options price (●), and whether they are cheap or dear against the forecast move. Detail in the app."""
+    from . import tg
+    rows = [d for d in (block_data(b) for b in BLOCKS) if d["pct"] is not None or d["cost"]]
+    width = max((len(SHORT_NAME.get(d["name"], d["name"])) for d in rows), default=8)
+    table = [f"{'':<{width}} paura  prezzo"]
+    for d in rows:
+        c = d["cost"]
+        price = f"{c['ratio']:.1f}×".replace(".", ",") + {"economiche": " econ.", "care": " care"}.get(c["label"], "") if c else "–"
+        table.append(f"{SHORT_NAME.get(d['name'], d['name']):<{width}} {tg.dots(d['pct']) if d['pct'] is not None else '  –  '}  {price}")
+    out = [f"📊 <b>OPZIONI</b> · {now:%d/%m}" if now else "📊 <b>OPZIONI</b>", "<i>Paura prezzata rispetto al passato · prezzo = attesa ÷ movimento previsto</i>",
+           "<pre>" + tg.esc("\n".join(table)) + "</pre>"]
+    near = [SHORT_NAME.get(d["name"], d["name"]) for d in rows if d["inverted"]]
+    if near:
+        out.append("⚡ Paura immediata (breve sopra lunga): " + ", ".join(near))
+    cheap = [d for d in rows if d["cost"] and d["cost"]["label"] == "economiche"]
+    if cheap and V.outcome("O2") and V.outcome("O2")["outcome"] == "supportata":
+        out.append("✅ Economiche: storicamente meglio non venderle (testato)")
+    out += ["", tg.app_link("opzioni")]
+    return "\n".join(out)
 
 
 def main(argv):

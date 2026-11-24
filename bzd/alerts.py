@@ -17,6 +17,7 @@ import re
 import pandas as pd
 
 from . import commands
+from . import tg
 from . import exits as X
 from . import moves as M
 from . import technicals as K
@@ -39,8 +40,8 @@ BAR_DELAY = 120  # seconds after a 4h close, so the exchange has finished the ba
 HL_MARKET = {"ES=F": "xyz:SP500", "NQ=F": "xyz:XYZ100", "CL=F": "xyz:CL", "GC=F": "xyz:GOLD", "SI=F": "xyz:SILVER", "HG=F": "xyz:COPPER",
              "EURUSD=X": "xyz:EUR", "USDJPY=X": "xyz:JPY", "GBPUSD=X": "xyz:GBP", "ZB=F": "xyz:TLT"}
 SETUP_IT = {"panic": "PANICO", "squeeze": "SQUEEZE", "overheating": "SURRISCALDAMENTO"}
-SETUP_MEANS = {"panic": "Calo violento per gli standard di questo mercato.", "squeeze": "Salita forte per gli standard di questo mercato, spesso con chi era short costretto a chiudere.",
-               "overheating": "Salita forte con segnali di eccesso."}
+SETUP_MEANS = {"panic": "Calo violento per gli standard del mercato", "squeeze": "Salita violenta, spesso con short costretti a chiudere",
+               "overheating": "Salita forte con segnali di eccesso"}
 CLASS_IT = {"crypto": "cripto", "equities": "azioni", "bonds": "bond", "commodities": "materie prime", "fx": "forex"}
 COND_IT = {"oi_flush": "leva ripulita (OI in forte calo)", "funding_nonpositive": "funding ≤ 0", "volume_spike_fading": "picco di volume in calo",
            "shorts_building": "short in aumento", "funding_mostly_negative": "funding quasi sempre negativo", "volume_high": "volume alto",
@@ -171,8 +172,8 @@ def bias_line(cls, setup):
     if not t:
         return None
     lean = {"panic": "📈 <b>Potenziale long</b>", "squeeze": "📈 <b>Potenziale long</b>", "overheating": "📉 <b>Potenziale presa di profitto</b>"}[setup]
-    after = "24 ore" if cls == "crypto" else "5 sedute"
-    return f"{lean} · ✅ testato: dopo {after} {100 * t['mean']:+.2f}% rispetto a ingressi casuali ({t['clusters']} episodi), effetto piccolo."
+    after = "24h" if cls == "crypto" else "5 sedute"
+    return f"{lean} · ✅ testato: {tg.pct(100 * t['mean'], 2)} vs caso in {after}"
 
 
 LEAN_UP = {"panic": True, "squeeze": True, "overheating": False}
@@ -190,27 +191,41 @@ def price_clash(setup, pos):
     return None
 
 
+SETUP_ICON = {"panic": "🚨", "squeeze": "🚀", "overheating": "🔥"}
+
+
 def format_item(a, lean=False):
-    """What moved, whether it's cheap or dear, and what confirms it. Entries, stops and targets stay in the app."""
-    name = THERMO_LABELS.get(a["market"], a["market"])
-    out = [f"• <b>{name}</b>" + (f": movimento {a['z']:+.1f} volte il normale" if a["z"] is not None else "")]
-    pos = safe_position(a["market"])
-    if pos:
-        out.append(f"  Prezzo: {position_text(pos)}")
-    f = a.get("fresh") or {}
-    if f.get("bars_since_trigger"):
-        out.append(f"  Da allora: {f['move_since_trigger_pct']:+.1f}%")
-    context = K.context_line(a["market"])
-    if context:
-        out.append(context)
-    clash = price_clash(a["setup"], pos) if lean else None
-    if clash:
-        out.append(clash)
+    """Two or three short lines: the move, RSI and trend, where the price sits in its year, confirmations, levels. Entries, stops and targets stay in the app."""
+    name = tg.esc(THERMO_LABELS.get(a["market"], a["market"]))
+    up = a["z"] is not None and a["z"] > 0
+    ctx, pos = safe_levels(a["market"]) or {}, safe_position(a["market"])
+    head = [f"{'🔺' if up else '🔻'} <b>{name}</b>"]
+    if a["z"] is not None:
+        head.append(f"{abs(a['z']):.1f}× il normale".replace(".", ","))
     total = len(a["met"]) + len(a["not_met"]) + len(a["unknown"])
     if total and a["met"]:
-        out.append(f"  Conferme {len(a['met'])} su {total}: " + ", ".join(COND_IT[n] for n in a["met"]))
+        head.append(f"conferme {len(a['met'])}/{total}")
+    out = [" · ".join(head)]
+    bits = []
+    if ctx.get("rsi_d") is not None:
+        bits.append(f"RSI {ctx['rsi_d']:.0f}")
+    if ctx.get("trend_w"):
+        bits.append(f"trend {tg.arrow(ctx['trend_w'])}")
+    if pos:
+        bits.append(f"{tg.pct(pos['from_high'], 0, plus=False)} dal max annuo")
+    f = a.get("fresh") or {}
+    if f.get("bars_since_trigger"):
+        bits.append(f"da allora {tg.pct(f['move_since_trigger_pct'])}")
+    if bits:
+        out.append("   " + " · ".join(bits))
+    lv = tg.levels(ctx)
+    if lv:
+        out.append(f"   {lv}")
+    clash = price_clash(a["setup"], pos) if lean else None
+    if clash:
+        out.append("   " + clash.strip())
     if cot_reversed(a) and any(n in ("spec_low", "spec_high") for n in a["met"]):
-        out.append("  ⚠️ Su questa coppia la conferma sugli speculatori va letta al contrario.")
+        out.append("   ⚠️ qui il segnale COT va letto al contrario")
     return "\n".join(out)
 
 
@@ -224,17 +239,14 @@ def format_group(alerts, review=None):
     a0 = alerts[0]
     setup = a0["setup"]
     when = a0["trigger"][:16].replace("T", " ")
-    lines = [f"🧪 <b>{SETUP_IT[setup]}</b> · {CLASS_IT.get(a0['class'], a0['class'])} · {when[8:10]}/{when[5:7]} {when[11:]} UTC", SETUP_MEANS[setup]]
+    lines = [f"{SETUP_ICON[setup]} <b>{SETUP_IT[setup]}</b> · {CLASS_IT.get(a0['class'], a0['class'])} · {when[8:10]}/{when[5:7]} {when[11:]} UTC", f"<i>{SETUP_MEANS[setup]}</i>"]
     bias = bias_line(a0["class"], setup)
     if bias:
         lines.append(bias)
-    lines += [""] + [format_item(a, lean=bool(bias)) for a in alerts] + [""]
+    lines += [""] + [format_item(a, lean=bool(bias)) for a in alerts]
     if review:
-        lines += [format_review(review), ""]
-    options = safe_options([(a["class"], a["market"]) for a in alerts])
-    if options:
-        lines += [options, ""]
-    lines.append("Livelli e piano nell'app. Economico e caro sono rispetto al passato del mercato. Non è consulenza finanziaria.")
+        lines += ["", format_review(review)]
+    lines += ["", tg.app_link("alert", "Livelli e piano nell'app")]
     return "\n".join(lines)
 
 
@@ -242,6 +254,14 @@ def safe_position(market):
     """Context only: if it fails, the alert still goes out."""
     try:
         return market_position(market)
+    except Exception:
+        return None
+
+
+def safe_levels(market, live=None):
+    """Context only: if it fails, the alert still goes out."""
+    try:
+        return K.levels_of(market, live)
     except Exception:
         return None
 
@@ -263,14 +283,15 @@ def check_moves(st, telegram_on, now=None, root=None, sigma=M.market_sigma):
     for m in moves:
         pos = safe_position(m["market"])
         m["position"] = position_text(pos) if pos else None
-        m["context"] = K.context_line(m["market"], m["mark"])
+        m["pos"] = pos
+        m["levels"] = safe_levels(m["market"], m["mark"])
     if moves:
         alert_dir().mkdir(parents=True, exist_ok=True)
         with open(alert_dir() / "moves.jsonl", "a") as f:
             for m in moves:
                 f.write(json.dumps(m, ensure_ascii=False) + "\n")
         if telegram_on:
-            st["pending"] += split_message(M.format_moves(moves, now, safe_options([(m["class"], m["market"]) for m in moves])))
+            st["pending"] += split_message(M.format_moves(moves, now))
     return moves
 
 

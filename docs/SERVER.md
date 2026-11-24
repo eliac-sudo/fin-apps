@@ -1,6 +1,6 @@
 # Spostare BZD su un server
 
-Lo sviluppo resta nel Codespace, i servizi girano sul server. Dal 24 novembre 2026 girano su un Hetzner Cloud CX22 (Ubuntu 26.04, 2 CPU, 4 GB, Falkenstein, `49.13.4.137`). Nel Codespace l'alias SSH è `bzd-server`, con la chiave `~/.ssh/bzd_server` per root e per `codespace`. Sul server l'accesso è solo con chiave e il firewall lascia passare solo SSH. Se il Codespace viene ricostruito la chiave si perde: si rientra dalla console web di Hetzner e se ne aggiunge una nuova.
+I servizi girano sul server. Dal 24 novembre 2026 si sviluppa anche sul server stesso, nella copia dell'utente `dev` (vedi «Sviluppare sul server»), perché le ore gratuite di Codespace sono finite. Dal 24 novembre 2026 girano su un Hetzner Cloud CX22 (Ubuntu 26.04, 2 CPU, 4 GB, Falkenstein, `49.13.4.137`). Nel Codespace l'alias SSH è `bzd-server`, con la chiave `~/.ssh/bzd_server` per root e per `codespace`. Sul server l'accesso è solo con chiave e il firewall lascia passare solo SSH. Se il Codespace viene ricostruito la chiave si perde: si rientra dalla console web di Hetzner e se ne aggiunge una nuova.
 
 ## Cosa ti serve
 
@@ -24,9 +24,18 @@ Poi il passaggio, che deve lasciare **il bot in un posto solo**:
 4. Controlla: `systemctl is-active bzd-recorder bzd-backfill bzd-wallets bzd-alerts bzd-vol-bot bzd-app`, poi `/piano` sul bot.
 5. Nel Codespace scrivi l'host in `.sul-server` (es. `echo bzd-server > .sul-server`). Da quel momento `start-services.sh` ed `ensure-services.sh` non accendono più niente qui, così i due bot non si contendono i messaggi: aprono solo un tunnel che porta l'app del server sulla porta 8787 del Codespace. Per riportare i servizi nel Codespace prima si fermano sul server, poi si cancella `.sul-server`.
 
+## Sviluppare sul server
+
+L'utente `dev` (sudo senza password, nel gruppo `bzd`) ha una copia del repo con la storia git in `/home/dev/fin-apps`, separata da `/opt/bzd` dove girano i servizi. `data` lì è un collegamento a `/opt/bzd/data`, quindi si lavora sui dati veri: attenzione a quello che ci si scrive. `.env` è una copia di quello dei servizi. `ensure-services.sh` e `start-services.sh` da quella copia non accendono niente, così non partono due bot.
+
+- **Entrare:** dal PC o dal telefono con Tailscale acceso, `ssh dev@bzd`. Tailscale SSH non chiede chiavi; la prima volta può chiedere di confermare l'accesso nel browser.
+- **Sessione che resta viva:** `tmux new -A -s claude`, poi `cd ~/fin-apps && claude`. Se la connessione cade, si rientra con lo stesso comando e si ritrova tutto.
+- **Prima volta:** `curl -fsSL https://claude.ai/install.sh | bash`, poi `claude` e login con l'account Claude. Per il push: `gh auth login` (GitHub.com, HTTPS, accesso dal browser con il codice) e `gh auth setup-git`.
+- **Mandare il codice ai servizi:** `bash scripts/server-update.sh local`.
+
 ## Aggiornare
 
-`bash scripts/server-update.sh utente@server` manda il codice com'è nel Codespace, senza toccare `data/` e `.env`, e riavvia i servizi.
+`bash scripts/server-update.sh utente@server` dal Codespace, o `bash scripts/server-update.sh local` dalla copia di sviluppo sul server, manda il codice com'è lì, senza toccare `data/` e `.env`, e riavvia i servizi.
 
 ## L'app
 
