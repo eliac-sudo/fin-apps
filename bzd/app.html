@@ -530,7 +530,7 @@ function drawLabels(){const box=$("#lbBox");if(!box||!LB)return;if(LB.error){box
   box.replaceChildren(...head,el("p",{class:"sub",style:"margin:0 0 6px"},"Che umore esprime questo testo sul mercato di cui parla? Giudica il tono, non se la notizia è buona per i prezzi. «Non pertinente» se non parla di mercati. Servono per misurare se il sentiment dell'app legge i testi come te."),
     el("div",{class:"text",style:"font-size:1.05em;padding:10px 12px;border:1px solid var(--line);border-radius:8px"},t.text),el("div",{class:"tiny muted",style:"margin:4px 0 8px"},t.source.replace(/^(news|soc)_/,"")+" · "+when(t.time)+(/^https?:\/\//.test(t.url||"")?" · ":""),/^https?:\/\//.test(t.url||"")?el("a",{href:t.url,target:"_blank",rel:"noopener noreferrer"},"fonte"):null),
     el("div",{class:"chips"},LB.labels.map(l=>el("button",{class:"chip",onclick:()=>sendLabel(t.id,l)},names[l]||l))),LB.failed?el("p",{class:"notice bad"},"Non salvata, riprova."):"")}
-const TABS=[["oggi","Oggi"],["opzioni","Opzioni"],["tecnica","Analisi tecnica"],["sentiment","Sentiment"],["chi","Chi compra"],["alert","Alert"],["piano","Piano"],["bots","Bots"],["aisetups","AIsetups"],["test","Test"],["motore","Motore"]];
+const TABS=[["oggi","Oggi"],["opzioni","Opzioni"],["tecnica","Analisi tecnica"],["sentiment","Sentiment"],["chi","Chi compra"],["alert","Alert"],["piano","Piano"],["bots","Bots"],["aisetups","AIsetups"],["previsioni","Previsioni"],["test","Test"],["motore","Motore"]];
 const PARTS={slancio:"Slancio",rsi:"RSI",estensione:"Distanza dalla media",funding:"Funding",oi:"Leva (OI)",posizionamento:"Speculatori",calma:"Calma (volatilità bassa)"};
 const BANDS=[
   {word:"ipervenduto",short:"ipervenduto",range:"0–19",brief:"Venduto forte e in fretta: quasi tutto è ai minimi della sua storia.",long:"Quasi tutti i fattori sono ai minimi rispetto alla storia di questo mercato: è stato venduto forte e in fretta, e chi usava la leva è già in buona parte uscito. Lo spazio per nuove vendite forzate si riduce, ma un mercato così può continuare a scendere: non è un segnale d'acquisto."},
@@ -889,6 +889,44 @@ aisetups(){
       el("p",{class:"small",style:"margin:4px 0 8px"},S.chiuse?("Chiuse "+S.chiuse+": in guadagno "+S.vinte+", risultato medio "+sgn(S.media_pct,2)+"% (prima dei costi). Aperte "+S.aperte+"."):("Nessuna proposta chiusa ancora. Aperte "+(S.aperte||0)+".")+" Una proposta si chiude quando tocca invalidazione o obiettivo, o alla fine del suo orizzonte. Il controllo usa il prezzo a ogni lettura, non ogni tick: è un'approssimazione."),
       d.history&&d.history.length?Table(cols,d.history,{sort:"ts",dir:-1,maxH:420}):null,
       el("p",{class:"tiny muted",style:"margin:6px 2px 0"},"Spesa del mese per AIsetups: "+(d.cost_month||0).toLocaleString("it-IT",{maximumFractionDigits:3})+" $. Non è consulenza finanziaria."))].filter(Boolean)},
+previsioni(){
+  if(!FC.data){loadFc();return el("p",{class:"muted"},"Leggo le previsioni…")}
+  if(FC.data.error)return el("p",{class:"notice bad"},"Non riesco a leggere le previsioni.");
+  const d=FC.data,n=(v,k=1)=>v==null?"–":(+v).toLocaleString("it-IT",{minimumFractionDigits:k,maximumFractionDigits:k});
+  const mdate=s=>{if(!s)return"–";if(/^\d{4}Q\d$/.test(s))return s.slice(5)+"° trim. "+s.slice(0,4);const t=new Date(s.length===10?s+"T12:00:00Z":s);return t.toLocaleDateString("it-IT",{day:"numeric",month:"short",year:"numeric"})};
+  const delta=(v,p)=>v==null||p==null||Math.abs(v-p)<0.05?null:el("span",{class:"tiny muted",title:"edizione prima: "+n(p)},(v>p?" ▲":" ▼")+n(Math.abs(v-p)));
+  const grid=(rows,cols,head)=>el("div",{class:"tw"},el("table",null,el("thead",null,el("tr",null,el("th",null,""),cols.map(c=>el("th",{class:"num"},head?head(c):c)))),
+    el("tbody",null,rows.map(r=>el("tr",null,el("td",null,r.label),cols.map(c=>el("td",{class:"num"},el("b",null,n(r.values[c])+"%"),delta(r.values[c],r.prev&&r.prev[c]))))))));
+  const chart=(c,names)=>c&&c.dates.length>1?lineChart(Object.entries(names).map(([k,[name,color]])=>({name,dates:c.dates,values:c[k],color})),{height:200,W:1000,digits:1,suffix:"%"}):null;
+  const F=d.fed,U=d.us_spf,E=d.ecb_spf,O=d.oecd,G=d.gdpnow,M=d.markets||[];
+  const fed=F&&el("section",{class:"card"},el("h2",null,"Fed: le proiezioni del FOMC"),
+    el("p",{class:"small",style:"margin:4px 0 8px"},"Ultima edizione "+mdate(F.made)+". I membri del FOMC scrivono dove vedono tasso, crescita, disoccupazione e inflazione a fine anno. Le frecce dicono di quanto è cambiato rispetto all'edizione di "+mdate(F.prev_made)+". Tasso di lungo periodo: "+n(F.longer_run)+"%"+(F.longer_run_prev!=null&&F.longer_run_prev!==F.longer_run?" (prima "+n(F.longer_run_prev)+"%)":"")+"."),
+    grid(F.rows,F.targets),
+    el("h3",{style:"margin-top:12px"},"Come è cambiata l'attesa per la fine dell'anno dopo"),
+    chart(F.chart,{fed_funds_median:["Tasso Fed, mediana","var(--s1)"],core_pce_inflation:["Inflazione PCE core","var(--s4)"],unemployment:["Disoccupazione","var(--muted)"]}),
+    G?el("p",{class:"small",style:"margin-top:8px"},el("b",null,"GDPNow (Fed di Atlanta). "),"Stima in tempo reale della crescita del PIL USA nel trimestre che inizia il "+mdate(G.quarter)+": "+n(G.value)+"% annualizzato. Per il trimestre prima diceva "+n(G.prev)+"%."):null);
+  const survey=(S,title,who,names)=>S&&el("section",{class:"card"},el("h2",null,title),
+    el("p",{class:"small",style:"margin:4px 0 8px"},who+" Sondaggio del "+mdate(S.made)+", media annua. Le frecce lo confrontano con il sondaggio del "+mdate(S.prev_made)+"."),
+    grid(S.rows,S.years.concat(S.has_lt?["LT"]:[]),c=>c==="LT"?"Lungo periodo":c),
+    el("h3",{style:"margin-top:12px"},"La previsione per l'anno dopo, sondaggio per sondaggio"),chart(S.chart,names));
+  const us=survey(U,"Previsori professionali USA","Una quarantina di economisti di banche e società di ricerca, raccolti ogni trimestre dalla Fed di Filadelfia. Mediana.",{cpi:["Inflazione CPI","var(--s4)"],unemp:["Disoccupazione","var(--muted)"],tbond:["Treasury 10 anni","var(--s1)"]});
+  const ecb=survey(E,"Previsori professionali dell'area euro","Circa 50 previsori raccolti ogni trimestre dalla BCE. Media. «Lungo periodo» è circa cinque anni avanti.",{hicp:["Inflazione","var(--s4)"],rgdp:["PIL reale","var(--s1)"],unem:["Disoccupazione","var(--muted)"]});
+  const oecd=O&&el("section",{class:"card"},el("h2",null,"OCSE: "+O.edition),
+    el("p",{class:"small",style:"margin:4px 0 8px"},"Le previsioni dell'OCSE per quest'anno e il prossimo, in percentuale. Escono due volte l'anno; le edizioni precedenti si conservano da quando le salviamo ("+mdate(O.seen)+")."),
+    Table([{k:"label",label:"",cell:r=>el("b",null,r.label)},...O.cols.map(c=>({k:c,label:c,num:true,cell:r=>r[c]==null?"–":n(r[c])}))],O.rows,{}));
+  const pct=p=>Math.round(p*100)+"%";
+  const mcard=m=>el("section",{class:"card",style:"padding:10px 12px"},
+    el("div",{class:"selectline"},el("b",null,m.label),el("span",{class:"tiny muted"},m.source+" · chiude "+mdate(m.closes))),
+    m.question!==m.label?el("p",{class:"tiny muted",style:"margin:2px 0 6px"},m.question):null,
+    el("div",null,m.options.map(o=>el("div",{class:"small",style:"display:grid;grid-template-columns:minmax(0,1fr) 120px 40px;gap:8px;align-items:center;margin:2px 0"},
+      el("span",null,o.name),el("div",{style:"height:8px;background:var(--grid);border-radius:4px"},el("div",{style:`height:8px;width:${Math.round(o.p*100)}%;background:var(--s1);border-radius:4px`})),el("b",{class:"num"},pct(o.p))))));
+  const mk=M.length?el("section",{class:"card"},el("h2",null,"Cosa scommette il mercato"),
+    el("p",{class:"small",style:"margin:4px 0 8px"},"Kalshi e Polymarket: la probabilità è il prezzo di un contratto che paga 1 $ se l'evento succede. Mostro solo le risposte tra il 3% e il 97%. Copie ogni 6 ore, l'ultima del "+mdate(M[0].seen)+"."),
+    el("div",{class:"grid",style:"grid-template-columns:repeat(auto-fill,minmax(340px,1fr));align-items:start"},M.map(mcard))):null;
+  return [el("p",{class:"hero"},"Previsioni"),
+    el("p",{class:"sub"},"Cosa si aspettano la Fed, i previsori professionali, l'OCSE e chi scommette soldi su tassi, inflazione, crescita e lavoro. Sono attese, non fatti: nessuna è stata testata come segnale in questa app, e i previsori sbagliano spesso proprio nelle svolte. Servono a sapere cosa il mercato dà già per scontato."),
+    (d.errors||[]).length?el("p",{class:"notice bad"},"Parti non disponibili: "+d.errors.join(", ")):null,
+    fed,mk,us,ecb,oecd].filter(Boolean)},
 asset(){return assetView()},
 test(){
   const SD=D.studies||[],T=D.tests||[];setTimeout(drawPaper);
@@ -1234,6 +1272,9 @@ function classDetail(k,c){const d=$("#dlg");hideTip();const n=bin(c.heat),rows=D
     el("p",{class:"tiny",style:"margin-top:10px"},"Clicca un mercato per la sua scheda. Descrive uno stato e non prevede il futuro."));d.showModal()}
 function render(){if(!VIEWS[tab])tab="oggi";$("#nav").replaceChildren(...TABS.map(([k,n])=>el("button",{role:"tab","aria-selected":String(k===tab),onclick:()=>{tab=k;location.hash=k;render();scrollTo(0,0)}},n)));
   const m=$("#main");const parts=[];if(Object.keys(D.errors||{}).length)parts.push(el("div",{class:"notice bad"},"▲ Parti non disponibili: "+Object.keys(D.errors).join(", ")));if(Q)parts.push(el("div",{class:"small",style:"margin-top:6px"},"Filtro attivo: «"+$("#q").value+"» ",el("button",{class:"ghost",onclick:()=>{$("#q").value="";Q="";closeSugg();render()}},"Togli")));parts.push(...[VIEWS[tab]()].flat());parts.push(el("p",{class:"foot"},"Descrive e non prevede. Non è consulenza finanziaria. L'app legge dati salvati e pubblici e non esegue ordini."));m.replaceChildren(...parts)}
+/* Forecasts: Fed, professional forecasters, OECD and prediction markets, read-only */
+const FC={data:null};
+async function loadFc(){try{const r=await fetch("/api/forecasts");FC.data=r.ok?await r.json():{error:true}}catch(e){FC.data={error:true}}if(tab==="previsioni")render()}
 /* AIsetups: the model's proposals and how they went, read-only */
 const AIS={data:null};
 async function loadAis(){try{const r=await fetch("/api/aisetups");AIS.data=r.ok?await r.json():{error:true}}catch(e){AIS.data={error:true}}if(tab==="aisetups")render()}

@@ -11,7 +11,7 @@
 Every table has `made` (when the forecast was published), `target` (the period forecast) and `value`.
 A forecast is what someone expected, not what happened: tests must use only rows with `made` before the test date.
 """
-import io, json, os, time
+import gzip, io, json, os, re, time
 
 import pandas as pd
 
@@ -109,3 +109,183 @@ def get_forecasts(force=False):
         known = set(old.edition)
         new = pd.concat([old, new[~new.edition.isin(known)]], ignore_index=True)  # an edition is kept as first seen
     H.save("forecasts", "oecd_outlook", new, quiet=force)
+
+
+# ---- the app's Forecasts tab -------------------------------------------------------------------------------------------
+
+KALSHI_LABELS = {"KXFEDDECISION": "Fed, prossime riunioni", "KXFED": "Tasso Fed (limite alto) dopo la riunione", "KXFEDFUNDSYEAR": "Tasso Fed a fine anno",
+                 "KXRATECUTCOUNT": "Numero di tagli della Fed", "KXCPIYOY": "Inflazione USA annua", "KXCPI": "Inflazione USA del mese",
+                 "KXCPICORE": "Inflazione core USA del mese", "KXCPICOREYOY": "Inflazione core USA annua", "KXPCECORE": "PCE core del mese",
+                 "KXUSCPIYEAR": "Inflazione USA a fine anno", "KXGDP": "PIL reale USA del trimestre", "KXPAYROLLS": "Posti di lavoro del mese",
+                 "KXU3": "Disoccupazione USA", "KXRECSSNBER": "Recessione USA", "KXINXY": "S&P 500 a fine anno", "KXNASDAQ100Y": "Nasdaq-100 a fine anno",
+                 "KXBTCMAXY": "Bitcoin entro fine anno", "KXWTIMAX": "Petrolio WTI, massimo", "KXEURUSD": "Euro/dollaro"}
+SEP_LABELS = {"fed_funds_median": "Tasso Fed, mediana", "fed_funds_low": "Tasso Fed, il più basso", "fed_funds_high": "Tasso Fed, il più alto",
+              "real_gdp_growth": "PIL reale", "unemployment": "Disoccupazione", "pce_inflation": "Inflazione PCE", "core_pce_inflation": "Inflazione PCE core"}
+OECD_AREAS = {"USA": "USA", "EA17": "Area euro", "DEU": "Germania", "ITA": "Italia", "FRA": "Francia", "GBR": "Regno Unito", "JPN": "Giappone", "CHN": "Cina", "W": "Mondo"}
+OECD_SERIES = {"GDPV_ANNPCT": "PIL", "CPI_YTYPCT": "Inflazione", "CPIH_YTYPCT": "Inflazione", "UNR": "Disoccupazione", "IRS": "Tasso a 3 mesi", "IRL": "Bond 10 anni"}
+SHOWN = (0.03, 0.97)  # outcomes the market sees as near certain either way say little
+
+
+def _read(name):
+    p = H.root() / "forecasts" / f"{name}.csv.gz"
+    return pd.read_csv(p, dtype={"target": str, "made": str}) if p.exists() else None
+
+
+def _raw(job):
+    from .option_lab import latest_file
+    f = latest_file(job, H.root().parent)
+    if not f:
+        return None, None
+    ts = pd.Timestamp(f.parent.name + "T" + f.name[:6], tz="UTC").isoformat()
+    return json.loads(gzip.open(f).read()), ts
+
+
+def _quarter_date(q):
+    return f"{q[:4]}-{int(q[-1]) * 3 - 2:02d}-01"
+
+
+def fed_view(d):
+    if d is None or d.empty:
+        return None
+    eds = sorted(d.made.unique())
+    last, prev = eds[-1], eds[-2] if len(eds) > 1 else None
+    cur = d[d.made == last]
+    targets = sorted(t for t in cur.target.unique() if t != "longer_run")
+    rows = []
+    for s, label in SEP_LABELS.items():
+        x = cur[cur.series == s].set_index("target").value
+        p = d[(d.made == prev) & (d.series == s)].set_index("target").value if prev else pd.Series(dtype=float)
+        rows.append({"label": label, "values": {t: x.get(t) for t in targets}, "prev": {t: p.get(t) for t in targets}})
+    lr = d[(d.series == "fed_funds_longer_run")].sort_values("made")
+    # How the expected rate for the end of next year moved, edition by edition
+    nxt = d[(d.series.isin(["fed_funds_median", "core_pce_inflation", "unemployment"])) & (d.target.str.isdigit())]
+    nxt = nxt[nxt.target.astype(int) == nxt.made.str[:4].astype(int) + 1]
+    nxt = nxt.drop_duplicates(["made", "series"]).set_index(["made", "series"]).value
+    shown = ("fed_funds_median", "core_pce_inflation", "unemployment")
+    ch_eds = [e for e in eds if any((e, s) in nxt.index for s in shown)]
+    chart = {"dates": ch_eds, **{s: [nxt.get((e, s)) for e in ch_eds] for s in shown}}
+    return {"made": last, "prev_made": prev, "targets": targets, "rows": rows, "longer_run": lr.value.iloc[-1] if len(lr) else None,
+            "longer_run_prev": lr.value.iloc[-2] if len(lr) > 1 else None, "chart": chart}
+
+
+def survey_view(d, series, labels, since):
+    """Latest survey: this year and the next two. Chart: the forecast for next year, survey by survey."""
+    if d is None or d.empty:
+        return None
+    d = d[d.series.isin(series)]
+    last = d.made.max()
+    year = int(last[:4])
+    years = [str(year + i) for i in range(3)]
+    cur = d[d.made == last].set_index(["series", "target"]).value
+    prev_q = sorted(d.made.unique())[-2]
+    prev = d[d.made == prev_q].set_index(["series", "target"]).value
+    rows = [{"label": labels[s], "values": {y: cur.get((s, y)) for y in years + ["LT"]}, "prev": {y: prev.get((s, y)) for y in years + ["LT"]}} for s in series]
+    eds = sorted(m for m in d.made.unique() if m >= since)
+    nxt = d[d.target.str.fullmatch(r"\d{4}")]
+    nxt = nxt[nxt.target.astype(int) == nxt.made.str[:4].astype(int) + 1].set_index(["made", "series"]).value
+    chart = {"dates": [_quarter_date(m) for m in eds], **{s: [nxt.get((m, s)) for m in eds] for s in series}}
+    return {"made": last, "prev_made": prev_q, "years": years, "has_lt": any(r["values"]["LT"] is not None for r in rows), "rows": rows, "chart": chart}
+
+
+def oecd_view(d):
+    if d is None or d.empty:
+        return None
+    ed = d[d.made == d.made.max()]
+    year = int(pd.Timestamp.now(tz="UTC").year)
+    years = [str(year), str(year + 1)]
+    rows = []
+    for a, name in OECD_AREAS.items():
+        x = ed[ed.area == a]
+        row = {"label": name}
+        for code, lab in OECD_SERIES.items():
+            for y in years:
+                v = x[(x.series == code) & (x.target == y)].value
+                if len(v):
+                    row[f"{lab} {y}"] = round(float(v.iloc[0]), 2)
+        rows.append(row)
+    cols = [f"{lab} {y}" for lab in dict.fromkeys(OECD_SERIES.values()) for y in years]
+    return {"edition": ed.edition.iloc[0], "seen": ed.made.iloc[0], "cols": [c for c in cols if any(c in r for r in rows)], "rows": rows}
+
+
+def _prob(m):
+    bid, ask, last = (float(m.get(k) or 0) for k in ("yes_bid_dollars", "yes_ask_dollars", "last_price_dollars"))
+    return (bid + ask) / 2 if bid and ask and ask - bid <= 0.1 else last or None
+
+
+def _strike(name):
+    m = re.search(r"-?[\d,]+(?:\.\d+)?", name or "")
+    return float(m.group().replace(",", "")) if m else None
+
+
+def by_strike(opts):
+    """Ladders («Above 2.8%», «7,400 to 7,599.99») read best from the highest level down."""
+    k = [_strike(o["name"]) for o in opts]
+    return [o for _, o in sorted(zip(k, opts), key=lambda x: -x[0])] if all(v is not None for v in k) else opts
+
+
+def kalshi_view():
+    out = []
+    for s, label in KALSHI_LABELS.items():
+        x, ts = _raw(f"fc_kalshi_{s.lower()}")
+        if not x:
+            continue
+        events = {}
+        for m in x.get("markets", []):
+            events.setdefault(m["event_ticker"], []).append(m)
+        # the nearest event that still has an open question, then the next one
+        for ev, ms in sorted(events.items(), key=lambda kv: min(m["close_time"] for m in kv[1]))[:2]:
+            opts = [{"name": m.get("yes_sub_title") or m.get("subtitle") or m["title"], "p": _prob(m), "vol": float(m.get("volume_fp") or 0)} for m in ms]
+            opts = [o for o in opts if o["p"] is not None and SHOWN[0] <= o["p"] <= SHOWN[1]]
+            if opts:
+                out.append({"source": "Kalshi", "label": label, "question": label, "closes": min(m["close_time"] for m in ms), "seen": ts,
+                            "options": by_strike(opts)[:10], "volume": sum(o["vol"] for o in opts)})
+    return out
+
+
+def polymarket_view():
+    out, seen_ids = [], set()
+    for t in ("fed", "economy"):
+        x, ts = _raw(f"fc_polymarket_{t}")
+        for e in sorted(x or [], key=lambda e: -(e.get("volume24hr") or 0))[:10]:
+            if e["id"] in seen_ids:
+                continue
+            seen_ids.add(e["id"])
+            opts = []
+            for m in e.get("markets", []):
+                if m.get("closed") or not m.get("active", True):
+                    continue
+                try:
+                    p = float(json.loads(m["outcomePrices"])[0])
+                except (KeyError, ValueError, TypeError, IndexError):
+                    continue
+                if SHOWN[0] <= p <= SHOWN[1]:
+                    opts.append({"name": m.get("groupItemTitle") or m.get("question"), "p": p})
+            if opts:
+                out.append({"source": "Polymarket", "label": e["title"], "question": e["title"], "closes": e.get("endDate"), "seen": ts,
+                            "options": sorted(opts, key=lambda o: -o["p"])[:8], "volume": e.get("volume24hr") or 0})
+    return out
+
+
+def gdpnow_view():
+    p = H.root() / "macro" / "GDPNOW.csv.gz"
+    if not p.exists():
+        return None
+    d = pd.read_csv(p)
+    return {"quarter": d.date.iloc[-1], "value": float(d.value.iloc[-1]), "prev_quarter": d.date.iloc[-2], "prev": float(d.value.iloc[-2])}
+
+
+def view():
+    """Everything the Forecasts tab shows. Each part is optional: a missing file leaves its part out."""
+    parts, errors = {}, []
+    for k, f in (("fed", lambda: fed_view(_read("fomc_sep"))),
+                 ("us_spf", lambda: survey_view(_read("us_spf"), ["cpi", "corepce", "unemp", "tbill", "tbond"],
+                                                {"cpi": "Inflazione CPI", "corepce": "Inflazione PCE core", "unemp": "Disoccupazione", "tbill": "Treasury 3 mesi", "tbond": "Treasury 10 anni"}, "2015Q1")),
+                 ("ecb_spf", lambda: survey_view(_read("ecb_spf"), ["hicp", "core", "rgdp", "unem"],
+                                                 {"hicp": "Inflazione", "core": "Inflazione core", "rgdp": "PIL reale", "unem": "Disoccupazione"}, "2015Q1")),
+                 ("oecd", lambda: oecd_view(_read("oecd_outlook"))), ("gdpnow", gdpnow_view),
+                 ("markets", lambda: sorted(kalshi_view(), key=lambda e: e["closes"]) + polymarket_view())):
+        try:
+            parts[k] = f()
+        except Exception as e:  # one broken source must not hide the others
+            parts[k], errors = None, errors + [f"{k}: {type(e).__name__}"]
+    return {**parts, "errors": errors}

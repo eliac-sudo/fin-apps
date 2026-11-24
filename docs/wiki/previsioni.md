@@ -3,7 +3,7 @@ title: Previsioni di Fed, BCE, OCSE e mercati
 kind: fonte
 status: dato pubblico
 brief: Cosa si aspettano gli attori importanti su tassi, inflazione, crescita e lavoro, con la data in cui l'hanno detto.
-code: bzd/forecasts.py#get_forecasts, bzd/forecasts.py#parse_sep, bzd/forecasts.py#parse_philly, bzd/forecasts.py#parse_ecb_spf, bzd/forecasts.py#parse_oecd, bzd/jobs.py#forecast_jobs
+code: bzd/forecasts.py#get_forecasts, bzd/forecasts.py#view, bzd/forecasts.py#parse_sep, bzd/forecasts.py#parse_philly, bzd/forecasts.py#parse_ecb_spf, bzd/forecasts.py#parse_oecd, bzd/jobs.py#forecast_jobs
 data: data/hist/forecasts, data/raw/fc_kalshi_kxfed, data/raw/fc_polymarket_fed, data/raw/fc_oecd_outlook
 feeds: storico, recorder
 ---
@@ -17,6 +17,9 @@ Una previsione è quello che qualcuno si aspettava, non quello che è successo. 
 - **GDPNow** della Fed di Atlanta: la stima in tempo reale del PIL del trimestre, in `data/hist/macro/GDPNOW.csv.gz`.
 - **Mercati di previsione** (Kalshi e Polymarket): le probabilità che il mercato dà a tagli della Fed, inflazione, PIL, posti di lavoro, recessione e livelli di fine anno di S&P, Nasdaq, Bitcoin e petrolio. Non hanno storico gratuito: il recorder li salva ogni 6 ore.
 - **Discorsi dei banchieri centrali**: Fed, Banca d'Inghilterra, Banca del Giappone e la raccolta della BIS, come testo in `data/raw/news_*`.
+
+## Nell'app
+La scheda **Previsioni** (`bzd/forecasts.py#view`) mostra l'ultima edizione delle proiezioni della Fed e dei due sondaggi, con la differenza dall'edizione prima e un grafico di come è cambiata la previsione per l'anno dopo; GDPNow; la tabella dell'OCSE; e le domande aperte di Kalshi e Polymarket, con le sole risposte tra il 3% e il 97%.
 
 ## Come si aggiorna
 `python -m bzd.history get forecasts` scarica tutto la prima volta. Poi l'aggiornamento giornaliero degli alert (`refresh_daily`) lo rifà ogni giorno, e il recorder salva una copia di ogni fonte, così resta anche la versione di ogni giorno.

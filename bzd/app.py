@@ -11,6 +11,7 @@ from pathlib import Path
 
 from . import aisetups as AI
 from . import bots as BT
+from . import forecasts as FC
 from . import labels as LB
 from . import lookup as LK
 from . import option_lab as L
@@ -28,6 +29,14 @@ PAGE = Path(__file__).with_name("app.html")
 FONT_DIR = Path(__file__).resolve().parent / "fonts"
 FONTS = {"Orbitron.ttf", "Rajdhani-Medium.ttf", "Rajdhani-SemiBold.ttf", "ShareTechMono.ttf"}  # free fonts (OFL), served from here because the page only loads its own files
 _cache, _lock, _live = {"at": 0, "data": None}, threading.Lock(), {}
+_fc = {"at": 0, "data": None}
+
+
+def forecasts_view():
+    """Forecast files change at most every 6 hours, so 10 minutes of cache is plenty."""
+    if time.time() - _fc["at"] > 600 or _fc["data"] is None:
+        _fc["data"], _fc["at"] = FC.view(), time.time()
+    return _fc["data"]
 
 
 def refresh():
@@ -163,6 +172,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.send(200, json.dumps(S.clean(BT.view())).encode())
             elif url.path == "/api/aisetups":
                 self.send(200, json.dumps(S.clean(AI.view(get=lambda path, **k: json.loads(snapshot())))).encode())
+            elif url.path == "/api/forecasts":
+                self.send(200, json.dumps(S.clean(forecasts_view())).encode())
             elif url.path == "/api/wiki":
                 self.send(200, json.dumps(WK.pages()).encode())
             elif url.path in ("/api/source", "/api/data"):

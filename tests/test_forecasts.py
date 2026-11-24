@@ -52,6 +52,35 @@ class Forecasts(unittest.TestCase):
         self.assertTrue({"fc_oecd_outlook", "fc_ecb_spf", "fc_philly_spf", "fc_kalshi_kxfed", "fc_polymarket_fed"} <= names)
         self.assertTrue({f"macro_fred_{s.lower()}" for s in J.FRED_ALL} <= names)
 
+    def test_ladders_read_from_the_highest_level_down(self):
+        opts = [{"name": n} for n in ("Above -75,000", "Above 75,000", "Above 200,000")]
+        self.assertEqual([o["name"] for o in F.by_strike(opts)], ["Above 200,000", "Above 75,000", "Above -75,000"])
+        named = [{"name": "Hike 25bps"}, {"name": "Fed maintains rate"}]
+        self.assertEqual(F.by_strike(named), named)
+
+    def test_fed_view_compares_with_the_previous_edition(self):
+        d = pd.DataFrame({"made": ["2026-06-17", "2026-09-16", "2026-09-16", "2026-06-17"], "series": ["fed_funds_median"] * 3 + ["unemployment"],
+                          "target": ["2027", "2027", "2026", "2027"], "value": [3.6, 4.1, 4.1, 4.3]})
+        v = F.fed_view(d)
+        med = v["rows"][0]
+        self.assertEqual((v["made"], v["prev_made"]), ("2026-09-16", "2026-06-17"))
+        self.assertEqual((med["values"]["2027"], med["prev"]["2027"]), (4.1, 3.6))
+        self.assertEqual(v["chart"]["dates"], ["2026-06-17", "2026-09-16"])
+        self.assertEqual(v["chart"]["fed_funds_median"], [3.6, 4.1])
+
+    def test_view_survives_missing_files(self):
+        import os, tempfile
+        with tempfile.TemporaryDirectory() as t:
+            old = os.environ.get("BZD_DATA")
+            os.environ["BZD_DATA"] = t
+            try:
+                v = F.view()
+            finally:
+                os.environ.pop("BZD_DATA") if old is None else os.environ.__setitem__("BZD_DATA", old)
+        self.assertEqual(v["errors"], [])
+        self.assertIsNone(v["fed"])
+        self.assertEqual(v["markets"], [])
+
 
 if __name__ == "__main__":
     unittest.main()
