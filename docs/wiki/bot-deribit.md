@@ -13,4 +13,4 @@ docs: docs/BOT_DERIBIT.md, config/vol_bot_v1.json
 4. A ogni giro confronta il conto con il registro: una put senza ala si ricompra, ogni altra differenza blocca le entrate. Con un drawdown del 15% si ferma fino a `riprendi`.
 
 ## Cosa sappiamo
-Ancora niente sul guadagno: il testnet prova solo i meccanismi. Le stesse idee sulla carta sono nelle [[opzioni-in-prova]] (V3 e V4). Nessun segnale direzionale ha retto i test, quindi il bot non fa direzionale.
+Lo storico su prezzi veri di Deribit dal 2019 (`docs/BOT_DERIBIT_STORICO.md`): il put spread del bot fa circa zero su BTC e perde su ETH al netto dei costi; nessuna variante a rischio definito guadagna in modo distinguibile dal caso. Il testnet prova solo i meccanismi. Le stesse idee sulla carta sono nelle [[opzioni-in-prova]] (V3 e V4). Nessun segnale direzionale ha retto i test, quindi il bot non fa direzionale.

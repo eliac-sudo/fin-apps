@@ -17,7 +17,7 @@ Tutto nel Codespace: se si spegne si ferma tutto. Alla riaccensione `scripts/sta
 | Alert e bot | `.venv/bin/python -u -m bzd.alerts run` | invio attivo, risponde a `/piano` |
 | Portafogli HL | `python3 -u -m bzd.wallets run` | classifica ogni giorno, posizioni ogni ora |
 | App | `.venv/bin/python -u -m bzd.app` | porta 8787, privata |
-| Bot Deribit | `.venv/bin/python -u -m bzd.vol_bot run` | parte solo con `DERIBIT_CLIENT_ID` in `.env`; testnet. **C'è il secret, manca il Client ID** |
+| Bot Deribit | `.venv/bin/python -u -m bzd.vol_bot run` | parte solo con `DERIBIT_CLIENT_ID` in `.env`; testnet, acceso dal 24 novembre 2026. Primo giro: due put spread 54000/50000 sul 25 dicembre |
 
 - I servizi girano come utente `codespace`, Claude come root. Dopo ogni modifica da root: `chown -R codespace:codespace /workspaces/fin-apps` e `chmod 600 .env`. Per riavviare un servizio si cerca il PID con `pgrep -f` su un'espressione ancorata, non con `pkill -f` largo. Lo script avvia anche l'app: prima va fermata un'eventuale copia lanciata da root.
 - Revisione degli alert con l'LLM **accesa** (`BZD_AGENTS=on`), tetto 1,50 $ al mese (`BZD_LLM_BUDGET_USD`), condiviso con gli agenti di ricerca. Spesa totale 0,36 $ al 5 novembre. Il 23 novembre la chiave API Anthropic era scaduta: le revisioni fallivano e gli alert partivano senza. Sostituita lo stesso giorno. Se torna «chiave API non valida» in `data/agents/reviews.jsonl`, va rinnovata in `.env`.
@@ -53,6 +53,7 @@ Il dettaglio di ogni test è nella scheda Test e nei file `docs/V*_STORICO.md`. 
 - **Uscite:** stop + 3R taglia le perdite peggiori ma rende meno del tenere.
 - **Volatilità:** HAR batte GARCH ed EWMA, ma su BTC ed ETH la volatilità implicita prevede meglio.
 - **Opzioni in prova:** nove strategie sulla carta dal 7 novembre 2026 sui prezzi veri (`docs/OPZIONI_IN_PROVA.md`). Nessun giudizio prima del 6 novembre 2027.
+- **Vendere volatilità, storico su prezzi veri (24 novembre, `docs/BOT_DERIBIT_STORICO.md`):** su Deribit dal 2019 nessuno spread a rischio definito guadagna al netto dei costi; il put spread del bot fa −1% sul rischio su BTC e −2,3% su ETH. Solo la put nuda o molto lontana su BTC è positiva, poco e non significativa. Iron condor e garanzia in moneta peggio. Sull'S&P l'iron condor Cboe fa 0,8% l'anno dal 2007.
 - **Premio sulla volatilità (esplorazione, non test):** dal 2021 l'implicita a 30 giorni ha superato la realizzata nel 72% dei giorni su BTC (+10 punti di mediana), 65% su ETH (+7,6) e 85% sull'S&P (+4,4). Per unità di rischio, venditore di varianza al lordo dei costi: S&P 0,38, BTC 0,26, ETH 0,00.
 - **Chi compra:** il retail cripto va contro il prezzo (−0,54 su BTC a 3 giorni), i top trader no. Seguire chi compra il dip non ha aiutato (F1, F2).
 - **Segno COT su USD/JPY, USD/CHF e USD/CAD:** i setup congelati lo leggono al contrario. L'esito di B3 non cambia; le conferme dal vivo su quelle coppie sì.
