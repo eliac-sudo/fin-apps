@@ -1,0 +1,16 @@
+[Unit]
+Description=BZD Deribit bot (strangle with perpetual hedge)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=bzd
+WorkingDirectory=/opt/bzd
+ExecStart=/opt/bzd/.venv/bin/python -u -m bzd.vol_bot run
+Restart=always
+RestartSec=30
+StandardOutput=append:/opt/bzd/data/vol_bot.log
+StandardError=append:/opt/bzd/data/vol_bot.log
+
+[Install]
+WantedBy=multi-user.target

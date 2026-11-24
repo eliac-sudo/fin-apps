@@ -1,10 +1,10 @@
 # Spostare BZD su un server
 
-Lo sviluppo resta nel Codespace, i servizi girano sul server. Il kit è pronto ma **non è stato provato su un server vero**: la prima installazione va controllata passo per passo.
+Lo sviluppo resta nel Codespace, i servizi girano sul server. Dal 24 novembre 2026 girano su un Hetzner Cloud CX22 (Ubuntu 26.04, 2 CPU, 4 GB, Falkenstein, `49.13.4.137`). Nel Codespace l'alias SSH è `bzd-server`, con la chiave `~/.ssh/bzd_server` per root e per `codespace`. Sul server l'accesso è solo con chiave e il firewall lascia passare solo SSH. Se il Codespace viene ricostruito la chiave si perde: si rientra dalla console web di Hetzner e se ne aggiunge una nuova.
 
 ## Cosa ti serve
 
-Un server Ubuntu 22.04 o 24.04 con accesso SSH e `sudo` senza password, almeno 2 GB di RAM e 40 GB di disco.
+Un server Ubuntu (provato su 26.04) con accesso SSH e `sudo` senza password, almeno 2 GB di RAM e 40 GB di disco.
 
 ## Primo avvio
 
@@ -20,9 +20,9 @@ Poi il passaggio, che deve lasciare **il bot in un posto solo**:
 
 1. Nel Codespace ferma i servizi: alert e bot per primi.
 2. `bash scripts/server-move-data.sh utente@server` di nuovo, per l'ultima parte dei dati.
-3. Sul server: `sudo systemctl start bzd-recorder bzd-backfill bzd-wallets bzd-alerts bzd-app bzd-backup.timer`
-4. Controlla: `systemctl is-active bzd-recorder bzd-backfill bzd-wallets bzd-alerts bzd-app`, poi `/piano` sul bot.
-5. Togli `postStartCommand` da `.devcontainer/devcontainer.json`, altrimenti alla riaccensione del Codespace due bot si contendono i messaggi.
+3. Sul server: `sudo systemctl start bzd-recorder bzd-backfill bzd-wallets bzd-alerts bzd-vol-bot bzd-app bzd-backup.timer`
+4. Controlla: `systemctl is-active bzd-recorder bzd-backfill bzd-wallets bzd-alerts bzd-vol-bot bzd-app`, poi `/piano` sul bot.
+5. Nel Codespace scrivi l'host in `.sul-server` (es. `echo bzd-server > .sul-server`). Da quel momento `start-services.sh` ed `ensure-services.sh` non accendono più niente qui, così i due bot non si contendono i messaggi: aprono solo un tunnel che porta l'app del server sulla porta 8787 del Codespace. Per riportare i servizi nel Codespace prima si fermano sul server, poi si cancella `.sul-server`.
 
 ## Aggiornare
 

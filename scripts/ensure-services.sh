@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Start the services if the recorder isn't running. Safe to run any time: the Codespace doesn't always run postStartCommand on a restart.
 cd "$(dirname "$0")/.." || exit 1
+if [ -s .sul-server ]; then
+    bash scripts/start-services.sh
+    echo "BZD: i servizi girano sul server $(cat .sul-server); qui solo il tunnel per l'app"; exit 0
+fi
 # The Deribit bot can stop on its own; with keys in .env it is restarted here too, since a sold strangle needs its hedge.
 bot_down() { grep -q '^DERIBIT_CLIENT_ID=.' .env 2>/dev/null && ! pgrep -f '^.venv/bin/python -u -m bzd[.]vol_bot run$' > /dev/null; }
 if pgrep -f '^python3 -u -m bzd[.]recorder run$' > /dev/null; then
