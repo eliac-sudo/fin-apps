@@ -16,6 +16,7 @@ import re
 
 import pandas as pd
 
+from . import commands
 from . import exits as X
 from . import moves as M
 from . import technicals as K
@@ -274,7 +275,7 @@ def check_moves(st, telegram_on, now=None, root=None, sigma=M.market_sigma):
 
 
 def poll_commands(st, log=print, now=None):
-    """Answer /piano from your own chat only. Anything else, or anything old after a pause, is ignored. This reads and replies: it never trades."""
+    """Answer commands from your own chat only (/piano and the ones in bzd.commands; an unknown command gets the list, plain text is ignored). Old messages after a pause are ignored. This reads and replies: it never trades."""
     from . import plan
     now = now or time.time()
     updates = telegram_call("getUpdates", {"offset": st.get("tg_offset", 0), "timeout": 0, "allowed_updates": json.dumps(["message"])}).get("result", [])
@@ -286,8 +287,18 @@ def poll_commands(st, log=print, now=None):
             continue
         cmd = words[0].split("@")[0].lower()
         if cmd in ("/piano", "/plan"):
-            for part in split_message(plan.answer(words[1:])):
-                send_text(part)
+            reply = plan.answer(words[1:])
+        else:
+            try:
+                reply = commands.answer(cmd, words[1:])
+            except Exception as e:  # a bad reply must not stop the next commands
+                log(f"command {cmd} failed: {type(e).__name__}: {e}")
+                reply = "Qualcosa non ha funzionato con questo comando. Il dettaglio è nell'app."
+            reply = reply or (commands.HELP if cmd.startswith("/") else None)
+        if not reply:
+            continue
+        for part in split_message(reply):
+            send_text(part)
     save_state(st)
 
 

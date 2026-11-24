@@ -2,8 +2,8 @@
 title: Alert su Telegram
 kind: uscita
 status: servizio acceso
-brief: Setup, forti movimenti, reset, tensione e opzioni ogni giorno. La direzione e il test solo dove il test ha retto. Risponde a /piano.
-code: bzd/alerts.py#cycle, bzd/alerts.py#detect, bzd/alerts.py#build_alert, bzd/alerts.py#format_item, bzd/alerts.py#price_clash, bzd/alerts.py#send_text
+brief: Setup, forti movimenti, reset, tensione e opzioni ogni giorno. La direzione e il test solo dove il test ha retto. Risponde a /piano e ai comandi di lettura (/oggi, /ticker, /alert, /bot, /test).
+code: bzd/alerts.py#cycle, bzd/alerts.py#poll_commands, bzd/commands.py#answer, bzd/alerts.py#detect, bzd/alerts.py#build_alert, bzd/alerts.py#format_item, bzd/alerts.py#price_clash, bzd/alerts.py#send_text
 data: data/alerts
 fresh: live
 ---
@@ -16,3 +16,6 @@ Il servizio (`.venv/bin/python -u -m bzd.alerts run`) ripete `bzd/alerts.py#cycl
 5. invia e registra tutto in `data/alerts/log.jsonl`.
 
 Ogni giorno alle 6 UTC parte la [[tensione]], e il messaggio delle [[opzioni]].
+
+## Comandi
+`bzd/alerts.py#poll_commands` risponde solo alla chat dell'utente. `/piano` fa il [[piano]]. Gli altri comandi (`bzd/commands.py#answer`) leggono gli stessi dati dell'[[app]] dal suo indirizzo locale, così Telegram e app dicono le stesse cose: `/oggi`, `/ticker MERCATO`, `/alert`, `/bot`, `/test` e `/aiuto`. Sono tutti in sola lettura: pausa e chiusura del [[bot-deribit]] restano nell'app. Un comando sconosciuto riceve l'elenco; il testo libero è ignorato.
