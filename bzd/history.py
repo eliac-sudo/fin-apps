@@ -1,12 +1,13 @@
 """Download and clean past data for every market class. Needs pandas. Re-running skips finished series.
 
-    python -m bzd.history get [group ...]     crypto tradfi vol cot macro attention
+    python -m bzd.history get [group ...]     crypto tradfi vol cot macro attention positions
     python -m bzd.history coverage
 
 Raw responses go to hist/raw with a hash in hist/manifest.jsonl. Clean tables go to hist/<group>/<name>.csv.gz.
 """
-import gzip, hashlib, io, json, os, sys, time, urllib.error, urllib.parse, urllib.request
-from datetime import datetime, timezone
+import gzip, hashlib, io, json, os, sys, time, urllib.error, urllib.parse, urllib.request, zipfile
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -35,7 +36,11 @@ IV_START = "2019-02"
 DOLTHUB = "https://www.dolthub.com/api/v1alpha1/post-no-preference/options/master?q="
 FRED = ["DFF", "DGS2", "DGS10", "T10Y2Y", "BAMLH0A0HYM2", "DTWEXBGS", "EVZCLS"]
 WIKI = ["Bitcoin", "Cryptocurrency", "Stock_market_crash", "Recession", "Inflation", "Gold_as_an_investment"]
-GAPS = {"www.dolthub.com": 2, "cdn.cboe.com": 20, "query1.finance.yahoo.com": 2, "api.stlouisfed.org": 1, "publicreporting.cftc.gov": 1.5}
+POSITIONS_START, POSITIONS_REFILL_DAYS, POSITIONS_BLOCK, POSITIONS_THREADS = "2021-12-01", 30, 120, 4  # Binance's metrics files start in December 2021
+KLINE_PAGE = {"spot": 1000, "perp": 1500}
+COT_FUNDS = {"equities": ("gpe5-46if", "lev_money_positions_long", "lev_money_positions_short"), "bonds": ("gpe5-46if", "lev_money_positions_long", "lev_money_positions_short"), "fx": ("gpe5-46if", "lev_money_positions_long", "lev_money_positions_short"),
+             "commodities": ("72hh-3qpy", "m_money_positions_long_all", "m_money_positions_short_all")}
+GAPS = {"data.binance.vision": .05, "www.dolthub.com": 2, "cdn.cboe.com": 20, "query1.finance.yahoo.com": 2, "api.stlouisfed.org": 1, "publicreporting.cftc.gov": 1.5}
 _last = {}
 
 
@@ -251,6 +256,180 @@ def get_cot(force=False):
         save("cot", n, out.drop_duplicates("report_date"), quiet=force)
 
 
+def position_bars(t, retail_ratio, big_ratio, oi):
+    """Long share of all accounts and of top traders' positions, with open interest, as the last reading of each 4h bar.
+
+    The ratios are long/short, so a share is r / (1 + r). A zero open interest is a gap in the source, not a value.
+    """
+    d = pd.DataFrame({"retail_long": retail_ratio / (1 + retail_ratio), "big_long": big_ratio / (1 + big_ratio), "oi": oi.where(oi > 0)})
+    d["t"] = pd.to_datetime(t, utc=True)
+    d = d.sort_values("t")  # Binance's files aren't in time order
+    d["t"] = d.t.dt.floor("4h")
+    return d.groupby("t", as_index=False).last()
+
+
+def vision_day(asset, day):
+    """One day of Binance's public 5-minute futures metrics, or None if the file doesn't exist. These files are big in number, so the raw zips aren't kept."""
+    url = f"https://data.binance.vision/data/futures/um/daily/metrics/{asset}USDT/{asset}USDT-metrics-{day}.zip"
+    for attempt in range(5):
+        time.sleep(GAPS["data.binance.vision"])
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=60) as r:
+                z = zipfile.ZipFile(io.BytesIO(r.read()))
+            x = pd.read_csv(z.open(z.namelist()[0]))
+            num = lambda c: pd.to_numeric(x[c], errors="coerce")
+            return position_bars(x.create_time, num("count_long_short_ratio"), num("sum_toptrader_long_short_ratio"), num("sum_open_interest"))
+        except urllib.error.HTTPError as e:
+            if e.code in (403, 404):  # the bucket answers 403 or 404 for a file it doesn't hold
+                return None
+        except (OSError, zipfile.BadZipFile, ValueError, KeyError):
+            pass
+        time.sleep(5 * 2 ** attempt)
+    raise RuntimeError(f"positions/{asset}: {day} failed after retries")
+
+
+def position_gaps(old, first, last):
+    """Days from first to last without all six 4h bars."""
+    days = pd.date_range(first, last, freq="D").strftime("%Y-%m-%d")
+    if old is None or old.empty:
+        return list(days)
+    have = pd.to_datetime(old.t, utc=True, format="ISO8601").dt.strftime("%Y-%m-%d").value_counts()
+    return [d for d in days if have.get(d, 0) < 6]
+
+
+def fill_positions(asset, first, quiet=False):
+    """Fetch every missing day since `first`. Yesterday may not be published yet, and a later run picks it up."""
+    p = root() / "positions" / f"{asset}.csv.gz"
+    old = pd.read_csv(p) if p.exists() else None
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
+    days = position_gaps(old, first, yesterday)
+    # Saved in blocks, so a long download can stop and resume. The files are static, so a few at once is fine.
+    for i in range(0, len(days), POSITIONS_BLOCK):
+        with ThreadPoolExecutor(POSITIONS_THREADS) as pool:
+            new = [d.assign(t=d.t.astype(str)) for d in pool.map(lambda day: vision_day(asset, day), days[i:i + POSITIONS_BLOCK]) if d is not None]
+        if new:
+            old = merge_tail(pd.DataFrame(columns=new[0].columns) if old is None else old, pd.concat(new), "t").assign(t=lambda x: x.t.astype(str))
+            save("positions", asset, old, quiet=True)
+    return old
+
+
+def cftc(name, sym, resource, code, fields):
+    q = {"cftc_contract_market_code": code, "$limit": 50000, "$order": "report_date_as_yyyy_mm_dd", "$select": ",".join(("report_date_as_yyyy_mm_dd", *fields))}
+    return pd.DataFrame(json.loads(get(name, safe(sym), 0, f"https://publicreporting.cftc.gov/resource/{resource}.json?" + urllib.parse.urlencode(q))))
+
+
+def cot_positions(sym, klass, code):
+    """Small traders and funds from the COT reports, kept apart from the files the frozen setups read.
+
+    Small traders are positions under the CFTC's reporting limit, from the legacy report. Funds are the purest group each detailed report has:
+    leveraged funds for financial futures, managed money for commodities. Those reports start in June 2006.
+    """
+    d = cftc("cot_small", sym, "6dca-aqww", code, ("open_interest_all", "nonrept_positions_long_all", "nonrept_positions_short_all"))
+    if d.empty:
+        return None
+    resource, long_col, short_col = COT_FUNDS[klass]
+    f = cftc("cot_funds", sym, resource, code, (long_col, short_col))
+    if not f.empty:
+        d = d.merge(f.rename(columns={long_col: "big_long", short_col: "big_short"}), on="report_date_as_yyyy_mm_dd", how="left")
+    rep = pd.to_datetime(d.report_date_as_yyyy_mm_dd)
+    out = pd.DataFrame({"report_date": rep.dt.strftime("%Y-%m-%d"), "available": cot_available(rep).dt.strftime("%Y-%m-%d"), "oi": pd.to_numeric(d.open_interest_all),
+                        "small_long": pd.to_numeric(d.nonrept_positions_long_all), "small_short": pd.to_numeric(d.nonrept_positions_short_all)})
+    for c in ("big_long", "big_short"):
+        out[c] = pd.to_numeric(d[c]) if c in d else float("nan")
+    return out.drop_duplicates("report_date")
+
+
+def kline_rows(url, name, group, tag, limit, start=None):
+    """Pages of Binance candles: (open time, close time, quote volume, taker-buy quote volume)."""
+    rows, i = [], 0
+    while True:
+        x = json.loads(get(group, name, tag + i, url + f"&limit={limit}" + (f"&startTime={start}" if start else "")))
+        rows += [(k[0], k[6], float(k[7]), float(k[10])) for k in x]
+        i += 1
+        if start is None or len(x) < limit:
+            return rows
+        start = x[-1][0] + 1
+
+
+def taker_table(asset, tag=0, limit=None, start=None):
+    """Dollars bought and sold by whoever crossed the spread, per 4h bar, on Binance spot and futures. Only closed bars."""
+    now_ms, parts = int(time.time() * 1000), {}
+    urls = {"spot": f"https://api.binance.com/api/v3/klines?interval=4h&symbol={asset}USDT", "perp": f"https://fapi.binance.com/fapi/v1/klines?interval=4h&symbol={asset}USDT"}
+    for venue, url in urls.items():
+        rows = [r for r in kline_rows(url, f"{asset}_{venue}", "positions", tag, limit or KLINE_PAGE[venue], start) if r[1] < now_ms]
+        parts[venue] = pd.DataFrame([(r[0], r[2], r[3]) for r in rows], columns=["t", f"{venue}_vol", f"{venue}_buy"]).set_index("t")
+    d = parts["perp"].join(parts["spot"], how="outer").reset_index()
+    d["t"] = to_utc(d.t).astype(str)
+    return d
+
+
+def bybit_rows(asset, tag=0, limit=500, start=None):
+    """Bybit's share of long accounts. A reading is taken at its timestamp, so it closes the bar before: its changes match Binance's best one bar earlier (0.85 on BTC)."""
+    rows, cur, i = [], "", 0
+    span = f"&startTime={start}&endTime={int(time.time() * 1000)}" if start else ""
+    while True:
+        q = f"https://api.bybit.com/v5/market/account-ratio?category=linear&symbol={asset}USDT&period=4h&limit={limit}{span}"
+        x = json.loads(get("positions", f"{asset}_bybit", tag + i, q + (f"&cursor={urllib.parse.quote(cur, safe='')}" if cur else "")))["result"]
+        rows += [(int(k["timestamp"]), float(k["buyRatio"])) for k in x["list"]]
+        i, cur = i + 1, x.get("nextPageCursor")
+        if not start or not x["list"] or not cur:
+            break
+    d = pd.DataFrame(rows, columns=["t", "bybit_long"]).drop_duplicates("t").sort_values("t")
+    d["t"] = (to_utc(d.t) - pd.Timedelta(hours=4)).astype(str)
+    return d
+
+
+def get_positions_cot():
+    for sym, (klass, code) in MARKETS.items():
+        d = cot_positions(sym, klass, code)
+        if d is not None:
+            save("positions", safe(sym), d, quiet=True)
+
+
+def get_positions():
+    """Who holds what: small traders on the COT markets, Binance accounts against top traders on crypto. Resumes where it stopped."""
+    get_positions_cot()
+    first_ms = int(pd.Timestamp(POSITIONS_START, tz="UTC").timestamp() * 1000)
+    for a in CRYPTO:
+        fill_positions(a, POSITIONS_START)
+        if not done("positions", f"{a}_taker"):
+            save("positions", f"{a}_taker", taker_table(a, start=first_ms))
+        if not done("positions", f"{a}_bybit"):
+            save("positions", f"{a}_bybit", bybit_rows(a, start=first_ms))
+
+
+def recent_positions(asset, now_ms):
+    """The last 41 hours from Binance's API, so today is covered before its file is published. Only closed bars."""
+    base = "https://fapi.binance.com/futures/data/"
+    q = f"?symbol={asset}USDT&period=5m&limit=500"
+    tag = int(now_ms / 1000)
+    retail = pd.DataFrame(json.loads(get("live", f"{asset}_accounts", tag, base + "globalLongShortAccountRatio" + q)))
+    big = pd.DataFrame(json.loads(get("live", f"{asset}_top", tag, base + "topLongShortPositionRatio" + q)))
+    oi = pd.DataFrame(json.loads(get("live", f"{asset}_oi", tag, base + "openInterestHist" + q)))
+    x = retail[["timestamp", "longShortRatio"]].merge(big[["timestamp", "longShortRatio"]], on="timestamp", suffixes=("_r", "_b")).merge(oi[["timestamp", "sumOpenInterest"]], on="timestamp", how="left")
+    d = position_bars(to_utc(x.timestamp), pd.to_numeric(x.longShortRatio_r), pd.to_numeric(x.longShortRatio_b), pd.to_numeric(x.sumOpenInterest))
+    return d[d.t + pd.Timedelta(hours=4) <= pd.Timestamp(now_ms, unit="ms", tz="UTC")]
+
+
+def refresh_positions():
+    """Fill recent holes from the daily files and add today from the API. A failure here must not stop the price refresh."""
+    now = datetime.now(timezone.utc)
+    first, now_ms = (now - timedelta(days=POSITIONS_REFILL_DAYS)).strftime("%Y-%m-%d"), int(now.timestamp() * 1000)
+    for a in CRYPTO:
+        if not done("positions", a):
+            continue  # the first download is run by hand, not by the refresh
+        try:
+            old = fill_positions(a, first, quiet=True)
+            d = recent_positions(a, now_ms)
+            save("positions", a, merge_tail(old, d.assign(t=d.t.astype(str)), "t").assign(t=lambda x: x.t.astype(str)), quiet=True)
+            tag = int(now.timestamp())
+            for name, new in ((f"{a}_taker", taker_table(a, tag, limit=60)), (f"{a}_bybit", bybit_rows(a, tag, limit=60))):
+                both = merge_tail(pd.read_csv(root() / "positions" / f"{name}.csv.gz"), new, "t")
+                save("positions", name, both.assign(t=lambda x: x.t.astype(str)), quiet=True)
+        except Exception as e:
+            print(f"  positions/{a} not refreshed: {type(e).__name__}", flush=True)
+
+
 def dolthub_iv_month(sym, month):
     """One month of implied and realized volatility. Filtered by date and symbol, because wider queries time out."""
     y, m = map(int, month.split("-"))
@@ -356,6 +535,7 @@ def refresh_crypto():
         x = json.loads(get("live", n, tag, f"https://api.bybit.com/v5/market/open-interest?category=linear&symbol={a}USDT&intervalTime=4h&limit=60"))["result"]["list"]
         d = pd.DataFrame({"t": to_utc(pd.Series([int(k["timestamp"]) for k in x])).astype(str), "oi": [float(k["openInterest"]) for k in x]})
         save("crypto", n, merge_tail(pd.read_csv(root() / "crypto" / f"{n}.csv.gz"), d, "t"), quiet=True)
+    refresh_positions()
 
 
 def get_macro_fng_and_attention():
@@ -385,9 +565,13 @@ def refresh_daily(with_cot=False):
         print(f"  implied volatility not refreshed: {e}", flush=True)
     if with_cot:
         get_cot(force=True)
+        try:
+            get_positions_cot()
+        except Exception as e:
+            print(f"  small traders not refreshed: {type(e).__name__}", flush=True)
 
 
-GROUPS = {"crypto": get_crypto, "tradfi": get_tradfi, "vol": get_vol, "iv": get_iv, "cot": get_cot, "macro": get_macro, "attention": get_attention}
+GROUPS = {"crypto": get_crypto, "tradfi": get_tradfi, "vol": get_vol, "iv": get_iv, "cot": get_cot, "macro": get_macro, "attention": get_attention, "positions": get_positions}
 
 
 def quality(df):

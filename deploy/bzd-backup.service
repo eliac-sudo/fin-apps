@@ -1,0 +1,8 @@
+[Unit]
+Description=BZD backup of data
+
+[Service]
+Type=oneshot
+User=bzd
+WorkingDirectory=/opt/bzd
+ExecStart=/usr/bin/bash scripts/backup.sh

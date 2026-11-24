@@ -82,17 +82,3 @@ def crypto_daily(asset):
         return None
     d = d.assign(date=pd.to_datetime(d.t.str[:10], utc=True)).sort_values("t")
     return d.drop_duplicates("date", keep="last").set_index("date")
-
-
-def vol_series(name, index):
-    x = read("vol", name)
-    if x is None:
-        x = read("tradfi", name)
-    if x is not None:
-        v = daily(x).close
-    else:
-        y = read("macro", name)
-        if y is None:
-            return None
-        v = daily(y).value
-    return v.reindex(index, method="ffill", tolerance=pd.Timedelta(days=5))

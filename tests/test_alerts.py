@@ -2,10 +2,9 @@ import json, os, tempfile, unittest
 from pathlib import Path
 from unittest import mock
 
-import numpy as np
 import pandas as pd
 
-from bzd import alerts as A, history as H, setups as S
+from bzd import alerts as A, history as H
 
 NOW = pd.Timestamp("2026-11-04 12:00", tz="UTC")
 
@@ -79,6 +78,19 @@ class TestMessages(unittest.TestCase):
             for word in ("95.0000", "115.0000", "stop", "Ingresso", "/piano", "3R", "valuta di ridurla"):
                 self.assertNotIn(word, t.lower() if word == "stop" else t)
 
+    def test_alert_says_which_way_it_leans_and_how_far_the_test_backs_it(self):
+        self.assertIn("Potenziale long", A.format_group([alert()]))
+        self.assertIn("presa di profitto", A.format_group([alert(setup="overheating")]))
+        self.assertIn("non lo confermano", A.bias_line("commodities", "panic"))
+        self.assertIn("supporto debole", A.bias_line("crypto", "panic"))
+        self.assertIn("in salita il 46%", A.history_line("commodities", "panic"))
+        self.assertIn("5 sedute", A.history_line("commodities", "panic"))
+        self.assertIn("24 ore", A.history_line("crypto", "panic"))
+
+    def test_context_failure_never_loses_an_alert(self):
+        with mock.patch.object(A.K, "analyze", side_effect=ValueError):
+            self.assertIn("PANICO", A.format_group([alert()]))
+
     def test_position_failure_never_loses_an_alert(self):
         with mock.patch.object(A, "market_position", side_effect=ValueError):
             self.assertIn("PANICO", A.format_group([alert()]))
@@ -149,6 +161,35 @@ class TestVerdict(unittest.TestCase):
         self.assertIn("NON superato", A.test_verdict("crypto", "squeeze"))
         self.assertIn("non informativo", A.test_verdict("bonds", "panic"))
         self.assertIn("NON VALIDATO", A.test_verdict("crypto", "other"))
+
+    def test_number_shown_once(self):
+        self.assertIn("rispetto a ingressi casuali", A.test_verdict("crypto", "panic"))
+        self.assertNotIn("%", A.test_verdict("crypto", "panic", number=False))
+
+
+class TestItem(unittest.TestCase):
+    def item(self, setup, label):
+        a = {"market": "X", "setup": setup, "z": 2.0, "met": ["volume_high"], "not_met": ["spec_low"], "unknown": ["oi_rising"]}
+        pos = {"label": label, "from_high": -5.0, "from_low": 30.0}
+        with mock.patch.object(A, "safe_position", return_value=pos), mock.patch.object(A.K, "context_line", return_value=""):
+            return A.format_item(a)
+
+    def test_counts_and_names_what_is_missing(self):
+        t = self.item("squeeze", "nella media")
+        self.assertIn("Conferme: 1 su 3: volume alto", t)
+        self.assertIn("Mancano: speculatori poco esposti", t)
+        self.assertNotIn("In contrasto", t)
+
+    def test_warns_when_lean_and_price_disagree(self):
+        self.assertIn("long, ma il prezzo è già molto caro", self.item("squeeze", "molto caro"))
+        self.assertIn("presa di profitto, ma il prezzo è economico", self.item("overheating", "economico"))
+        self.assertNotIn("In contrasto", self.item("panic", "economico"))
+
+    def test_flags_the_reversed_cot_sign_on_three_pairs(self):
+        a = {"market": "USDJPY=X", "setup": "panic", "z": -3.1, "met": ["spec_low"], "not_met": ["vol_index_high"], "unknown": []}
+        with mock.patch.object(A, "safe_position", return_value=None), mock.patch.object(A.K, "context_line", return_value=""):
+            self.assertIn("COT al contrario", A.format_item(a))
+            self.assertNotIn("COT al contrario", A.format_item({**a, "market": "EURUSD=X"}))
 
 
 class TestDelivery(unittest.TestCase):

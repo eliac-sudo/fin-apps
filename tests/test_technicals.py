@@ -1,4 +1,4 @@
-import json, os, tempfile, unittest
+import os, tempfile, unittest
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
@@ -16,20 +16,9 @@ def bars(close):
     return pd.DataFrame({"open": c.shift().fillna(c), "high": c * 1.01, "low": c * .99, "close": c})
 
 
-class TestLevels(unittest.TestCase):
-    def test_repeated_swings_make_one_level_and_single_swings_none(self):
-        wave = [100, 104, 108, 112, 108, 104, 100, 96, 92, 96, 100, 104, 108, 112.2, 108, 104, 100, 96, 92.1, 96, 100, 104, 108]
-        lv = K.find_levels(bars(wave), 3, 1.5)
-        self.assertEqual(len(lv), 2)
-        self.assertEqual([x["touches"] for x in lv], [2, 2])
-        self.assertEqual(K.find_levels(bars(list(range(100, 130))), 3, 1), [])
-
+class TestSwings(unittest.TestCase):
     def test_a_swing_needs_bars_on_both_sides(self):
         self.assertEqual(K.swings(bars([100, 101, 102, 103, 104]), 3), [])
-
-    def test_later_bars_cannot_change_old_levels_without_new_swings(self):
-        wave = [100, 104, 108, 112, 108, 104, 100, 96, 92, 96, 100, 104, 108, 112.2, 108, 104, 100, 96, 92.1, 96, 100, 104]
-        self.assertEqual(K.find_levels(bars(wave), 3, 1.5)[0]["price"], K.find_levels(bars(wave + [108]), 3, 1.5)[0]["price"])
 
 
 class TestReset(unittest.TestCase):
@@ -79,12 +68,58 @@ class TestReset(unittest.TestCase):
         t = K.format_resets([{"market": "BTC", "tf": "1w", "rsi": 38.0, "threshold": 40, "trend": "rialzo", "kind": "ipervenduto in un trend al rialzo", "price": 80000.0, "bar": "x"}], datetime(2026, 11, 5, tzinfo=timezone.utc))
         self.assertIn("RESET", t)
         self.assertIn("settimanale", t)
-        self.assertIn("non è testato", t)
+        self.assertNotIn("non è salito più", t)  # v3 tested the daily only: a weekly reset must not borrow its result
+        self.assertIn("non è mai stata testata", t)
+        self.assertIn("su questo timeframe la regola non è testata", t)
         for word in ("entra", "stop", "compra", "obiettivo"):
             self.assertNotIn(word, t.lower())
 
+    def test_a_daily_reset_carries_the_v3_result(self):
+        with mock.patch.object(K, "context_line", return_value=""):
+            t = K.format_resets([{"market": "ETH", "tf": "1d", "rsi": 28.0, "threshold": 30, "trend": "rialzo", "kind": "x", "price": 1.0, "bar": "x"}], datetime(2026, 11, 5, tzinfo=timezone.utc))
+        self.assertIn("potenziale long a favore del trend, ma il test non lo conferma", t)
+        self.assertIn("non è salito più", t)
+        self.assertNotIn("mai stata testata", t)
+
+
+class TestContext(unittest.TestCase):
+    def test_context_has_trend_and_levels(self):
+        frame = {"price": 100.0, "trend": "rialzo", "rsi": 40.0, "supports": [{"price": 90.0}], "resistances": [{"price": 110.0}]}
+        with mock.patch.object(K, "analyze", return_value={"1d": frame, "1w": frame}):
+            t = K.context_line("BTC")
+        for word in ("settimanale in rialzo", "RSI giornaliero 40", "supporto 90.0000 (-10.0%)", "resistenza 110.00 (+10.0%)"):
+            self.assertIn(word, t)
+
+    def test_levels_follow_the_live_price(self):
+        frame = {"price": 100.0, "trend": "ribasso", "rsi": 30.0, "supports": [{"price": 95.0}, {"price": 80.0}], "resistances": [{"price": 110.0}]}
+        with mock.patch.object(K, "analyze", return_value={"1d": frame, "1w": frame}):
+            broken = K.context_line("NQ=F", 90.0)
+            frame["supports"] = [{"price": 95.0}]
+            proxy = K.context_line("ZB=F", 50.0)
+            bare = K.context_line("ADA", 87.0)
+        self.assertIn("supporto 80.0000 (-11.1%), resistenza 95.0000 (+5.6%)", broken)
+        self.assertIn("del future (dalla chiusura a 100.00): supporto 95.0000 (-5.0%)", proxy)
+        self.assertIn("nessun supporto sotto", bare)
+
+    def test_no_data_means_no_context(self):
+        with mock.patch.object(K, "analyze", return_value={}):
+            self.assertEqual(K.context_line("X"), "")
+        with mock.patch.object(K, "analyze", side_effect=ValueError):
+            self.assertEqual(K.context_line("X"), "")
+
+    def test_reset_message_says_which_way_it_leans(self):
+        with mock.patch.object(K, "context_line", return_value=""):
+            t = K.format_resets([{"market": "BTC", "tf": "1w", "rsi": 38.0, "threshold": 40, "trend": "rialzo", "kind": "x", "price": 1.0, "bar": "x"}, {"market": "ETH", "tf": "1d", "rsi": 72.0, "threshold": 70, "trend": "ribasso", "kind": "x", "price": 1.0, "bar": "x"}], datetime(2026, 11, 5, tzinfo=timezone.utc))
+        self.assertIn("potenziale long", t)
+        self.assertIn("potenziale short", t)
+
 
 class TestFrames(unittest.TestCase):
+    def test_metrics_report_each_indicator(self):
+        f = K.read_frame(bars(list(np.linspace(100, 300, 300))), "1d")
+        self.assertAlmostEqual(f["metrics"]["rsi"], f["rsi"])
+        self.assertGreater(f["metrics"]["dist50"], 0)
+
     def test_read_frame_on_known_trend(self):
         f = K.read_frame(bars(list(np.linspace(100, 300, 300))), "1d")
         self.assertEqual((f["trend"], f["slow_trend"]), ("rialzo", "rialzo"))

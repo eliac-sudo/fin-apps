@@ -24,7 +24,7 @@ from . import history as H
 from .events import first_of_runs, ret_z
 from .recorder import BASE, UA, load_env
 from .setups import all_markets, config_hash, load_config, load_crypto, load_daily
-from .thermo import LABELS as THERMO_LABELS, market_position, position_text
+from .thermo import COT_AGAINST_PAIR, LABELS as THERMO_LABELS, market_position, position_text
 
 MIN_SCORE_TO_SEND = 0  # every trigger is sent, also price alone: about 7 messages a week over the last 12 months
 MAX_AGE = {"4h": pd.Timedelta(hours=8), "1d": pd.Timedelta(days=4)}  # older triggers are stale, e.g. after a pause
@@ -138,8 +138,8 @@ def build_alert(cls, market, setup, trigger, price_df, conds, config, bar, now):
     }
 
 
-def test_verdict(cls, setup):
-    """What the one pre-registered test said about this class and setup."""
+def test_verdict(cls, setup, number=True):
+    """What the one pre-registered test said about this class and setup. Without the number when the history line already gives it."""
     p = BASE / "config" / "validation_v1.json"
     if not p.exists():
         return "⚠️ NON VALIDATO: il test finale non è ancora stato fatto."
@@ -147,14 +147,48 @@ def test_verdict(cls, setup):
     if not t:
         return "⚠️ NON VALIDATO: questo setup non è nel test."
     if t["outcome"] == "supportata":
-        return f"✅ Test superato di poco: {100 * t['mean']:+.2f}% su ingressi casuali, media di {t['clusters']} episodi. Effetto piccolo, non regge alla soglia più severa, e può essere un falso positivo."
+        gain = f": {100 * t['mean']:+.2f}% rispetto a ingressi casuali," if number else ","
+        return f"✅ Test superato di poco{gain} su {t['clusters']} episodi. Effetto piccolo, non regge alla soglia più severa, e può essere un falso positivo."
     if t["outcome"] == "non supportata":
         return f"❌ Test NON superato: nessun vantaggio dimostrato su ingressi casuali ({t['clusters']} episodi)."
     return f"❓ Test non informativo: troppi pochi episodi per dirlo ({t['clusters']})."
 
 
-def fmt_price(x):
-    return f"{x:,.2f}" if x >= 100 else f"{x:.4f}" if x >= 1 else f"{x:.6f}"
+def tested(cls, setup):
+    p = BASE / "config" / "validation_v1.json"
+    return json.loads(p.read_text())["tests"].get(f"{cls}/{setup}") if p.exists() else None
+
+
+def bias_line(cls, setup):
+    """The way this setup leans, and how far the test backs it. It's a reading, not an instruction."""
+    lean = {"panic": "📈 <b>Potenziale long</b>", "squeeze": "📈 <b>Potenziale long</b>", "overheating": "📉 <b>Potenziale presa di profitto</b>"}[setup]
+    t = tested(cls, setup)
+    outcome = t["outcome"] if t else None
+    return lean + {"supportata": ", con un supporto debole dai test.", "non supportata": ", ma i test non lo confermano.", "non informativa": ", ma i casi sono troppo pochi per dirlo."}.get(outcome, ".")
+
+
+def history_line(cls, setup):
+    """What followed similar cases in the test period."""
+    t = tested(cls, setup)
+    if not t or t.get("share_up") is None or t.get("mean") is None:
+        return None
+    after = "24 ore" if cls == "crypto" else "5 sedute"
+    return f"In passato, dopo {after}: in salita il {100 * t['share_up']:.0f}% delle volte, {100 * t['mean']:+.2f}% rispetto a ingressi casuali ({t['clusters']} episodi)."
+
+
+LEAN_UP = {"panic": True, "squeeze": True, "overheating": False}
+
+
+def price_clash(setup, pos):
+    """A warning when the lean and the price point opposite ways, such as a long on a market already dear. The test didn't measure which matters more."""
+    if not pos:
+        return None
+    up, label = LEAN_UP[setup], pos["label"]
+    if up and label in ("caro", "molto caro"):
+        return f"  ⚠️ In contrasto: spinge verso un long, ma il prezzo è già {label} rispetto all'ultimo anno. Il test non dice quale dei due pesa di più."
+    if not up and label in ("economico", "molto economico"):
+        return f"  ⚠️ In contrasto: spinge verso una presa di profitto, ma il prezzo è {label} rispetto all'ultimo anno. Il test non dice quale dei due pesa di più."
+    return None
 
 
 def format_item(a):
@@ -167,22 +201,41 @@ def format_item(a):
     f = a.get("fresh") or {}
     if f.get("bars_since_trigger"):
         out.append(f"  Da allora: {f['move_since_trigger_pct']:+.1f}%")
-    if a["met"]:
-        out.append("  Conferme: " + ", ".join(COND_IT[n] for n in a["met"]))
+    context = K.context_line(a["market"])
+    if context:
+        out.append(context)
+    clash = price_clash(a["setup"], pos)
+    if clash:
+        out.append(clash)
+    total = len(a["met"]) + len(a["not_met"]) + len(a["unknown"])
+    if total:
+        out.append(f"  Conferme: {len(a['met'])} su {total}" + (": " + ", ".join(COND_IT[n] for n in a["met"]) if a["met"] else ""))
+    if a["not_met"]:
+        out.append("  Mancano: " + ", ".join(COND_IT[n] for n in a["not_met"]))
     if a["unknown"]:
         out.append("  Non ancora noto: " + ", ".join(COND_IT[n] for n in a["unknown"]))
+    if cot_reversed(a):
+        out.append("  ⚠️ Su questa coppia le regole congelate leggono il COT al contrario: la conferma sugli speculatori va letta girata.")
     return "\n".join(out)
+
+
+def cot_reversed(a):
+    """True when a frozen v1 rule read the COT sign the wrong way for this pair. The rule stays frozen; the message says so."""
+    return a["market"] in COT_AGAINST_PAIR and any(n in ("spec_low", "spec_high") for n in a["met"] + a["not_met"])
 
 
 def format_group(alerts, review=None):
     """One message per class and setup, so a market-wide move doesn't send nine."""
     a0 = alerts[0]
     setup = a0["setup"]
-    lines = [f"🧪 <b>{SETUP_IT[setup]}</b> · {CLASS_IT.get(a0['class'], a0['class'])}", SETUP_MEANS[setup], f"Trigger {a0['trigger'][:16].replace('T', ' ')} UTC", ""]
+    lines = [f"🧪 <b>{SETUP_IT[setup]}</b> · {CLASS_IT.get(a0['class'], a0['class'])}", SETUP_MEANS[setup], bias_line(a0["class"], setup), f"Trigger {a0['trigger'][:16].replace('T', ' ')} UTC", ""]
     lines += [format_item(a) for a in alerts] + [""]
     if review:
         lines += [format_review(review), ""]
-    lines.append(test_verdict(a0["class"], setup))
+    history = history_line(a0["class"], setup)
+    if history:
+        lines.append(history)
+    lines.append(test_verdict(a0["class"], setup, number=not history))
     options = safe_options([(a["class"], a["market"]) for a in alerts])
     if options:
         lines += ["", options, ""]
@@ -215,6 +268,7 @@ def check_moves(st, telegram_on, now=None, root=None, sigma=M.market_sigma):
     for m in moves:
         pos = safe_position(m["market"])
         m["position"] = position_text(pos) if pos else None
+        m["context"] = K.context_line(m["market"], m["mark"])
     if moves:
         alert_dir().mkdir(parents=True, exist_ok=True)
         with open(alert_dir() / "moves.jsonl", "a") as f:
@@ -303,7 +357,7 @@ def telegram_ready():
 
 
 def sending_enabled():
-    """Off until the agents review alerts first: the user wants nothing raw on Telegram, so it takes an explicit switch."""
+    """Telegram needs both the bot settings and an explicit switch."""
     return telegram_ready() and os.environ.get("BZD_ALERTS_TELEGRAM") == "on"
 
 

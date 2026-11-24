@@ -1,0 +1,32 @@
+# Registro
+
+Le modifiche al motore, dalla più recente. Il dettaglio è nella storia di git; com'è il programma adesso sta in `docs/STATO.md`.
+
+- **2026-11-24** · Il [[bot-deribit]] copre solo alle 08:00, come testato: la copertura d'emergenza, simulata ora per ora, peggiorava media e coda. Simulati anche i raddoppi tutto o niente (`docs/RADDOPPI.md`).
+- **2026-11-24** · Nuova scheda BOTS: stato del [[bot-deribit]] e comandi di pausa, dimensione e chiusura d'emergenza.
+- **2026-11-24** · Il [[bot-deribit]] ora fa solo lo strangle BTC venduto da maker e coperto sul perpetuo, l'unica variante che ha retto; i filtri provati non la migliorano. Put spread e garanzia in moneta tolti.
+- **2026-11-24** · Storico della vendita di volatilità su prezzi veri Deribit dal 2019: il put spread del [[bot-deribit]] non guadagna al netto dei costi. Il bot gira sul testnet.
+- **2026-11-23** · Nasce il [[bot-deribit]]: vende put spread su BTC in USDC con rischio definito, compra l'ala prima di vendere, ripara da solo una put scoperta, si ferma dopo un drawdown del 15%. Gira sul testnet; il conto vero è spento.
+- **2026-11-23** · Reset: v3 ha testato solo il giornaliero (RSI 30/70). Alert e app ora lo dicono: su settimanale e mensile (40/60) «non testato», invece di prendere in prestito l'esito del giornaliero. La frase di Oggi nomina il timeframe. Negli alert forex su USD/JPY, USD/CHF e USD/CAD un avviso dice che le regole congelate leggono il COT al contrario.
+- **2026-11-23** · Ogni frase di Oggi e della pagina del ticker porta l'esito del suo test in un'etichetta: poche parole, la frase intera al passaggio del mouse, un clic apre la scheda Test. Le letture mai testate da sole (BYZ, RSI agli estremi, livelli di chi compra, sentiment) dicono «non testato». O2 dice che il netto resta −1%, non più solo «test superato».
+- **2026-11-07** · Pulizia e velocità: il modello delle opzioni usa una CDF normale veloce e il gradiente esatto di SVI, e i dati dell'app si ricostruiscono in circa 30 secondi invece di 60, con gli stessi risultati ([[opzioni]]). Via codice e stili non più usati. `docs/STATO.md` riscritto come stato attuale, senza cronaca.
+- **2026-11-07** · App più chiara: «tensione» diventa «forza», con ipervenduto, sotto la norma, nella norma, sopra la norma, ipercomprato ([[tensione]]). Il momentum si legge «scende forte» e «sale forte» ([[zone]]). BYZ torna come segnale a sé, la [[capitolazione]], non testato. Ogni ticker apre una pagina che riassume le schede. Tutti i test, con ipotesi e risultati, stanno nella scheda Test. Sentiment anche sui 7 giorni.
+- **2026-11-06** · Portafogli Hyperliquid: solo profittevoli e vault, con il dettaglio di ogni conto e la strategia ricostruita dai fill ([[portafogli-hl]]).
+- **2026-11-06** · «Chi compra» rifatta: chi è long e chi è short rispetto ai propri ultimi 3 anni, al posto di chi compra il dip ([[chi-compra]]).
+- **2026-11-06** · Test v5: BYZ e SZT come il vecchio nome, agli estremi e sul mensile, non reggono su 99 azioni nuove ([[v5]]). I tag restano momentum, MOM↓ e MOM↑.
+- **2026-11-06** · Test v4: BYZ e SZT letti come momentum reggono su 50 mercati nuovi, ma il vantaggio è piccolo e non copre i costi dello short ([[v4]]).
+- **2026-11-06** · Nove strategie sulle opzioni in prova sui prezzi veri di Deribit e Cboe ([[opzioni-in-prova]]). Accanto a ogni lettura dell'app e negli alert c'è ora l'esito del test v3.
+- **2026-11-06** · Test storico v3 di 15 letture mai testate: supportata solo «opzioni economiche», le altre no ([[v3]]).
+- **2026-11-06** · Lo stile Arasaka diventa un HUD (vetro nero, luce cremisi, sezioni numerate); font Orbitron, Rajdhani e Share Tech Mono serviti dall'app ([[app]]).
+- **2026-11-06** · Mappa neurale in 3D del motore: retro le fonti, fronte le uscite.
+- **2026-11-06** · Nasce questo wiki. «Chi compra» semplificata: prima chi compra il dip e chi vende il top, il resto nei dettagli.
+- **2026-11-06** · Test storico della v2: comprare dopo l'incrocio della media a 200 sedute non ha vantaggio dal 2008 ([[v2]]).
+- **2026-11-06** · 100 testi da etichettare per validare il conteggio di parole ([[etichette]]).
+- **2026-11-06** · Ricerca di qualunque perpetuo Hyperliquid o ticker Yahoo ([[ricerca-mercati]]).
+- **2026-11-06** · Registrazione dei portafogli vincenti e perdenti di Hyperliquid ([[portafogli-hl]]).
+- **2026-11-06** · Il lettore della letteratura gira su Haiku, il supervisore su Opus ricontrolla le note ([[ricerca]]).
+- **2026-11-06** · Negli alert i livelli partono dal prezzo live; conferme «0 su 3» e avviso «in contrasto» ([[alert-telegram]]).
+- **2026-11-05** · Scheda «Chi compra», catalogo dei lavori, agenti di ricerca, kit per il server ([[chi-compra]]).
+- **2026-11-05** · Misurato l'errore di segno del COT su tre coppie forex dei setup v1 ([[setup-v1]]).
+- **2026-11-04** · Tag BYZ e SZT su cinque timeframe ([[zone]]). Partono i conteggi di parole del sentiment ([[sentiment]]).
+- **prima** · Test B3 dei setup congelati, eseguito una volta sola ([[test-b3]]).

@@ -1,0 +1,23 @@
+{
+ "name": "v5: BYZ e SZT agli estremi e sul mensile, letti come il loro nome, su singole azioni USA mai usate",
+ "why": "Nel v4 BYZ sotto -70 è andato contro lo short (rimbalzo), e nella misura descrittiva del 5 novembre i nomi andavano nel verso giusto solo sul mensile. Osservazioni fatte dopo: vanno verificate su mercati nuovi.",
+ "period": {"from": "2008-01-01", "to": "2026-11-06"},
+ "entry": "apertura della barra dopo il segnale: seduta per il giornaliero, mese per il mensile",
+ "test": {"family_alpha": 0.05, "method": "holm", "baseline_draws": 200, "baseline_seed": 20261108, "min_pool": 20, "bootstrap_reps": 5000, "merge_days": 3, "power_d": 0.30, "power_min": 0.5, "also_report_t": 3.0},
+ "baseline": {"daily": "ingressi casuali sullo stesso titolo nello stesso anno, come v3 e v4", "monthly": "ingressi casuali sullo stesso titolo in tutto il periodo, perché un anno ha solo 12 mesi"},
+ "costs": {"fee_per_side": 0.0, "slippage_per_side": 0.0005},
+ "score": "zones.indicator_score, solo indicatori, la stessa funzione dell'app: impostazioni 1d sulle sedute, 1M sui mesi",
+ "hypotheses": {
+  "E1": {"reading": "BYZ estremo giornaliero", "rule": "punteggio 1d <= -70", "frame": "1d", "trade": "long", "horizon_bars": 10, "alternative": "greater"},
+  "E2": {"reading": "SZT estremo giornaliero", "rule": "punteggio 1d >= +70", "frame": "1d", "trade": "short", "horizon_bars": 10, "alternative": "greater"},
+  "E3": {"reading": "BYZ mensile", "rule": "punteggio 1M <= -50 alla chiusura del mese", "frame": "1M", "trade": "long", "horizon_bars": 3, "alternative": "greater"},
+  "E4": {"reading": "SZT mensile", "rule": "punteggio 1M >= +50 alla chiusura del mese", "frame": "1M", "trade": "short", "horizon_bars": 3, "alternative": "greater"}
+ },
+ "markets": ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "BRK-B", "AVGO", "TSLA", "LLY", "JPM", "V", "UNH", "XOM", "MA", "JNJ", "PG", "HD", "COST", "ORCL",
+             "ABBV", "MRK", "CVX", "WMT", "BAC", "KO", "PEP", "ADBE", "CRM", "NFLX", "TMO", "AMD", "MCD", "CSCO", "ABT", "ACN", "LIN", "DHR", "WFC", "DIS",
+             "TXN", "PM", "INTU", "VZ", "AMGN", "NEE", "IBM", "CAT", "QCOM", "HON", "UNP", "GE", "SPGI", "PFE", "LOW", "RTX", "GS", "AMAT", "CMCSA", "BKNG",
+             "ISRG", "T", "ELV", "NKE", "SYK", "BLK", "MS", "PLD", "ADP", "MDT", "DE", "LMT", "TJX", "SCHW", "CB", "C", "GILD", "BMY", "MMC", "ADI",
+             "VRTX", "REGN", "CI", "MO", "SO", "MU", "LRCX", "BA", "DUK", "ZTS", "PGR", "CVS", "SBUX", "MDLZ", "BSX", "EQIX", "ICE", "CL", "SHW", "ITW"],
+ "source": "Yahoo Finance, candele giornaliere (query1.finance.yahoo.com/v8/finance/chart); il mensile si costruisce dalle sedute, senza il mese in corso",
+ "min_bars": {"1d": 400, "1M": 60}
+}

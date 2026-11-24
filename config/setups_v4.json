@@ -1,0 +1,25 @@
+{
+ "name": "v4: BYZ e SZT letti come momentum, su mercati che il programma non ha mai usato",
+ "why": "Nel test v3 dopo BYZ il prezzo ha continuato a scendere e dopo SZT a salire (t oltre 3). Quell'osservazione è nata sui 30 mercati del programma, quindi va verificata altrove.",
+ "period": {"from": "2008-01-01", "to": "2026-11-06"},
+ "entry": "apertura della seduta dopo il segnale, tenuta per 10 sedute",
+ "test": {"family_alpha": 0.05, "method": "holm", "baseline_draws": 200, "baseline_seed": 20261107, "min_pool": 20, "bootstrap_reps": 5000, "merge_days": 3, "power_d": 0.30, "power_min": 0.5, "also_report_t": 3.0},
+ "costs": {"crypto": {"fee_per_side": 0.001, "slippage_per_side": 0.0005}, "other": {"fee_per_side": 0.0, "slippage_per_side": 0.0003}},
+ "score": "zones.indicator_score sul giornaliero, solo indicatori, la stessa funzione dell'app",
+ "hypotheses": {
+  "N1": {"reading": "BYZ, soglia -50", "rule": "punteggio <= -50", "trade": "short", "horizon_bars": 10, "alternative": "greater"},
+  "N2": {"reading": "SZT, soglia +50", "rule": "punteggio >= +50", "trade": "long", "horizon_bars": 10, "alternative": "greater"},
+  "N3": {"reading": "BYZ da 3 sedute di fila", "rule": "terza seduta consecutiva con punteggio <= -50", "trade": "short", "horizon_bars": 10, "alternative": "greater"},
+  "N4": {"reading": "SZT da 3 sedute di fila", "rule": "terza seduta consecutiva con punteggio >= +50", "trade": "long", "horizon_bars": 10, "alternative": "greater"},
+  "N5": {"reading": "BYZ forte, soglia -70", "rule": "punteggio <= -70", "trade": "short", "horizon_bars": 10, "alternative": "greater"},
+  "N6": {"reading": "SZT forte, soglia +70", "rule": "punteggio >= +70", "trade": "long", "horizon_bars": 10, "alternative": "greater"}
+ },
+ "markets": {
+  "crypto": ["LTC", "BCH", "TRX", "DOT", "ATOM", "XLM", "ETC", "FIL", "NEAR", "UNI", "AAVE", "ALGO", "XTZ", "EOS", "NEO", "ZEC", "DASH", "VET"],
+  "equities": ["XLE", "XLF", "XLK", "XLV", "XLI", "XLP", "XLU", "XLB", "XLY", "EWJ", "EWG", "EWZ", "FXI", "EWU", "EWC", "EWA", "EWW", "EWY", "EWT"],
+  "commodities": ["PL=F", "PA=F", "KC=F", "SB=F", "CC=F", "CT=F", "LE=F", "HE=F"],
+  "fx": ["NZDUSD=X", "EURJPY=X", "EURGBP=X", "USDMXN=X", "USDSEK=X"]
+ },
+ "sources": {"crypto": "Binance spot, candele giornaliere USDT (api.binance.com/api/v3/klines)", "other": "Yahoo Finance, candele giornaliere (query1.finance.yahoo.com/v8/finance/chart)"},
+ "min_bars": 400
+}

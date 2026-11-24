@@ -1,0 +1,35 @@
+{
+  "version": "vol_bot_v1",
+  "frozen": "2026-11-23",
+  "network_default": "test",
+  "structure": "put spread venduto: vendi la put vicina a short_delta, compri l'ala vicina a long_delta, stessa scadenza",
+  "books": [
+    {"name": "btc_usdc", "underlying": "BTC", "settlement": "USDC", "enabled": true},
+    {"name": "btc_btc", "underlying": "BTC", "settlement": "BTC", "enabled": true},
+    {"name": "eth_eth", "underlying": "ETH", "settlement": "ETH", "enabled": false, "why": "dal 2021 il premio sulla volatilità di ETH è circa zero per unità di rischio"}
+  ],
+  "entry": {
+    "short_delta": 0.20,
+    "long_delta": 0.07,
+    "days_range": [21, 45],
+    "target_days": 30,
+    "every_days": 7,
+    "max_spread_frac": 0.15,
+    "min_credit_frac_of_width": 0.08
+  },
+  "risk": {
+    "max_loss_per_trade": 0.03,
+    "max_loss_open": 0.12,
+    "kill_drawdown": 0.15,
+    "coin_stress": 0.5
+  },
+  "exit": {
+    "take_profit_frac": 0.5,
+    "close_days_left": 7
+  },
+  "orders": {
+    "steps": 5,
+    "wait_s": 20
+  },
+  "loop_seconds": 300
+}

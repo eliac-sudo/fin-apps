@@ -1,0 +1,16 @@
+[Unit]
+Description=BZD app, only on the server itself
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=bzd
+WorkingDirectory=/opt/bzd
+ExecStart=/opt/bzd/.venv/bin/python -u -m bzd.app
+Restart=always
+RestartSec=30
+StandardOutput=append:/opt/bzd/data/app.log
+StandardError=append:/opt/bzd/data/app.log
+
+[Install]
+WantedBy=multi-user.target

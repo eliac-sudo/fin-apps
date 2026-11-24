@@ -1,6 +1,6 @@
 # BZD — framework degli agenti (scheda v0.3, 4/11/2026)
 
-Stato: **solo progetto**, nessun codice. Fonti verificate il 4/11/2026 (elenco in fondo). Potenze calcolate in codice
+Stato: **archiviata il 5/11/2026**, superata da `ROADMAP.md` e `docs/STATO.md`. Resta per le fonti e il ragionamento iniziale. Il codice non la segue. Fonti verificate il 4/11/2026 (elenco in fondo). Potenze calcolate in codice
 (`bzd-potenza.py`, seed 42/43). Metodo come DRUCK/TERMINAL e AMBRA: verifica → ipotesi pre-registrate → potenza → limiti.
 Regola dei tre esiti (supportata / non supportata solo se potenza ≥ 50% / non informativa).
 

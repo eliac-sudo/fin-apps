@@ -6,7 +6,6 @@ import pandas as pd
 from bzd import exits as X
 
 CFG = {"calibration_end": "2020-12-31", "merge_days": 1}
-INF_ATR = None
 
 
 def bars(rows):

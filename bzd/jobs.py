@@ -46,7 +46,7 @@ def hl(name, every, **body):
 def all_jobs():
     j = []
     # Option chains: no free history found
-    for t in ("SPY", "_SPX", "GLD", "TLT", "USO", "FXE"):
+    for t in ("SPY", "_SPX", "QQQ", "IWM", "GLD", "SLV", "TLT", "USO", "FXE"):
         j.append(Job(f"opt_cboe_{t.strip('_').lower()}", f"https://cdn.cboe.com/api/global/delayed_quotes/options/{t}.json", 6 * HOUR))
     for c in ("BTC", "ETH"):
         j.append(Job(f"opt_deribit_{c.lower()}", f"https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency={c}&kind=option", HOUR))
@@ -122,6 +122,9 @@ def news_jobs():
         gq = quote(f'"{q}"')
         j.append(Job(f"news_gdelt_tone_{slug}", f"https://api.gdeltproject.org/api/v2/doc/doc?query={gq}&mode=timelinetone&format=json&timespan=1d", HOUR))
         j.append(Job(f"news_gdelt_art_{slug}", f"https://api.gdeltproject.org/api/v2/doc/doc?query={gq}&mode=artlist&format=json&maxrecords=100&timespan=1d&sort=datedesc", HOUR))
+    for slug, q in (("rare_metals", "rare earths OR lithium OR copper price"), ("europe_bonds", "bund OR ECB bond yields"), ("japan_bonds", "JGB OR Bank of Japan yields"), ("china_bonds", "China bond yields OR PBOC"),
+                    ("yen", "yen dollar"), ("euro_fx", "euro dollar exchange rate"), ("sterling", "sterling pound"), ("swiss_franc", "swiss franc"), ("yuan", "yuan renminbi")):
+        j.append(Job(f"news_gnews_{slug}", "https://news.google.com/rss/search?q=" + quote(q) + "&hl=en-US&gl=US&ceid=US:en", HOUR, "xml"))
     return j
 
 
@@ -134,4 +137,6 @@ def macro_jobs():
             f"https://api.stlouisfed.org/fred/series/observations?series_id={s}&api_key={{FRED_API_KEY}}&file_type=json&sort_order=desc&limit=30",
             DAY, needs=("FRED_API_KEY",),
         ))
+    for geo in ("US", "IT"):
+        j.append(Job(f"trends_google_{geo.lower()}", f"https://trends.google.com/trending/rss?geo={geo}", 2 * HOUR, kind="xml"))
     return j

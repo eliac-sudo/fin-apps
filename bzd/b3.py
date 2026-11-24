@@ -32,11 +32,6 @@ RESULTS = BASE / "config" / "validation_v1.json"
 REPORT = BASE / "docs" / "B3_RISULTATI.md"
 
 
-def side_cost(cls, setup):
-    """Round trip for a long trade. Overheating is about reducing a position, so it pays one side."""
-    return (FEE + SLIPPAGE[cls]) * (1 if setup == "overheating" else 2)
-
-
 def horizon_returns(o, c, h, cost, funding=None):
     """Net return of a long from the open of each bar to the close of bar i + h - 1. NaN where it can't be computed."""
     n = len(o)
