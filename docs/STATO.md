@@ -20,7 +20,7 @@ Tutto nel Codespace: se si spegne si ferma tutto. Alla riaccensione `scripts/sta
 | Bot Deribit | `.venv/bin/python -u -m bzd.vol_bot run` | parte solo con `DERIBIT_CLIENT_ID` in `.env`; testnet. Dal 24 novembre 2026 solo lo strangle coperto (v2); la prima versione a put spread è chiusa e archiviata in `data/vol_bot_v1_archivio/` |
 
 - I servizi girano come utente `codespace`, Claude come root. Dopo ogni modifica da root: `chown -R codespace:codespace /workspaces/fin-apps` e `chmod 600 .env`. Per riavviare un servizio si cerca il PID con `pgrep -f` su un'espressione ancorata, non con `pkill -f` largo. Lo script avvia anche l'app: prima va fermata un'eventuale copia lanciata da root.
-- Revisione degli alert con l'LLM **accesa** (`BZD_AGENTS=on`), tetto 1,50 $ al mese (`BZD_LLM_BUDGET_USD`), condiviso con gli agenti di ricerca. Spesa totale 0,36 $ al 5 novembre. Il 23 novembre la chiave API Anthropic era scaduta: le revisioni fallivano e gli alert partivano senza. Sostituita lo stesso giorno. Se torna «chiave API non valida» in `data/agents/reviews.jsonl`, va rinnovata in `.env`.
+- Revisione degli alert con l'LLM **accesa** (`BZD_AGENTS=on`), tetto 1,50 $ al mese (`BZD_LLM_BUDGET_USD`), condiviso con gli agenti di ricerca. Spesa totale 0,36 $ al 5 novembre. Il 23 novembre la chiave API Anthropic era scaduta: le revisioni fallivano e gli alert partivano senza. Sostituita lo stesso giorno; il 24 novembre risponde. Se torna «chiave API non valida» in `data/agents/reviews.jsonl`, va rinnovata in `.env`.
 - Il push su GitHub usa il token copiato con `gl` da un terminale di VS Code: quando scade, il push fallisce finché l'utente non rilancia `gl`.
 
 ## L'app, scheda per scheda
@@ -36,7 +36,7 @@ Il codice sta in `bzd/app.py` (server), `bzd/app.html` (pagina) e `bzd/snapshot.
 - **Alert e Piano:** gli alert di Telegram con i livelli, e il calcolo di dimensione, stop e obiettivo (`bzd/alerts.py`, `bzd/plan.py`).
 - **Esito accanto a ogni lettura:** ogni frase di Oggi e della pagina del ticker ha un'etichetta con l'esito del suo test, presa dai file congelati (`bzd/verdicts.py`). Quelle mai testate da sole dicono «non testato».
 - **Reset:** testato solo sul giornaliero; su settimanale e mensile app e alert dicono «non testato».
-- **Test:** tutte le ipotesi e i risultati, letti dai file congelati in `config/`; le strategie sulle opzioni in prova; l'elenco di ciò che non è testato. Le altre schede rimandano qui.
+- **Test:** tutte le ipotesi in un'unica tabella (setup degli alert B3, v2–v5 e ciò che non è testato), con filtri per esito e per test; un clic apre la scheda o il resoconto. Sotto, le strategie sulle opzioni in prova. Le altre schede rimandano qui.
 - **Bots:** il bot Deribit con stato, posizioni, delta, margine ed eventi, e i comandi pausa, riprendi, dimensione (solo più bassa) e chiusura d'emergenza (`bzd/bots.py`). L'app scrive solo il file di comandi, il bot lo legge ogni 10 secondi.
 - **Motore:** il wiki del programma in `docs/wiki/`, una pagina per parte. `python -m bzd.wiki lint` controlla che ogni citazione porti a un file vero e che ogni modulo abbia una pagina; lo verifica anche un test.
 
@@ -65,7 +65,7 @@ Il dettaglio di ogni test è nella scheda Test e nei file `docs/V*_STORICO.md`. 
 
 - Solo fonti gratuite e leggibili, niente API di X.
 - Niente chiamate a pagamento agli agenti senza chiedere.
-- Alert su Telegram: insight e direzione («potenziale long»), sempre con l'esito del test. Entry, stop e target solo nell'app. Il 4h solo nell'app.
+- Alert su Telegram: brevi, dicono cosa è successo. Direzione («potenziale long») ed esito del test solo dove il test ha retto; i test non superati, le conferme mancanti e le regole mai testate restano nell'app (24 novembre). Entry, stop e target solo nell'app. Il 4h solo nell'app.
 - Paura rossa, euforia verde. App per PC, non per telefono, e fuori da AMBRA.
 - Le operazioni reali dell'utente (A2) più avanti: non proporle prima che ne riparli.
 - Gli agenti possono citare e dare un parere, non cambiare numeri o bloccare un alert.

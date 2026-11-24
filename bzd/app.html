@@ -614,7 +614,7 @@ const trendPill=t=>t==="rialzo"?el("span",{class:"trend up",title:"Prezzo sopra 
 const costTag=l=>el("span",{class:"tag"+(l==="economiche"?" cheap":l==="care"?" dear":"")},l==="economiche"?"💚 economiche":l==="care"?"🔥 care":l||"–");
 
 const ZFRAMES=["4h","1d","1w","1M","12M"],ZNAME={"4h":"4 ore","1d":"Giorno","1w":"Settimana","1M":"Mese","12M":"12 mesi"},ZON={"4h":"sulle 4 ore","1d":"sul giornaliero","1w":"sul settimanale","1M":"sul mensile","12M":"sui 12 mesi"};
-const zoneTf="1d";let zoneFilter="tutti";  /* the home table reads the daily; the other timeframes sit in the «Tutti i timeframe» column */
+const zoneTf="1d";let zoneFilter="tutti",TESTF="tutti";  /* the home table reads the daily; the other timeframes sit in the «Tutti i timeframe» column */
 const zoneOf=(m,tf)=>(m.zones||{})[tf]||null;
 const ZWORD={SU:"▲ sale forte",GIU:"▼ scende forte",NTR:"nessuno"},ZMINI={SU:"▲",GIU:"▼",NTR:"·"};
 const zName=t=>ZWORD[t]||t;
@@ -864,36 +864,38 @@ bots(){
     BOTS.msg?el("div",{class:"notice"+(BOTS.msgBad?" bad":"")},BOTS.msg):null,...BOTS.data.bots.flatMap(botCard)].filter(Boolean)},
 asset(){return assetView()},
 test(){
-  const SD=D.studies||[],T=D.tests;setTimeout(drawPaper);
-  const pct=(v,d=2)=>v==null?"–":sgn(v*100,d)+"%",ok=r=>r.outcome==="supportata",all=[...SD.flatMap(x=>x.rows.map(r=>({...r,study:x}))),...(T||[]).map(r=>({id:"B3",reading:r.setup_name.toLowerCase()+", "+r.class_name,outcome:r.outcome,mean:r.mean,mean_net:r.mean_net,study:{id:"B3",title:"I setup degli alert"}}))];
-  const passed=all.filter(ok),n=all.length;
-  const icon=r=>({supportata:"✅","non supportata":"❌"}[r.outcome]||"❔");
-  const unit=r=>r.id&&r.id[0]==="O"?" del premio":"";
-  const go=id=>()=>{const e=document.getElementById("study-"+id);if(e)e.scrollIntoView({behavior:"smooth",block:"start"})};
-  const cols=[{k:"id",label:"",cell:r=>el("b",null,r.id)},{k:"reading",label:"Ipotesi",cell:r=>el("span",null,el("b",{style:"font-weight:600"},r.reading),el("div",{class:"tiny"},r.rule)),wrap:true},
-    {k:"trade",label:"Operazione",cell:r=>el("span",{class:"small"},r.trade+(r.horizon?", "+r.horizon:""))},{k:"where",label:"Nell'app",cell:r=>r.where?el("span",{class:"tiny"},r.where):"–"},
+  const SD=D.studies||[],T=D.tests||[];setTimeout(drawPaper);
+  const pct=(v,d=2)=>v==null?"–":sgn(v*100,d)+"%",unit=r=>r.id&&r.id[0]==="O"?" del premio":"";
+  const OPEN=[["BYZ, la capitolazione","Oggi","regola scelta il 7 novembre 2026 guardando la storia"],["Sentiment della settimana","Sentiment","conteggio di parole, non confrontato con i prezzi"],["Livelli di retail e grossi","Chi compra","percentili su 3 anni"],["Portafogli Hyperliquid","Chi compra","lo storico si accumula da novembre 2026"],["Etichette di sentiment B4","Sentiment","aspettano le tue etichette"],["Trend lungo sui dati futuri (v2)","–","conta solo eventi dal 9 novembre 2026"]];
+  const all=[...T.map(r=>({...r,test:"B3",code:"",reading:r.setup_name.toLowerCase()+", "+r.class_name,rule:r.rule,trade:r.setup==="overheating"?"presa di profitto":"long",horizon:r.horizon_bars+" "+r.unit,where:"Alert",b3:r,study:{id:"B3",title:"I setup degli alert",date:"5 novembre 2026",question:"i setup che mandano gli alert fanno meglio di ingressi casuali, sullo stesso mercato e negli stessi anni?",report:"docs/B3_RISULTATI.md"}})),
+    ...SD.flatMap(x=>x.rows.map(r=>({...r,test:x.id,code:r.id,study:x}))),
+    ...OPEN.map(([n,w,why])=>({test:"–",code:"",reading:n,rule:why,where:w,outcome:"non testato"}))];
+  const ST={supportata:["✅","ha retto",0],"non supportata":["❌","non ha retto",2],"non testato":["⚪","non testato",3]},st=r=>ST[r.outcome]||["❔","pochi casi",1];
+  const n=all.filter(r=>r.outcome!=="non testato").length,passed=all.filter(r=>r.outcome==="supportata");
+  const F=TESTF,shown=all.filter(r=>F==="tutti"||(F==="retto"?r.outcome==="supportata":F==="no"?r.outcome!=="supportata"&&r.outcome!=="non testato":F==="open"?r.outcome==="non testato":r.test===F));
+  const cols=[{k:"test",label:"Test",val:r=>r.test+(r.code?" "+r.code:""),cell:r=>el("b",null,r.test+(r.code?" "+r.code:""))},
+    {k:"outcome",label:"Esito",val:r=>st(r)[2],cell:r=>el("span",{style:"white-space:nowrap"},st(r)[0]+" "+st(r)[1])},
+    {k:"reading",label:"Ipotesi",cell:r=>el("span",null,el("b",{style:"font-weight:600"},r.reading),el("div",{class:"tiny"},r.rule)),wrap:true},
+    {k:"trade",label:"Operazione",cell:r=>r.trade?el("span",{class:"small"},r.trade+(r.horizon?", "+r.horizon:"")):"–"},{k:"where",label:"Nell'app",cell:r=>r.where?el("span",{class:"tiny"},r.where):"–"},
     {k:"mean",label:"Rispetto al caso",num:true,cell:r=>el("span",{class:r.mean>0?"pos":r.mean<0?"neg":"muted"},pct(r.mean)+unit(r)),title:"Quanto ha reso in più di ingressi casuali sullo stesso mercato e negli stessi anni"},
     {k:"mean_net",label:"Netto costi",num:true,cell:r=>el("span",{class:r.mean_net>0?"pos":r.mean_net<0?"neg":"muted"},pct(r.mean_net)+unit(r)),title:"Il risultato medio dell'operazione, tolti i costi: non rispetto al caso"},
     {k:"p",label:"Valore p",num:true,cell:r=>r.p==null?"–":fmt(r.p,3),title:"Probabilità di un risultato così per puro caso: più è bassa, più è solido"},
-    {k:"clusters",label:"Episodi",num:true},{k:"outcome",label:"Esito",val:r=>r.outcome||"",cell:r=>icon(r)+" "+(r.outcome||"–")}];
-  const study=x=>el("section",{class:"card",id:"study-"+x.id},el("div",{class:"selectline"},el("h2",null,x.id+" · "+x.title),el("span",{class:"tiny"},x.date)),
-    el("p",{class:"sub",style:"margin:2px 0 6px"},el("b",null,"La domanda: "),x.question),
-    el("div",{class:"studytbl"},Table(cols,x.rows,{})),
-    el("p",{class:"tiny",style:"margin:6px 2px 0"},"Ipotesi e regole scritte prima: ",el("button",{class:"linkish",onclick:()=>showSource(x.prereg,1)},x.prereg),". Risultati: ",el("button",{class:"linkish",onclick:()=>showSource(x.report,1)},x.report),"."));
+    {k:"clusters",label:"Episodi",num:true}];
+  const open=r=>r.b3?testDetail(r.b3):r.study&&r.study.report?showSource(r.study.report,1):null;
+  const chips=[["tutti","Tutti "+all.length],["retto","✅ Hanno retto "+passed.length],["no","❌ Non hanno retto "+(n-passed.length)],["open","⚪ Non testati "+(all.length-n)],...["B3",...SD.map(x=>x.id)].map(k=>[k,k])];
+  const studies=[{id:"B3",title:"I setup degli alert",date:"5 novembre 2026",question:"i setup che mandano gli alert (panico, eccesso, squeeze) fanno meglio di ingressi casuali, sullo stesso mercato e negli stessi anni? Il panico cripto supera la soglia della propria famiglia di test ma non quella più severa su tutti i 15: circa il 22% di probabilità di almeno un falso positivo.",report:"docs/B3_RISULTATI.md"},...SD];
   const past=(D.zone_info||{}).past||{};
   return [el("p",{class:"hero"},"I test: "+passed.length+" ipotesi su "+n+" hanno retto"),
-    el("p",{class:"sub"},"Qui sta tutto quello che è stato messo alla prova: le ipotesi, le regole e i risultati. Ogni test è stato scritto prima di guardare i rendimenti ed eseguito una volta sola. «Rispetto al caso» confronta con ingressi a caso sullo stesso mercato; «netto costi» è quanto avrebbe reso davvero l'operazione."),
-    el("section",{class:"card"},el("h2",null,"Cosa ha retto"),el("ul",{class:"alist"},passed.map(r=>el("li",null,el("b",null,r.study.id+(r.id&&r.id!=="B3"?" "+r.id:"")+" · "+r.reading+": "),pct(r.mean)+unit(r)+" rispetto al caso, "+pct(r.mean_net)+unit(r)+" tolti i costi. ",el("button",{class:"linkish",onclick:go(r.study.id.toLowerCase())},"vedi")))),
-      el("p",{class:"small",style:"margin:8px 0 0"},"Anche dove l'ipotesi ha retto il guadagno netto è piccolo o negativo: è un vantaggio relativo, non una strategia che rende da sola."),
-      el("div",{class:"chips",style:"margin-top:8px"},[...SD.map(x=>[x.id,x.id+" · "+x.title]),["b3","B3 · Setup degli alert"],["paper","Opzioni in prova"],["open","Non testato"]].map(([k,t])=>el("button",{class:"chip",onclick:go(k)},t)))),
-    ...SD.slice().reverse().map(study),
-    ...(T?b3card():[]),
-    el("section",{class:"card",id:"study-mom"},el("h2",null,"Il momentum per timeframe, misura descrittiva"),el("p",{class:"sub",style:"margin:2px 0 6px"},"Non è un test: dati già usati e barre sovrapposte. Dopo un movimento forte, rispetto alla media del mercato, quanto è andato il prezzo."),
-      Table([{k:"tf",label:"Timeframe"},{k:"bars",label:"Dopo"},{k:"byz",label:"Dopo «scende forte»",num:true,cell:r=>signed(r.byz,2,"%")},{k:"szt",label:"Dopo «sale forte»",num:true,cell:r=>signed(r.szt,2,"%")}],Object.entries(past).map(([tf,v])=>({tf:ZNAME[tf]||tf,...v})),{}),
-      el("p",{class:"tiny",style:"margin:6px 2px 0"},"Sul mensile il prezzo è tornato indietro: lì il momentum non vale. "+vd("momentum"))),
-    el("section",{id:"study-paper",class:"card"},el("p",{class:"muted"},"Carico le strategie in prova…")),
-    el("section",{class:"card",id:"study-open"},el("h2",null,"Ancora non testato"),el("p",{class:"sub",style:"margin:2px 0 6px"},"Letture che l'app mostra senza una prova sui dati: aiutano a orientarsi, non bastano per decidere."),
-      el("ul",{class:"alist small"},el("li",null,el("b",null,"BYZ, la capitolazione "),"(Oggi): regola scelta il 7 novembre 2026 guardando la storia."),el("li",null,el("b",null,"Sentiment della settimana "),"(Sentiment): conteggio di parole, non confrontato con i prezzi."),el("li",null,el("b",null,"Livelli di retail e grossi "),"(Chi compra): percentili su 3 anni."),el("li",null,el("b",null,"Portafogli Hyperliquid "),"(Chi compra): lo storico si accumula da novembre 2026."),el("li",null,el("b",null,"Etichette di sentiment B4 "),"(Sentiment): aspettano le tue etichette."),el("li",null,el("b",null,"v2 sui dati futuri: "),"conta solo eventi dal 9 novembre 2026.")))]},
+    el("p",{class:"sub"},"Tutto quello che è stato messo alla prova, in un'unica tabella. Ogni test è stato scritto prima di guardare i rendimenti ed eseguito una volta sola. «Rispetto al caso» confronta con ingressi a caso sullo stesso mercato; «netto costi» è quanto avrebbe reso davvero l'operazione. Anche dove un'ipotesi ha retto il guadagno netto è piccolo o negativo."),
+    el("section",{class:"card",id:"study-all"},
+      el("div",{class:"chips"},chips.map(([k,t])=>el("button",{class:"chip","aria-pressed":String(k===F),onclick:()=>{TESTF=k;render()}},t))),
+      el("div",{style:"margin-top:8px"},Table(cols,shown,{sort:"outcome",dir:1,onRow:open})),
+      el("p",{class:"tiny",style:"margin:6px 2px 0"},"Clicca una riga: per i setup degli alert si apre la scheda completa, per gli altri il resoconto del test."),
+      el("details",{style:"margin-top:8px"},el("summary",null,"Le domande di ogni test e i file"),el("ul",{class:"alist small"},studies.map(x=>el("li",null,el("b",null,x.id+" · "+x.title+" "),el("span",{class:"tiny"},"("+x.date+") "),x.question+" ",x.prereg?el("button",{class:"linkish",onclick:()=>showSource(x.prereg,1)},"ipotesi"):null,x.prereg?" · ":null,el("button",{class:"linkish",onclick:()=>showSource(x.report,1)},"risultati"))))),
+      el("details",{style:"margin-top:8px"},el("summary",null,"Il momentum per timeframe (misura descrittiva, non un test)"),
+        Table([{k:"tf",label:"Timeframe"},{k:"bars",label:"Dopo"},{k:"byz",label:"Dopo «scende forte»",num:true,cell:r=>signed(r.byz,2,"%")},{k:"szt",label:"Dopo «sale forte»",num:true,cell:r=>signed(r.szt,2,"%")}],Object.entries(past).map(([tf,v])=>({tf:ZNAME[tf]||tf,...v})),{}),
+        el("p",{class:"tiny",style:"margin:6px 2px 0"},"Dati già usati e barre sovrapposte. Sul mensile il prezzo è tornato indietro: lì il momentum non vale. "+vd("momentum")))),
+    el("section",{id:"study-paper",class:"card"},el("p",{class:"muted"},"Carico le strategie in prova…"))]},
 };
 const SENT={market:"BTC",win:"2A",data:null},CLASS_RANK=["crypto","equities","bonds","commodities","fx"],SENT_WIN={"1A":365,"2A":730,"5A":1826,"Tutto":99999};
 async function openSent(m){SENT.market=m;SENT.data=null;const b=$("#sentBox");if(b)b.replaceChildren(el("p",{class:"muted"},"Carico il grafico…"));try{const r=await fetch("/api/sentiment?market="+encodeURIComponent(m));if(SENT.market!==m)return;const j=r.ok?await r.json():null;SENT.data=j||{error:true,market:m}}catch(e){SENT.data={error:true,market:m}}drawSent()}
@@ -953,16 +955,6 @@ function drawPos(){const box=$("#posBox");if(!box)return;const pick=$("#posPick"
     lineChart([{name:"Retail",dates,values:cut2(h.retail),color:"var(--s4)"},{name:big,dates,values:cut2(h.big),color:"var(--s1)"}],{height:200,W:900,digits:0,suffix:"°",domain:[0,100],refs:[0,10,30,50,70,90,100]}),
     h.close?el("div",{style:"margin-top:4px"},el("div",{class:"tiny muted"},"Prezzo"),lineChart([{name:"Prezzo",dates,values:cut2(h.close),color:"var(--ink)"}],{height:150,W:900,digits:2})):null,
     el("p",{class:"tiny",style:"margin:6px 0 0"},"Percentile sugli ultimi 3 anni di ogni gruppo, ricalcolato su ogni dato con il solo passato. "+(crypto?"Dati giornalieri dal dicembre 2021: il primo anno non ha ancora 3 anni alle spalle.":"Report COT della CFTC dal 2006, in contratti: il retail sono le posizioni sotto la soglia di segnalazione, i fondi i leveraged funds o il managed money.")))}
-function b3card(){const T=D.tests;
-  const word=r=>({supportata:"supportata","non supportata":"non supportata"}[r.outcome]||"non informativa"),icon=r=>({supportata:"✅","non supportata":"❌"}[r.outcome]||"❔"),setups=[...new Set(T.map(r=>r.setup))],classes=[...new Set(T.map(r=>r.class))];
-  const bg=r=>r.outcome==="supportata"?"background:var(--up);box-shadow:inset 0 0 0 2px var(--good)":r.outcome==="non supportata"?"background:var(--down)":"background:var(--surface2)";
-  const cols=[{k:"setup_name",label:"Setup",cell:r=>r.setup_name.toLowerCase()},{k:"class_name",label:"Mercato"},{k:"mean",label:"Rispetto al caso",num:true,cell:r=>signed(r.mean*100,2,"%")},{k:"share_up",label:"In salita",num:true,cell:r=>fmt(r.share_up*100)+"%",title:"Quota di episodi con rendimento positivo all'orizzonte del test"},{k:"clusters",label:"Episodi",num:true},{k:"p",label:"Valore p",num:true,cell:r=>r.p==null?"–":fmt(r.p,3),title:"Probabilità di un risultato così per puro caso: più è bassa, più è solido"},{k:"power_d30",label:"Potenza",num:true,cell:r=>fmt(r.power_d30*100)+"%",title:"Probabilità di vedere un vantaggio di media grandezza, se esistesse"},{k:"outcome",label:"Esito",val:word,cell:r=>icon(r)+" "+word(r)}];
-  return [el("section",{class:"card",id:"study-b3"},el("div",{class:"selectline"},el("h2",null,"B3 · I setup degli alert"),el("span",{class:"tiny"},"5 novembre 2026")),el("p",{class:"sub"},el("b",null,"La domanda: "),"i setup che mandano gli alert (panico, eccesso, reset…) fanno meglio di ingressi casuali, sullo stesso mercato e negli stessi anni? Su 15 test ne è passato uno, il panico cripto, e di poco. Clicca un riquadro per la scheda completa."),
-  el("div",null,el("div",{style:`display:grid;grid-template-columns:110px repeat(${classes.length},minmax(0,1fr));gap:5px;align-items:stretch`},el("span"),classes.map(c=>el("div",{class:"tlabel",style:"padding:2px 4px"},T.find(r=>r.class===c).class_name)),
-      setups.flatMap(st=>[el("div",{class:"small",style:"align-self:center;font-weight:600"},T.find(r=>r.setup===st).setup_name.toLowerCase()),...classes.map(c=>{const r=T.find(x=>x.class===c&&x.setup===st);return r?el("button",{class:"tcell",style:bg(r),onclick:()=>testDetail(r),"aria-label":r.setup_name+" "+r.class_name},el("div",{style:"font-size:16px;font-weight:700"},icon(r)+" "+sgn(r.mean*100,2)+"%"),el("div",{class:"tiny",style:"color:var(--ink2)"},word(r)+" · "+r.clusters+" episodi")):el("span")})])),
-    el("div",{class:"legend",style:"margin-top:8px"},"✅ supportata · ❌ nessun vantaggio dimostrato · ❔ troppo pochi episodi per dirlo")),
-  el("details",{style:"margin-top:8px"},el("summary",null,"Tutti i 15 risultati, ordinabili"),el("div",{style:"margin-top:4px"},Table(cols,T,{sort:"mean",onRow:testDetail})),
-    el("details",{style:"margin-top:8px"},el("summary",null,"Come leggere il test nel suo insieme"),el("ul",{class:"plain"},el("li",null,"Il panico cripto supera la soglia della propria famiglia di test, ma non quella più severa calcolata su tutti i 15. C'era circa il 22% di probabilità di almeno un falso positivo."),el("li",null,"Il guadagno viene da DOGE, AVAX, XRP e ADA, mentre ETH, BNB e LINK sono vicini a zero."),el("li",null,"L'orizzonte è 24 ore sulle cripto e 5 sedute sugli altri mercati. I dettagli sono in docs/B3_RISULTATI.md.")))))]}
 function testDetail(r){const d=$("#dlg");hideTip();const row=(n,v,h)=>el("div",{title:h||null},el("b",null,v),el("span",null,n));const[lo,hi]=(r.ci90||[0,0]).map(x=>x*100),m=r.mean*100,span=Math.max(Math.abs(lo),Math.abs(hi),Math.abs(m),.01)*1.25,pos=v=>50+v/span*50;
   const colors=r.outcome==="supportata"?"var(--good)":r.outcome==="non supportata"?"var(--crit)":"var(--muted)";
   const ci=el("div",{style:"position:relative;height:44px;margin:8px 6px"},el("div",{style:"position:absolute;left:0;right:0;top:20px;height:1px;background:var(--axis)"}),el("div",{style:"position:absolute;left:50%;top:10px;height:21px;width:1px;background:var(--ink2)"}),el("div",{style:`position:absolute;top:17px;height:7px;border-radius:4px;left:${pos(lo)}%;width:${pos(hi)-pos(lo)}%;background:${colors};opacity:.45`}),el("div",{style:`position:absolute;top:14px;width:13px;height:13px;border-radius:50%;left:calc(${pos(m)}% - 6px);background:${colors}`}),el("div",{class:"tiny",style:"position:absolute;left:50%;top:32px;transform:translateX(-50%)"},"nessun vantaggio"),el("div",{class:"tiny",style:`position:absolute;top:0;left:${pos(lo)}%;transform:translateX(-50%)`},sgn(lo,2)+"%"),el("div",{class:"tiny",style:`position:absolute;top:0;left:${pos(hi)}%;transform:translateX(-50%)`},sgn(hi,2)+"%"));
