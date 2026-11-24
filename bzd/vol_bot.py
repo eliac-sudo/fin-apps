@@ -1,27 +1,30 @@
-"""Deribit bot that sells put spreads, one book per collateral: BTC in USDC, BTC in BTC, ETH in ETH (config/vol_bot_v1.json, docs/BOT_DERIBIT.md).
+"""Deribit bot: sells the 25-delta BTC strangle in USDC as a maker and hedges its delta on the perpetual (config/vol_bot_v2.json,
+docs/BOT_DERIBIT.md). It is DH2m of docs/BOT_DERIBIT_STORICO.md, the only variant of fifteen that held on real Deribit marks.
 
     python -m bzd.vol_bot run        loop forever
     python -m bzd.vol_bot once       one cycle, then stop
-    python -m bzd.vol_bot stato      equity, open spreads, risk in use
-    python -m bzd.vol_bot pausa      no new entries; exits and repairs keep running
+    python -m bzd.vol_bot stato      equity, open strangles, delta, margin
+    python -m bzd.vol_bot pausa      no new entries; hedging and safety keep running
     python -m bzd.vol_bot riprendi   entries again, also after the kill switch
-    python -m bzd.vol_bot chiudi     close every spread now
+    python -m bzd.vol_bot chiudi     buy back every option and flatten the hedge now
 
-It runs on the Deribit testnet unless DERIBIT_NETWORK=live and BZD_BOT_LIVE=ho-capito are both set by hand.
-Risk is defined before any order: the wing is always bought before the put is sold, and closed after it, so the
-account never holds a sold put without its wing. The worst case of all open spreads together is capped by the config.
-With coin collateral (BTC options paid in BTC) the loss in coin grows as the price falls even past the wing, so those books
-size the worst case at a stress price, half the wing's strike, not at the wing. Every cycle it checks the exchange's positions against its own book: a sold leg with no wing gets bought back at once,
-any other difference stops new entries and sends a message.
+Testnet unless DERIBIT_NETWORK=live and BZD_BOT_LIVE=ho-capito are both set by hand.
+
+Every Monday 10-16 UTC it offers the put and the call nearest 25 delta, 21-45 days out, at the mid of the order book with
+post-only orders, re-pricing as the book moves; what isn't filled by 16:00 is cancelled. The strangle is held to expiry.
+The delta of every open option is hedged on the perpetual once a day at 08:00 UTC and right after a fill, as in the backtest.
+Safety beyond the backtest: an emergency hedge when the net delta drifts past a threshold, no entries with margin above 50%
+of equity, everything closed above 80% so the exchange never liquidates, and no entries after a 15% drawdown.
+A strangle has no wing: these rules are what stands between the account and the tail.
 """
 import fcntl, json, math, os, sys, time, urllib.error, urllib.request, uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .option_models import delta_gamma
 from .recorder import BASE, UA, load_env
 
-CONFIG = BASE / "config" / "vol_bot_v1.json"
+CONFIG = BASE / "config" / "vol_bot_v2.json"
 URLS = {"test": "https://test.deribit.com/api/v2", "live": "https://www.deribit.com/api/v2"}
 LIVE_SWITCH = "ho-capito"
 EPS = 1e-9
@@ -33,28 +36,6 @@ def load_config(path=CONFIG):
 
 def bot_dir(root=None):
     return Path(root or os.environ.get("BZD_DATA", BASE / "data")) / "vol_bot"
-
-
-def book_cfg(cfg, book):
-    """The shared rules with one book's market and collateral on top."""
-    return {**cfg, **book}
-
-
-def enabled_books(cfg):
-    books = [book_cfg(cfg, b) for b in cfg["books"] if b.get("enabled")]
-    coll = [b["settlement"] for b in books]
-    if len(set(coll)) < len(coll):
-        raise SystemExit("Due libri accesi usano la stessa garanzia: i tetti di rischio si sommerebbero. Lasciane acceso uno per valuta.")
-    return books
-
-
-def is_coin(cfg):
-    """Options paid and margined in the underlying itself (BTC-25DEC26-55000-P), not in USDC."""
-    return cfg["settlement"] == cfg["underlying"]
-
-
-def prefix(cfg):
-    return f"{cfg['underlying']}-" if is_coin(cfg) else f"{cfg['underlying']}_{cfg['settlement']}-"
 
 
 def network():
@@ -124,12 +105,16 @@ def client_from_env():
     return Client(network(), cid, sec)
 
 
-# ---- pure rules: what to trade, how much, when to leave
+# ---- pure rules
 
 def parse_name(name):
     """BTC_USDC-25DEC26-55000-P -> (expiry date, strike, is_put). Strikes like 7d5 mean 7.5."""
     _, exp, k, kind = name.split("-")
     return datetime.strptime(exp, "%d%b%y").date(), float(k.replace("d", ".")), kind == "P"
+
+
+def expiry_time(name):
+    return datetime.combine(parse_name(name)[0], datetime.min.time(), timezone.utc) + timedelta(hours=8)
 
 
 def tick_for(inst, price):
@@ -140,17 +125,17 @@ def tick_for(inst, price):
     return t
 
 
-def limit_price(side, bid, ask, step, steps, inst):
-    """Start at the mid and walk to the far side of the quote, on the instrument's tick, never past bid or ask."""
+def maker_price(bid, ask, inst):
+    """A sell at the mid of the book, on the tick, never at or below the bid (post-only would refuse it)."""
     mid = (bid + ask) / 2
-    px = mid + (ask - mid) * step / steps if side == "buy" else mid - (mid - bid) * step / steps
-    t = tick_for(inst, px)
-    px = math.ceil(px / t - EPS) * t if side == "buy" else math.floor(px / t + EPS) * t
-    return round(min(max(px, bid), ask), 8)
+    t = tick_for(inst, mid)
+    px = math.ceil(mid / t - EPS) * t
+    if px <= bid + EPS:
+        px = bid + t
+    return round(px, 8)
 
 
 def choose_expiry(instruments, now, cfg):
-    """The expiry closest to the target days inside the allowed range, as an expiration timestamp in ms."""
     lo, hi = cfg["entry"]["days_range"]
     best = None
     for ts in {i["expiration_timestamp"] for i in instruments}:
@@ -160,141 +145,83 @@ def choose_expiry(instruments, now, cfg):
     return best[0] if best else None
 
 
-def chain_quotes(book, exp_ms, now):
-    """Book summary rows of one expiry -> puts with bid, ask and a Black-76 delta from the mark vol: one request for the whole chain."""
+def choose_strangle(book, exp_ms, now, cfg):
+    """Book summary rows of one expiry -> the put and the call nearest the target delta, out of the money, by Black-76 at the
+    mark vol (as in the backtest). None if nothing sits near enough."""
+    e = cfg["entry"]
     years = (exp_ms / 1000 - now.timestamp()) / (365 * 86400)
-    out = []
+    best = {}
     for b in book:
         _, k, is_put = parse_name(b["instrument_name"])
         f, iv = b.get("underlying_price"), b.get("mark_iv")
-        if not (is_put and f and iv and 0.5 * f <= k < f and years > 0):
+        if not (f and iv and years > 0) or (is_put and k >= f) or (not is_put and k <= f):
             continue
-        out.append({"name": b["instrument_name"], "strike": k, "bid": b.get("bid_price") or 0, "ask": b.get("ask_price") or 0,
-                    "delta": float(delta_gamma(f, k, years, iv / 100, False)[0]), "under": f})
-    return out
-
-
-def quote_ok(q, max_spread):
-    bid, ask = q.get("bid") or 0, q.get("ask") or 0
-    return bid > 0 and ask >= bid and (ask - bid) / ((ask + bid) / 2) <= max_spread
-
-
-def choose_legs(puts, cfg):
-    """puts: [{name, strike, bid, ask, delta}] of one expiry. The sold put nearest short_delta, the wing nearest long_delta
-    below it. None if a quote is too wide or the credit too thin for the width."""
-    e = cfg["entry"]
-    ok = [p for p in puts if p.get("delta") is not None and quote_ok(p, e["max_spread_frac"])]
-    if not ok:
+        d = abs(float(delta_gamma(f, k, years, iv / 100, not is_put)[0]))
+        side = "put" if is_put else "call"
+        if abs(d - e["delta"]) <= e["max_delta_gap"] and (side not in best or abs(d - e["delta"]) < best[side][1]):
+            best[side] = (b["instrument_name"], abs(d - e["delta"]), f)
+    if "put" not in best or "call" not in best:
         return None
-    short = min(ok, key=lambda p: abs(abs(p["delta"]) - e["short_delta"]))
-    wings = [p for p in ok if p["strike"] < short["strike"]]
-    if not wings:
-        return None
-    wing = min(wings, key=lambda p: abs(abs(p["delta"]) - e["long_delta"]))
-    width = short["strike"] - wing["strike"]
-    credit = short["bid"] - wing["ask"]  # what it gets if both fill at the far side, in the price's currency
-    credit_usd = credit * (short.get("under") or 0) if is_coin(cfg) else credit
-    if credit <= 0 or credit_usd / width < e["min_credit_frac_of_width"]:
-        return None
-    return {"short": short, "long": wing, "width": width, "credit": credit}
+    return {"put": best["put"][0], "call": best["call"][0], "under": best["put"][2]}
 
 
-def unit_loss(width, long_strike, credit, cfg):
-    """Worst case per contract, in the collateral's currency. In USDC: width less credit. In coin the put spread pays
-    width / price in coin, which keeps growing as the price falls, so it is measured at the stress price."""
-    if is_coin(cfg):
-        return width / (long_strike * cfg["risk"]["coin_stress"]) - credit
-    return width - credit
-
-
-def size(equity, open_risk, per_unit, lot, cfg):
-    """Contracts, in steps of the exchange's lot, so this spread loses at most max_loss_per_trade of equity and all of them together max_loss_open."""
-    r = cfg["risk"]
-    budget = min(equity * r["max_loss_per_trade"], equity * r["max_loss_open"] - open_risk)
-    if per_unit <= 0 or budget <= 0:
-        return 0.0
-    n = math.floor(budget / per_unit / lot + EPS)
+def entry_amount(equity, under, open_amount, cfg, lot):
+    """BTC of strangle so this entry carries notional_per_entry of equity and all open ones at most max_notional."""
+    s = cfg["size"]
+    btc = min(equity * s["notional_per_entry"] / under, equity * s["max_notional"] / under - open_amount)
+    n = math.floor(btc / lot + EPS)
     return round(n * lot, 8) if n >= 1 else 0.0
 
 
-def max_loss(pos):
-    """Worst case of the part still open (see unit_loss)."""
-    per = pos.get("unit_loss", pos["width"] - pos["credit"])
-    return max(per, 0) * pos["short_amount"]
+def hedge_trade(option_delta, perp_size, min_trade):
+    """Perpetual to buy (+) or sell (-) so the account is delta-flat. Zero if the gap is smaller than the minimum trade."""
+    want = -option_delta
+    diff = round(want - perp_size, 4)
+    return diff if abs(diff) >= min_trade else 0.0
 
 
-def exit_reason(pos, short_ask, long_bid, now, cfg):
-    x = cfg["exit"]
-    days_left = (datetime.fromisoformat(pos["expiry"]).replace(tzinfo=timezone.utc) - now).total_seconds() / 86400 + 1/3  # expiry is 08:00 UTC
-    if days_left <= x["close_days_left"]:
-        return "scadenza vicina"
-    if short_ask and long_bid is not None and short_ask - long_bid <= pos["credit"] * (1 - x["take_profit_frac"]):
-        return "profitto preso"
-    return None
+def hedge_sane(trade, option_btc, perp_size):
+    """No hedge may move more than 1.5 times the BTC of options open (plus what flattens the current hedge): a bigger number
+    means a reading went wrong, and the bot stops instead of trading it."""
+    return abs(trade) <= 1.5 * option_btc + abs(perp_size) + 0.01
 
 
-def uncovered(positions):
-    """Exchange positions -> {instrument: amount sold with no wing}. A put is covered by a bought put of the same expiry and a
-    lower strike; the bot never sells calls, so a sold call is uncovered in full."""
-    by_exp = {}
-    for p in positions:
-        if abs(p["size"]) < EPS:
-            continue
-        exp, k, is_put = parse_name(p["instrument_name"])
-        by_exp.setdefault(exp, []).append((k, is_put, p["size"], p["instrument_name"]))
-    out = {}
-    for legs in by_exp.values():
-        pool = 0.0
-        for k, is_put, s, name in sorted(legs, key=lambda x: (x[0], x[2] > 0)):  # at equal strike a long does not cover
-            if not is_put:
-                if s < 0:
-                    out[name] = -s
-                continue
-            if s > 0:
-                pool += s
-            else:
-                use = min(pool, -s)
-                pool -= use
-                if -s - use > EPS:
-                    out[name] = round(-s - use, 8)
-    return out
+def week_key(now):
+    y, w, _ = now.isocalendar()
+    return f"{y}-W{w:02d}"
 
 
-def expected_sizes(book):
-    want = {}
-    for pos in book:
-        want[pos["short"]] = want.get(pos["short"], 0) - pos["short_amount"]
-        want[pos["long"]] = want.get(pos["long"], 0) + pos["long_amount"]
-    return {k: round(v, 8) for k, v in want.items() if abs(v) > EPS}
+def in_entry_window(now, cfg):
+    e = cfg["entry"]
+    lo, hi = e["window_utc_hours"]
+    return now.weekday() == e["weekday"] and lo <= now.hour < hi
 
 
-def differences(book, positions):
-    have = {p["instrument_name"]: round(p["size"], 8) for p in positions if abs(p["size"]) > EPS}
-    want = expected_sizes(book)
-    return {k: (want.get(k, 0), have.get(k, 0)) for k in set(want) | set(have) if abs(want.get(k, 0) - have.get(k, 0)) > EPS}
+def hedge_due(now, last_day, cfg):
+    return now.hour >= cfg["hedge"]["hour_utc"] and last_day != now.date().isoformat()
 
 
 # ---- state
 
 def new_state():
-    return {"book": [], "closed": [], "peak": None, "last_entry": None, "paused": False, "halted": None, "blocked": None, "sent": {}}
+    return {"book": [], "closed": [], "working": None, "peak": None, "last_week": None, "last_hedge_day": None,
+            "paused": False, "halted": None, "blocked": None, "resumed": None, "sent": {}}
 
 
-def load_state(root=None, book="btc_usdc"):
-    p = bot_dir(root) / book / "state.json"
+def load_state(root=None):
+    p = bot_dir(root) / "state.json"
     return {**new_state(), **json.loads(p.read_text())} if p.exists() else new_state()
 
 
-def save_state(st, root=None, book="btc_usdc"):
-    d = bot_dir(root) / book
+def save_state(st, root=None):
+    d = bot_dir(root)
     d.mkdir(parents=True, exist_ok=True)
-    tmp = d / "state.json.tmp"
-    tmp.write_text(json.dumps(st, indent=1, default=str))
-    tmp.replace(d / "state.json")
+    (d / "state.json.tmp").write_text(json.dumps(st, indent=1, default=str))
+    (d / "state.json.tmp").replace(d / "state.json")
 
 
-def journal(event, root=None, book="btc_usdc", **kw):
-    d = bot_dir(root) / book
+def journal(event, root=None, **kw):
+    d = bot_dir(root)
     d.mkdir(parents=True, exist_ok=True)
     with open(d / "journal.jsonl", "a") as f:
         f.write(json.dumps({"t": datetime.now(timezone.utc).isoformat(timespec="seconds"), "event": event, **kw}, default=str) + "\n")
@@ -316,116 +243,83 @@ def write_control(ctrl, root=None):
 # ---- the bot
 
 class Bot:
-    def __init__(self, client, cfg=None, root=None, notify=None, sleep=time.sleep, now=lambda: datetime.now(timezone.utc), log=print):
-        self.c, self.root = client, root
-        self.cfg = cfg or enabled_books(load_config())[0]
-        self.book, self.cur = self.cfg["name"], self.cfg["settlement"]
-        self.notify_fn, self.sleep, self.now, self.log = notify, sleep, now, log
-        self.st = load_state(root, self.book)
+    def __init__(self, client, cfg=None, root=None, notify=None, now=lambda: datetime.now(timezone.utc), log=print):
+        self.c, self.cfg, self.root = client, cfg or load_config(), root
+        self.notify_fn, self.now, self.log = notify, now, log
+        self.st = load_state(root)
         self.net = "test" if client.base == URLS["test"] else "live"
         self._inst = {}
 
     def save(self):
-        save_state(self.st, self.root, self.book)
-
-    def money(self, x):
-        return f"{x:.5f} {self.cur}" if is_coin(self.cfg) else f"{x:.2f} {self.cur}"
+        save_state(self.st, self.root)
 
     def say(self, text, key=None, every_s=3600):
         """Message on Telegram; a repeated problem goes out at most once an hour."""
         self.log(text)
         if key:
-            last = self.st["sent"].get(key, 0)
-            if time.time() - last < every_s:
+            if time.time() - self.st["sent"].get(key, 0) < every_s:
                 return
             self.st["sent"][key] = time.time()
         if self.notify_fn:
             try:
-                self.notify_fn(f"🤖 Bot Deribit {self.book} ({'TESTNET' if self.net == 'test' else 'CONTO VERO'})\n{text}")
+                self.notify_fn(f"🤖 Bot Deribit ({'TESTNET' if self.net == 'test' else 'CONTO VERO'})\n{text}")
             except Exception as e:  # noqa: BLE001 - a lost message must not stop the bot
                 self.log(f"telegram: {e}")
 
     # -- exchange reads
-
-    def instruments(self):
-        r = self.c.call("public/get_instruments", currency=self.cfg["settlement"], kind="option", expired=False)
-        self._inst = {i["instrument_name"]: i for i in r}
-        return [i for i in r if i["instrument_name"].startswith(prefix(self.cfg))]
 
     def inst(self, name):
         if name not in self._inst:
             self._inst[name] = self.c.call("public/get_instrument", instrument_name=name)
         return self._inst[name]
 
-    def ticker(self, name):
-        t = self.c.call("public/ticker", instrument_name=name)
-        return {"bid": t.get("best_bid_price") or 0, "ask": t.get("best_ask_price") or 0, "delta": (t.get("greeks") or {}).get("delta"),
-                "mark": t.get("mark_price"), "under": t.get("underlying_price")}
+    def quote(self, name):
+        """Bid and ask from the order book itself: on the testnet the ticker lagged the book."""
+        ob = self.c.call("public/get_order_book", instrument_name=name, depth=1)
+        return {"bid": ob.get("best_bid_price") or 0, "ask": ob.get("best_ask_price") or 0, "under": ob.get("underlying_price")}
 
-    def equity(self):
-        return float(self.c.call("private/get_account_summary", currency=self.cfg["settlement"])["equity"])
+    def account(self):
+        a = self.c.call("private/get_account_summary", currency=self.cfg["settlement"])
+        return float(a["equity"]), float(a.get("maintenance_margin") or 0)
 
     def positions(self):
-        r = self.c.call("private/get_positions", currency=self.cfg["settlement"], kind="option")
-        return [p for p in r if p["instrument_name"].startswith(prefix(self.cfg))]
+        """(options of this underlying, perpetual size) as the exchange sees them."""
+        opts = [p for p in self.c.call("private/get_positions", currency=self.cfg["settlement"], kind="option")
+                if p["instrument_name"].startswith(f"{self.cfg['underlying']}_{self.cfg['settlement']}-") and abs(p["size"]) > EPS]
+        perp = [p for p in self.c.call("private/get_positions", currency=self.cfg["settlement"], kind="future") if p["instrument_name"] == self.cfg["perp"]]
+        return opts, (float(perp[0]["size_currency"]) if perp else 0.0)  # "size" of the USDC perpetual is in dollars, size_currency in BTC
 
     # -- orders
 
-    def execute(self, side, name, amount, reduce_only=False, label=None):
-        """A limit order that starts at the mid and moves to the far side in steps. Returns (filled, average price)."""
+    def take(self, side, name, amount, reduce_only=False, label="bzd"):
+        """Cross the spread now (hedges, closing): limit at the far side of the book, immediate or cancel."""
         inst = self.inst(name)
-        amount = round(math.floor(amount / inst["min_trade_amount"] + EPS) * inst["min_trade_amount"], 8)
-        if amount < inst["min_trade_amount"] - EPS:
-            return 0.0, None
-        o = self.cfg["orders"]
-        q = self.ticker(name)
-        if not (q["bid"] > 0 and q["ask"] >= q["bid"]):
-            if side == "buy" and q["ask"] > 0:
-                q["bid"] = q["ask"]  # no bid: a buy can still pay the ask
-            else:
-                self.log(f"{name}: nessun prezzo per {side}")
-                return 0.0, None
-        order = None
-        for step in range(o["steps"] + 1):
-            px = limit_price(side, q["bid"], q["ask"], step, o["steps"], inst)
-            if order is None:
-                order = self.c.call(f"private/{side}", instrument_name=name, amount=amount, type="limit", price=px,
-                                    label=label or "bzd", reduce_only=reduce_only, time_in_force="good_til_cancelled")["order"]
-            else:
-                order = self.c.call("private/edit", order_id=order["order_id"], amount=amount, price=px)["order"]
-            if order["order_state"] == "filled":
-                break
-            self.sleep(o["wait_s"])
-            order = self.c.call("private/get_order_state", order_id=order["order_id"])
-            if order["order_state"] in ("filled", "cancelled", "rejected"):
-                break
-        if order["order_state"] == "open":
-            try:
-                order = self.c.call("private/cancel", order_id=order["order_id"])
-            except DeribitError:
-                order = self.c.call("private/get_order_state", order_id=order["order_id"])
-        filled = float(order.get("filled_amount") or 0)
-        journal("ordine", self.root, self.book, side=side, name=name, amount=amount, filled=filled, price=order.get("average_price"), state=order["order_state"])
-        return filled, (float(order["average_price"]) if filled > 0 else None)
+        lot = inst["min_trade_amount"]
+        amount = round(math.floor(amount / lot + EPS) * lot, 8)
+        if amount < lot - EPS:
+            return 0.0
+        q = self.quote(name)
+        px = q["ask"] if side == "buy" else q["bid"]
+        if not px:
+            self.log(f"{name}: nessun prezzo per {side}")
+            return 0.0
+        o = self.c.call(f"private/{side}", instrument_name=name, amount=amount, type="limit", price=px, label=label,
+                        reduce_only=reduce_only, time_in_force="immediate_or_cancel")["order"]
+        got = float(o.get("filled_amount") or 0)
+        journal("ordine", self.root, side=side, name=name, amount=amount, filled=got, price=o.get("average_price"), state=o["order_state"])
+        return got
 
-    # -- the cycle
+    # -- safety
 
-    def check(self, positions):
-        """Buy back any sold put with no wing, then compare the book with the exchange."""
-        naked = uncovered(positions)
-        for name, amt in naked.items():
-            self.say(f"⚠️ {name}: {amt} vendute senza ala. Le ricompro subito.", key=f"naked:{name}")
-            got, px = self.execute("buy", name, amt, reduce_only=True, label="bzd-ripara")
-            for pos in self.st["book"]:
-                if pos["short"] == name and got > 0:
-                    take = min(got, pos["short_amount"])
-                    pos["short_amount"], got = round(pos["short_amount"] - take, 8), got - take
-                    pos["paid_back"] = pos.get("paid_back", 0) + take * px
-            self.save()
-        if naked:
-            positions = self.positions()
-        self.settle_expired(positions)
-        diff = differences(self.st["book"], positions)
+    def check(self, opts):
+        """The exchange against the book: any difference stops new entries."""
+        want = {}
+        for p in self.st["book"]:
+            for leg in ("put", "call"):
+                if p[f"{leg}_amount"] > EPS:
+                    want[p[leg]] = round(want.get(p[leg], 0) - p[f"{leg}_amount"], 8)
+        have = {p["instrument_name"]: round(p["size"], 8) for p in opts}
+        diff = {k: (want.get(k, 0), have.get(k, 0)) for k in set(want) | set(have) if abs(want.get(k, 0) - have.get(k, 0)) > EPS}
         if diff:
             text = ", ".join(f"{k}: atteso {w}, sul conto {h}" for k, (w, h) in sorted(diff.items()))
             if self.st["blocked"] != text:
@@ -433,156 +327,249 @@ class Bot:
             self.st["blocked"] = text
         else:
             self.st["blocked"] = None
-        return positions
 
-    def settle_expired(self, positions):
-        """Spreads past expiry that the exchange no longer shows were settled by Deribit."""
-        have = {p["instrument_name"] for p in positions if abs(p["size"]) > EPS}
-        today = self.now().date()
-        for pos in list(self.st["book"]):
-            if datetime.fromisoformat(pos["expiry"]).date() <= today and pos["short"] not in have and pos["long"] not in have:
-                self.close_record(pos, "scaduta", None)
+    def settle_expired(self, opts):
+        have = {p["instrument_name"] for p in opts}
+        now = self.now()
+        for p in list(self.st["book"]):
+            if now >= expiry_time(p["put"]) and p["put"] not in have and p["call"] not in have:
+                pay = None
+                try:
+                    d = self.c.call("public/get_delivery_prices", index_name=f"{self.cfg['underlying'].lower()}_usd", count=5)["data"]
+                    s = next(x["delivery_price"] for x in d if x["date"] == parse_name(p["put"])[0].isoformat())
+                    kp, kc = parse_name(p["put"])[1], parse_name(p["call"])[1]
+                    pay = p["put_amount"] * max(kp - s, 0) + p["call_amount"] * max(s - kc, 0)
+                except (StopIteration, DeribitError, KeyError):
+                    pass
+                self.close_record(p, "scaduto", None if pay is None else round(p["cash_in"] - pay, 2))
 
-    def close_record(self, pos, reason, pnl):
-        self.st["book"].remove(pos)
-        self.st["closed"].append({**pos, "closed": self.now().isoformat(timespec="seconds"), "reason": reason, "pnl": pnl})
-        journal("chiusa", self.root, self.book, id=pos["id"], reason=reason, pnl=pnl)
-        self.say(f"Chiuso {pos['short']} / {pos['long']} ({reason})" + (f": {'+' if pnl >= 0 else ''}{self.money(pnl)}" if pnl is not None else ""))
+    def close_record(self, p, reason, pnl):
+        self.st["book"].remove(p)
+        self.st["closed"].append({**p, "closed": self.now().isoformat(timespec="seconds"), "reason": reason, "pnl_options": pnl})
+        journal("chiuso", self.root, id=p["id"], reason=reason, pnl_options=pnl)
+        self.say(f"Chiuso lo strangle {p['put']} / {p['call']} ({reason})" + (f": opzioni {pnl:+.2f} USDC, copertura a parte" if pnl is not None else ""))
         self.save()
-
-    def close(self, pos, reason):
-        """Buy back the sold put first, then sell the wing: never a sold put without its wing, even halfway."""
-        if pos["short_amount"] > EPS:
-            got, px = self.execute("buy", pos["short"], pos["short_amount"], reduce_only=True, label=f"bzd-{pos['id']}")
-            if got > 0:
-                pos["short_amount"] = round(pos["short_amount"] - got, 8)
-                pos["paid_back"] = pos.get("paid_back", 0) + got * px
-                self.save()
-        return self.trim(pos, reason)
-
-    def trim(self, pos, reason):
-        """Sell the wing beyond what the sold put needs. When nothing is left, the spread is closed."""
-        extra = pos["long_amount"] - pos["short_amount"]
-        if extra > EPS:
-            got, px = self.execute("sell", pos["long"], extra, reduce_only=True, label=f"bzd-{pos['id']}")
-            if got > 0:
-                pos["long_amount"] = round(pos["long_amount"] - got, 8)
-                pos["wing_back"] = pos.get("wing_back", 0) + got * px
-                self.save()
-        if pos["short_amount"] < EPS and pos["long_amount"] < EPS:
-            pnl = pos["cash_in"] - pos.get("paid_back", 0) + pos.get("wing_back", 0)
-            self.close_record(pos, reason, round(pnl, 8))
-            return True
-        return False
-
-    def exits(self):
-        for pos in list(self.st["book"]):
-            if pos["short_amount"] < EPS:  # only a leftover wing: sell it
-                self.close(pos, pos.get("closing") or "ala rimasta")
-                continue
-            s, l = self.ticker(pos["short"]), self.ticker(pos["long"])
-            reason = pos.get("closing") or exit_reason(pos, s["ask"], l["bid"], self.now(), self.cfg)
-            if reason:
-                pos["closing"] = reason
-                self.close(pos, reason)
-
-    def open_risk(self):
-        return sum(max_loss(p) for p in self.st["book"])
-
-    def entry(self, equity):
-        e, now = self.cfg["entry"], self.now()
-        if self.st["paused"] or self.st["halted"] or self.st["blocked"]:
-            return None
-        last = self.st["last_entry"]
-        if last and (now - datetime.fromisoformat(last)).total_seconds() < e["every_days"] * 86400:
-            return None
-        insts = self.instruments()
-        exp = choose_expiry(insts, now, self.cfg)
-        if not exp:
-            return self.skip("nessuna scadenza tra %d e %d giorni" % tuple(e["days_range"]))
-        names = {i["instrument_name"] for i in insts if i["expiration_timestamp"] == exp and i["option_type"] == "put"}
-        book = [b for b in self.c.call("public/get_book_summary_by_currency", currency=self.cfg["settlement"], kind="option") if b["instrument_name"] in names]
-        legs = choose_legs(chain_quotes(book, exp, now), self.cfg)
-        if not legs:
-            return self.skip("prezzi troppo larghi o premio troppo basso")
-        per = unit_loss(legs["width"], legs["long"]["strike"], legs["credit"], self.cfg)
-        amount = size(equity, self.open_risk(), per, self.inst(legs["short"]["name"])["min_trade_amount"], self.cfg)
-        if amount <= 0:
-            return self.skip("rischio già al tetto")
-        pid = uuid.uuid4().hex[:8]
-        self.st["last_entry"] = now.isoformat(timespec="seconds")  # one attempt per period, filled or not
-        self.save()
-        got_l, px_l = self.execute("buy", legs["long"]["name"], amount, label=f"bzd-{pid}")
-        if got_l <= 0:
-            return self.skip("l'ala non si è comprata")
-        pos = {"id": pid, "opened": now.isoformat(timespec="seconds"), "expiry": parse_name(legs["short"]["name"])[0].isoformat(),
-               "short": legs["short"]["name"], "long": legs["long"]["name"], "width": legs["width"],
-               "short_amount": 0.0, "long_amount": got_l, "cash_in": -got_l * px_l, "credit": 0.0}
-        self.st["book"].append(pos)
-        self.save()  # the wing is on the book before the put is sold, so a crash leaves only a bought put
-        got_s, px_s = self.execute("sell", legs["short"]["name"], got_l, label=f"bzd-{pid}")
-        if got_s > 0:
-            pos["short_amount"] = got_s
-            pos["cash_in"] += got_s * px_s
-            pos["credit"] = round(px_s - px_l, 8)
-            pos["unit_loss"] = unit_loss(pos["width"], legs["long"]["strike"], pos["credit"], self.cfg)
-        self.save()
-        if got_s < got_l - EPS:
-            self.trim(pos, "entrata a metà")
-        if got_s > 0:
-            worst = "perdita massima" if not is_coin(self.cfg) else f"perdita con {self.cfg['underlying']} a {legs['long']['strike'] * self.cfg['risk']['coin_stress']:.0f}"
-            self.say(f"Aperto put spread {legs['short']['name']} / {legs['long']['strike']:.0f}, {got_s} {self.cfg['underlying']}, premio {self.money(pos['credit'] * got_s)}, "
-                     f"{worst} {self.money(max_loss(pos))} ({max_loss(pos) / equity:.1%} del conto). Rischio aperto totale {self.open_risk() / equity:.1%}.")
-        return pos
-
-    def skip(self, why):
-        self.log(f"entrata saltata: {why}")
-        journal("saltata", self.root, self.book, why=why)
-        return None
 
     def kill_switch(self, equity):
         self.st["peak"] = max(self.st["peak"] or equity, equity)
         dd = 1 - equity / self.st["peak"]
         if dd >= self.cfg["risk"]["kill_drawdown"] and not self.st["halted"]:
             self.st["halted"] = f"{self.now().isoformat(timespec='seconds')}: drawdown {dd:.1%}"
-            self.say(f"🛑 Drawdown {dd:.1%} dal massimo: niente entrate nuove. Le aperte restano protette dall'ala. "
-                     f"Per ripartire: python -m bzd.vol_bot riprendi")
+            self.say(f"🛑 Drawdown {dd:.1%} dal massimo: niente entrate nuove. Le aperte restano coperte. Per ripartire: python -m bzd.vol_bot riprendi")
+
+    def margin_guard(self, equity, maint):
+        """Above margin_close_all of equity the bot closes everything itself, before the exchange liquidates."""
+        r = maint / equity if equity > 0 else 1.0
+        if r >= self.cfg["risk"]["margin_close_all"] and self.st["book"]:
+            self.say(f"🛑 Margine al {r:.0%} del conto: chiudo tutto prima che lo faccia Deribit.", key="margin_close")
+            self.close_all("margine")
+            return True
+        if r >= self.cfg["risk"]["margin_block"]:
+            self.say(f"⚠️ Margine al {r:.0%} del conto: niente entrate nuove.", key="margin_block")
+            return True
+        return False
+
+    # -- hedging
+
+    def hedge(self, reason):
+        opts, perp = self.positions()
+        delta = sum(float(p.get("delta") or 0) for p in opts)
+        trade = hedge_trade(delta, perp, self.cfg["hedge"]["min_trade"])
+        option_btc = sum(abs(p["size"]) for p in opts)
+        if trade and not hedge_sane(trade, option_btc, perp):
+            self.st["blocked"] = f"copertura assurda: {trade:+.4f} BTC con {option_btc:.4f} BTC di opzioni"
+            self.say(f"🛑 Copertura rifiutata: {trade:+.4f} BTC sul perpetuo con {option_btc:.4f} BTC di opzioni. Controlla il conto.", key="hedge_insane")
+            return
+        if trade:
+            got = self.take("buy" if trade > 0 else "sell", self.cfg["perp"], abs(trade), label="bzd-hedge")
+            journal("copertura", self.root, reason=reason, option_delta=round(delta, 4), perp_before=perp, trade=trade, filled=got)
+            if got < abs(trade) - EPS:
+                self.say(f"⚠️ Copertura incompleta: {got} su {abs(trade):.4f} BTC. Riprovo al prossimo giro.", key="hedge_short")
+
+    def emergency(self):
+        opts, perp = self.positions()
+        size = sum(abs(p["size"]) for p in opts) / 2  # BTC of strangle: each one is a put and a call
+        net = sum(float(p.get("delta") or 0) for p in opts) + perp
+        if size and abs(net) > self.cfg["hedge"]["emergency_delta_per_btc"] * size:
+            self.say(f"⚡ Delta netto {net:+.3f} BTC su {size:.2f} BTC di strangle: copertura subito, fuori orario.", key="emergency", every_s=900)
+            self.hedge("emergenza")
+
+    # -- entry as a maker
+
+    def entry(self, equity):
+        now, w = self.now(), self.st["working"]
+        if w and (not in_entry_window(now, self.cfg) or w["week"] != week_key(now)):
+            return self.end_entry()
+        if not in_entry_window(now, self.cfg):
+            return None
+        if not w:
+            if self.st["last_week"] == week_key(now) or self.st["paused"] or self.st["halted"] or self.st["blocked"]:
+                return None
+            insts = [i for i in self.c.call("public/get_instruments", currency=self.cfg["settlement"], kind="option", expired=False)
+                     if i["instrument_name"].startswith(f"{self.cfg['underlying']}_{self.cfg['settlement']}-")]
+            self._inst.update({i["instrument_name"]: i for i in insts})
+            self.st["last_week"] = week_key(now)  # one try a week, filled or not
+            exp = choose_expiry(insts, now, self.cfg)
+            if not exp:
+                return self.skip("nessuna scadenza tra %d e %d giorni" % tuple(self.cfg["entry"]["days_range"]))
+            names = {i["instrument_name"] for i in insts if i["expiration_timestamp"] == exp}
+            book = [b for b in self.c.call("public/get_book_summary_by_currency", currency=self.cfg["settlement"], kind="option") if b["instrument_name"] in names]
+            legs = choose_strangle(book, exp, now, self.cfg)
+            if not legs:
+                return self.skip("nessuna opzione vicina a 25 delta")
+            open_amt = sum(max(p["put_amount"], p["call_amount"]) for p in self.st["book"])
+            amount = entry_amount(equity, legs["under"], open_amt, self.cfg, self.inst(legs["put"])["min_trade_amount"])
+            if amount <= 0:
+                return self.skip("nozionale già al tetto o conto troppo piccolo")
+            w = self.st["working"] = {"week": week_key(now), "id": uuid.uuid4().hex[:8], "amount": amount,
+                                      "legs": {leg: {"name": legs[leg], "order_id": None, "price": None, "filled": 0.0, "order_filled": 0.0, "cash": 0.0}
+                                               for leg in ("put", "call")}}
+            self.save()
+            self.say(f"Offro lo strangle {legs['put']} / {legs['call']}, {amount} BTC, al prezzo medio fino alle 16 UTC.")
+        self.work_orders()
+        return w
+
+    def absorb(self, leg, o):
+        """Add what an order filled since we last looked."""
+        got = float(o.get("filled_amount") or 0)
+        new = got - leg["order_filled"]
+        if new > EPS:
+            leg["cash"] += new * float(o["average_price"])  # average over the whole order; fine for one maker order at a time
+            leg["filled"] = round(leg["filled"] + new, 8)
+            leg["order_filled"] = got
+            return True
+        return False
+
+    def work_orders(self):
+        w, new_fill = self.st["working"], False
+        for leg in w["legs"].values():
+            if leg["order_id"]:
+                o = self.c.call("private/get_order_state", order_id=leg["order_id"])
+                new_fill |= self.absorb(leg, o)
+                if o["order_state"] != "open":
+                    leg["order_id"], leg["order_filled"] = None, 0.0
+            left = round(w["amount"] - leg["filled"], 8)
+            if left < self.inst(leg["name"])["min_trade_amount"] - EPS:
+                continue
+            q = self.quote(leg["name"])
+            if not (q["bid"] > 0 and q["ask"] > q["bid"]):
+                continue
+            px = maker_price(q["bid"], q["ask"], self.inst(leg["name"]))
+            if not leg["order_id"]:
+                o = self.c.call("private/sell", instrument_name=leg["name"], amount=left, type="limit", price=px, post_only=True,
+                                label=f"bzd-{w['id']}", time_in_force="good_til_cancelled")["order"]
+                leg["order_id"], leg["price"], leg["order_filled"] = o["order_id"], px, 0.0
+                new_fill |= self.absorb(leg, o)
+                if o["order_state"] != "open":
+                    leg["order_id"], leg["order_filled"] = None, 0.0
+            elif abs(px - (leg["price"] or 0)) > EPS:
+                o = self.c.call("private/edit", order_id=leg["order_id"], amount=round(leg["order_filled"] + left, 8), price=px, post_only=True)["order"]
+                leg["price"] = px
+                new_fill |= self.absorb(leg, o)
+        self.sync_working()
+        self.save()
+        if new_fill:
+            self.hedge("entrata")
+
+    def sync_working(self):
+        """Keep the book's record of this week's strangle equal to what has filled so far."""
+        w = self.st["working"]
+        filled = {k: v["filled"] for k, v in w["legs"].items()}
+        if max(filled.values()) < EPS:
+            return
+        p = next((p for p in self.st["book"] if p["id"] == w["id"]), None)
+        if p is None:
+            p = {"id": w["id"], "opened": self.now().isoformat(timespec="seconds"), "put": w["legs"]["put"]["name"], "call": w["legs"]["call"]["name"]}
+            self.st["book"].append(p)
+        p.update({"put_amount": filled["put"], "call_amount": filled["call"], "cash_in": round(w["legs"]["put"]["cash"] + w["legs"]["call"]["cash"], 2)})
+
+    def end_entry(self):
+        w = self.st["working"]
+        for leg in w["legs"].values():
+            if leg["order_id"]:
+                try:
+                    self.absorb(leg, self.c.call("private/cancel", order_id=leg["order_id"]))
+                except DeribitError:
+                    pass
+                leg["order_id"] = None
+        self.sync_working()
+        p = next((p for p in self.st["book"] if p["id"] == w["id"]), None)
+        self.st["working"] = None
+        self.save()
+        if p:
+            journal("entrata", self.root, id=p["id"], put=p["put"], call=p["call"], put_amount=p["put_amount"], call_amount=p["call_amount"], cash_in=p["cash_in"])
+            self.say(f"Venduto lo strangle {p['put']} ({p['put_amount']}) / {p['call']} ({p['call_amount']}), premio {p['cash_in']:.2f} USDC. Coperto sul perpetuo.")
+            self.hedge("entrata")
+        else:
+            self.skip("nessun ordine eseguito entro le 16 UTC")
+        return p
+
+    def skip(self, why):
+        self.log(f"entrata saltata: {why}")
+        journal("saltata", self.root, why=why)
+        return None
+
+    # -- the cycle
 
     def apply_control(self):
-        ctrl = read_control(self.root)  # shared by every book
+        ctrl = read_control(self.root)
         self.st["paused"] = bool(ctrl.get("paused"))
         if ctrl.get("resume") and ctrl["resume"] != self.st.get("resumed"):
-            self.st["halted"], self.st["resumed"] = None, ctrl["resume"]
-            self.st["peak"] = None  # the drawdown counts again from here
+            self.st["halted"], self.st["resumed"], self.st["peak"] = None, ctrl["resume"], None
 
     def cycle(self):
         self.apply_control()
-        equity = self.equity()
+        equity, maint = self.account()
         self.kill_switch(equity)
-        self.check(self.positions())
-        self.exits()
-        self.check(self.positions())
-        self.entry(self.equity())
+        opts, _ = self.positions()
+        self.settle_expired(opts)
+        if not self.st["working"]:
+            self.check(opts)  # while orders work, fills land between reads; the check waits for the window to close
+        stop = self.margin_guard(equity, maint)
+        now = self.now()
+        if hedge_due(now, self.st["last_hedge_day"], self.cfg):
+            self.hedge("08:00 UTC")
+            self.st["last_hedge_day"] = now.date().isoformat()
+            journal("conto", self.root, equity=equity, maintenance=maint)
+        else:
+            self.emergency()
+        if not stop or self.st["working"]:
+            self.entry(equity)
         self.save()
 
-    def close_all(self):
-        for pos in list(self.st["book"]):
-            pos["closing"] = "a mano"
-            self.close(pos, "a mano")
+    def close_all(self, reason="a mano"):
+        if self.st["working"]:
+            self.end_entry()
+        for p in list(self.st["book"]):
+            for leg in ("put", "call"):
+                if p[f"{leg}_amount"] > EPS:
+                    ask = self.quote(p[leg])["ask"]
+                    got = self.take("buy", p[leg], p[f"{leg}_amount"], reduce_only=True, label=f"bzd-{p['id']}")
+                    p[f"{leg}_amount"] = round(p[f"{leg}_amount"] - got, 8)
+                    p["cash_in"] = round(p["cash_in"] - got * ask, 2)
+                    self.save()
+            if p["put_amount"] < EPS and p["call_amount"] < EPS:
+                self.close_record(p, reason, p["cash_in"])
+        self.hedge("chiusura")
         self.save()
 
     def status(self):
-        eq = self.equity() or EPS
-        lines = [f"[{self.book}] Rete: {self.net}. Conto: {self.money(eq)}, massimo {self.money(self.st['peak'] or eq)}."]
-        for k in ("paused", "halted", "blocked"):
+        eq, maint = self.account()
+        opts, perp = self.positions()
+        delta = sum(float(p.get("delta") or 0) for p in opts)
+        lines = [f"Rete: {self.net}. Conto {eq:.2f} USDC, massimo {self.st['peak'] or eq:.2f}, margine {maint / eq if eq else 0:.0%}."]
+        for k, label in (("paused", "In pausa."), ("halted", "Fermo: {}."), ("blocked", "Bloccato: {}.")):
             if self.st[k]:
-                lines.append({"paused": "In pausa.", "halted": f"Fermo: {self.st['halted']}.", "blocked": f"Bloccato: {self.st['blocked']}."}[k])
+                lines.append(label.format(self.st[k]))
         for p in self.st["book"]:
-            lines.append(f"  {p['short']} / {p['long']}: {p['short_amount']} vendute, premio {self.money(p['credit'] * p['short_amount'])}, perdita massima {self.money(max_loss(p))}")
-        lines.append(f"Rischio aperto {self.money(self.open_risk())} ({self.open_risk() / eq:.1%} del conto, tetto {self.cfg['risk']['max_loss_open']:.0%}).")
-        done = [c for c in self.st["closed"] if c["pnl"] is not None]
+            lines.append(f"  {p['put']} ({p['put_amount']}) / {p['call']} ({p['call_amount']}): premio {p['cash_in']:.2f} USDC")
+        if self.st["working"]:
+            w = self.st["working"]
+            lines.append("  in vendita adesso: " + ", ".join(f"{v['name']} {v['filled']}/{w['amount']}" for v in w["legs"].values()))
+        lines.append(f"Delta opzioni {delta:+.4f} BTC, perpetuo {perp:+.4f}, netto {delta + perp:+.4f}.")
+        done = [c for c in self.st["closed"] if c.get("pnl_options") is not None]
         if done:
-            lines.append(f"Chiusi: {len(self.st['closed'])}, somma {self.money(sum(c['pnl'] for c in done))}.")
+            lines.append(f"Chiusi: {len(self.st['closed'])}, opzioni {sum(c['pnl_options'] for c in done):+.2f} USDC (la copertura è nel conto).")
         return "\n".join(lines)
 
 
@@ -611,29 +598,26 @@ def main(argv):
         write_control({"paused": True} if cmd == "pausa" else {"paused": False, "resume": datetime.now(timezone.utc).isoformat()})
         print("In pausa: niente entrate nuove." if cmd == "pausa" else "Ripreso.")
         return
-    cfg, client, notify = load_config(), client_from_env(), telegram_notify()
-    bots = [Bot(client, b, notify=notify) for b in enabled_books(cfg)]
+    bot = Bot(client_from_env(), notify=telegram_notify())
     if cmd == "stato":
-        print("\n\n".join(b.status() for b in bots))
+        print(bot.status())
     elif cmd == "chiudi":
         _l = lock()
-        for b in bots:
-            b.close_all()
-        print("\n\n".join(b.status() for b in bots))
+        bot.close_all()
+        print(bot.status())
     elif cmd in ("once", "run"):
         _l = lock()
-        bots[0].say(f"Acceso sul {'testnet' if bots[0].net == 'test' else 'CONTO VERO'}: {', '.join(b.book for b in bots)}.")
+        bot.say(f"Acceso sul {'testnet' if bot.net == 'test' else 'CONTO VERO'}: strangle BTC coperto.")
         while True:
-            for bot in bots:  # one book failing does not stop the others
-                try:
-                    bot.cycle()
-                except DeribitError as e:
-                    bot.say(f"Errore da Deribit: {e}", key=f"err:{str(e)[:60]}")
-                except Exception as e:  # noqa: BLE001 - keep running, but say so
-                    bot.say(f"Errore: {type(e).__name__}: {e}", key=f"err:{type(e).__name__}")
+            try:
+                bot.cycle()
+            except DeribitError as e:
+                bot.say(f"Errore da Deribit: {e}", key=f"err:{str(e)[:60]}")
+            except Exception as e:  # noqa: BLE001 - keep running, but say so
+                bot.say(f"Errore: {type(e).__name__}: {e}", key=f"err:{type(e).__name__}")
             if cmd == "once":
                 break
-            time.sleep(cfg["loop_seconds"])
+            time.sleep(bot.cfg["loop_seconds"])
     else:
         print(__doc__)
 

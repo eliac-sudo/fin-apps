@@ -4,7 +4,7 @@ Aggiornato al 23 novembre 2026. Da leggere per primo quando si riprende il lavor
 
 ## Cos'è
 
-BZD raccoglie dati gratuiti su cripto, azioni, bond, materie prime e forex. Li mostra in un'app per PC e manda alert su Telegram. Serve soprattutto a chi compra bene i minimi ma fatica a vendere i massimi. Gli ordini li manda solo il bot Deribit, per ora sul testnet con soldi finti (`docs/BOT_DERIBIT.md`).
+BZD raccoglie dati gratuiti su cripto, azioni, bond, materie prime e forex. Li mostra in un'app per PC e manda alert su Telegram. Serve soprattutto a chi compra bene i minimi ma fatica a vendere i massimi. Gli ordini li manda solo il bot Deribit, per ora sul testnet con soldi finti: vende lo strangle BTC da maker e lo copre sul perpetuo (`docs/BOT_DERIBIT.md`).
 
 ## Cosa gira
 
@@ -17,7 +17,7 @@ Tutto nel Codespace: se si spegne si ferma tutto. Alla riaccensione `scripts/sta
 | Alert e bot | `.venv/bin/python -u -m bzd.alerts run` | invio attivo, risponde a `/piano` |
 | Portafogli HL | `python3 -u -m bzd.wallets run` | classifica ogni giorno, posizioni ogni ora |
 | App | `.venv/bin/python -u -m bzd.app` | porta 8787, privata |
-| Bot Deribit | `.venv/bin/python -u -m bzd.vol_bot run` | parte solo con `DERIBIT_CLIENT_ID` in `.env`; testnet, acceso dal 24 novembre 2026. Primo giro: due put spread 54000/50000 sul 25 dicembre |
+| Bot Deribit | `.venv/bin/python -u -m bzd.vol_bot run` | parte solo con `DERIBIT_CLIENT_ID` in `.env`; testnet. Dal 24 novembre 2026 solo lo strangle coperto (v2); la prima versione a put spread è chiusa e archiviata in `data/vol_bot_v1_archivio/` |
 
 - I servizi girano come utente `codespace`, Claude come root. Dopo ogni modifica da root: `chown -R codespace:codespace /workspaces/fin-apps` e `chmod 600 .env`. Per riavviare un servizio si cerca il PID con `pgrep -f` su un'espressione ancorata, non con `pkill -f` largo. Lo script avvia anche l'app: prima va fermata un'eventuale copia lanciata da root.
 - Revisione degli alert con l'LLM **accesa** (`BZD_AGENTS=on`), tetto 1,50 $ al mese (`BZD_LLM_BUDGET_USD`), condiviso con gli agenti di ricerca. Spesa totale 0,36 $ al 5 novembre. Il 23 novembre la chiave API Anthropic era scaduta: le revisioni fallivano e gli alert partivano senza. Sostituita lo stesso giorno. Se torna «chiave API non valida» in `data/agents/reviews.jsonl`, va rinnovata in `.env`.
@@ -53,7 +53,7 @@ Il dettaglio di ogni test è nella scheda Test e nei file `docs/V*_STORICO.md`. 
 - **Uscite:** stop + 3R taglia le perdite peggiori ma rende meno del tenere.
 - **Volatilità:** HAR batte GARCH ed EWMA, ma su BTC ed ETH la volatilità implicita prevede meglio.
 - **Opzioni in prova:** nove strategie sulla carta dal 7 novembre 2026 sui prezzi veri (`docs/OPZIONI_IN_PROVA.md`). Nessun giudizio prima del 6 novembre 2027.
-- **Vendere volatilità, storico su prezzi veri (24 novembre, `docs/BOT_DERIBIT_STORICO.md`):** su Deribit dal 2019 nessuno spread a rischio definito guadagna al netto dei costi; il put spread del bot fa −1% sul rischio su BTC e −2,3% su ETH. Solo la put nuda o molto lontana su BTC è positiva, poco e non significativa. Iron condor e garanzia in moneta peggio. Sull'S&P l'iron condor Cboe fa 0,8% l'anno dal 2007. Seconda prova: l'unica candidata è lo strangle 25Δ su BTC venduto da maker e coperto ogni giorno sul perpetuo (+7,3% l'anno, DD −12%, t 1,9 con il funding), da provare sui dati futuri prima di usarla.
+- **Vendere volatilità, storico su prezzi veri (24 novembre, `docs/BOT_DERIBIT_STORICO.md`):** su Deribit dal 2019 nessuno spread a rischio definito guadagna al netto dei costi; il put spread del bot fa −1% sul rischio su BTC e −2,3% su ETH. Solo la put nuda o molto lontana su BTC è positiva, poco e non significativa. Iron condor e garanzia in moneta peggio. Sull'S&P l'iron condor Cboe fa 0,8% l'anno dal 2007. Seconda prova: l'unica candidata è lo strangle 25Δ su BTC venduto da maker e coperto ogni giorno sul perpetuo (+7,3% l'anno, DD −12%, t 1,9 con il funding), ora in prova sui dati futuri nel bot (giudizio non prima del 24 novembre 2027). Nessun filtro (premio, contango, regime calmo) la migliora.
 - **Premio sulla volatilità (esplorazione, non test):** dal 2021 l'implicita a 30 giorni ha superato la realizzata nel 72% dei giorni su BTC (+10 punti di mediana), 65% su ETH (+7,6) e 85% sull'S&P (+4,4). Per unità di rischio, venditore di varianza al lordo dei costi: S&P 0,38, BTC 0,26, ETH 0,00.
 - **Chi compra:** il retail cripto va contro il prezzo (−0,54 su BTC a 3 giorni), i top trader no. Seguire chi compra il dip non ha aiutato (F1, F2).
 - **Segno COT su USD/JPY, USD/CHF e USD/CAD:** i setup congelati lo leggono al contrario. L'esito di B3 non cambia; le conferme dal vivo su quelle coppie sì.
@@ -68,7 +68,7 @@ Il dettaglio di ogni test è nella scheda Test e nei file `docs/V*_STORICO.md`. 
 - Le operazioni reali dell'utente (A2) più avanti: non proporle prima che ne riparli.
 - Gli agenti possono citare e dare un parere, non cambiare numeri o bloccare un alert.
 - L'indirizzo Hyperliquid dell'utente non va chiesto.
-- Bot che vende volatilità su Deribit (23 novembre): solo put spread a rischio definito, prima sul testnet. Libri accesi: BTC in USDC e BTC in BTC (chiesto dall'utente); ETH in ETH c'è ma spento. Il conto vero solo con una decisione esplicita dell'utente, con la cifra, e dopo il server. Il direzionale con approvazione resta fuori finché un segnale non regge un test.
+- Bot che vende volatilità su Deribit: dal 24 novembre solo la strategia che ha retto nello storico (strangle BTC coperto, da maker), le altre tolte su richiesta dell'utente. Prima sul testnet. Il conto vero solo con una decisione esplicita dell'utente, con la cifra, e dopo il server. Il direzionale con approvazione resta fuori finché un segnale non regge un test.
 - Claude ha pieno controllo su script e servizi del progetto (7 novembre).
 
 ## Prossimi passi

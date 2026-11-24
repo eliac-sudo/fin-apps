@@ -1,16 +1,16 @@
 ---
 title: Bot Deribit
 kind: uscita
-status: sul testnet dal 23 novembre 2026, conto vero spento
-brief: Vende put spread con rischio definito, un libro per garanzia (BTC in USDC, BTC in BTC, ETH in ETH), e ripara da solo una put rimasta senza ala.
-code: bzd/vol_bot.py#choose_legs, bzd/vol_bot.py#unit_loss, bzd/vol_bot.py#size, bzd/vol_bot.py#exit_reason, bzd/vol_bot.py#uncovered, bzd/vol_bot.py#Bot
-docs: docs/BOT_DERIBIT.md, config/vol_bot_v1.json
+status: sul testnet dal 24 novembre 2026, conto vero spento; giudizio non prima del 24 novembre 2027
+brief: Vende ogni lunedì lo strangle 25 delta su BTC in USDC da maker e ne copre il delta sul perpetuo, l'unica variante che ha retto nello storico.
+code: bzd/vol_bot.py#choose_strangle, bzd/vol_bot.py#entry_amount, bzd/vol_bot.py#hedge_trade, bzd/vol_bot.py#maker_price, bzd/vol_bot.py#Bot
+docs: docs/BOT_DERIBIT.md, docs/BOT_DERIBIT_STORICO.md, config/vol_bot_v2.json
 ---
 ## Come funziona
-1. Ogni 7 giorni sceglie la scadenza più vicina a 30 giorni e calcola il delta di ogni put dalla volatilità di mark ([[opzioni]]).
-2. Vende la put vicina a 20 delta e compra l'ala vicina a 7 delta. La dimensione è tale che la perdita massima resti entro il 3% del conto, e tutte le aperte entro il 12%. Con garanzia in BTC o ETH la perdita si misura a metà dello strike dell'ala, perché in moneta cresce mentre il prezzo scende.
-3. Compra prima l'ala, poi vende; in uscita ricompra prima la put. Esce al 50% del premio o a 7 giorni dalla scadenza.
-4. A ogni giro confronta il conto con il registro: una put senza ala si ricompra, ogni altra differenza blocca le entrate. Con un drawdown del 15% si ferma fino a `riprendi`.
+1. Ogni lunedì tra le 10 e le 16 UTC offre la put e la call più vicine a 25 delta, sulla scadenza vicina a 30 giorni, al prezzo medio del book ([[opzioni]]).
+2. Il 25% del conto come nozionale per entrata, al massimo 1× in tutto.
+3. Copre il delta sul perpetuo ogni giorno alle 08:00 UTC e dopo ogni esecuzione; tiene fino a scadenza.
+4. Sicurezza: copertura d'emergenza fuori orario, niente entrate con margine sopra il 50%, tutto chiuso sopra l'80%, stop dopo un drawdown del 15%, blocco se il conto non torna con il registro.
 
 ## Cosa sappiamo
-Lo storico su prezzi veri di Deribit dal 2019 (`docs/BOT_DERIBIT_STORICO.md`): il put spread del bot fa circa zero su BTC e perde su ETH al netto dei costi; nessuna variante a rischio definito guadagna in modo distinguibile dal caso. Il testnet prova solo i meccanismi. Le stesse idee sulla carta sono nelle [[opzioni-in-prova]] (V3 e V4). Nessun segnale direzionale ha retto i test, quindi il bot non fa direzionale.
+Nello storico Deribit dal 2019 (`docs/BOT_DERIBIT_STORICO.md`) questa variante fa +0,81% del nozionale per entrata con il funding, t 1,9: la migliore di 15, ma non significativa dopo i confronti multipli. Put spread, iron condor e garanzia in moneta non guadagnano; i filtri (premio, contango, regime calmo) non aiutano. Ora è in prova sui dati futuri come le [[opzioni-in-prova]].

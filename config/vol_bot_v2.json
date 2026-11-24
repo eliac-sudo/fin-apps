@@ -1,0 +1,37 @@
+{
+  "version": "vol_bot_v2",
+  "frozen": "2026-11-24",
+  "strategy": "strangle 25 delta venduto da maker su BTC in USDC, delta coperto ogni giorno alle 08:00 UTC sul perpetuo BTC_USDC, tenuto fino a scadenza. È DH2m di docs/BOT_DERIBIT_STORICO.md, l'unica variante che ha retto.",
+  "underlying": "BTC",
+  "settlement": "USDC",
+  "perp": "BTC_USDC-PERPETUAL",
+  "entry": {
+    "weekday": 0,
+    "window_utc_hours": [10, 16],
+    "days_range": [21, 45],
+    "target_days": 30,
+    "delta": 0.25,
+    "max_delta_gap": 0.145
+  },
+  "size": {
+    "notional_per_entry": 0.25,
+    "max_notional": 1.0
+  },
+  "hedge": {
+    "hour_utc": 8,
+    "min_trade": 0.001,
+    "emergency_delta_per_btc": 0.2
+  },
+  "risk": {
+    "kill_drawdown": 0.15,
+    "margin_block": 0.5,
+    "margin_close_all": 0.8
+  },
+  "loop_seconds": 300,
+  "readout": {
+    "not_before": "2027-11-24",
+    "min_entries": 52,
+    "rule": "media del risultato settimanale (variazione del conto) sopra zero, test a una coda al 5% con le entrate sovrapposte contate come cluster di 4; confronto con il backtest DH2m (+0,81% del nozionale per entrata)"
+  },
+  "safety_not_in_backtest": "copertura d'emergenza fuori orario se il delta netto supera 0,2 BTC per BTC di strangle; entrate bloccate con margine sopra il 50% del conto; tutto chiuso sopra l'80%"
+}

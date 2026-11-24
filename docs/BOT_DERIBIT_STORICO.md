@@ -79,3 +79,15 @@ DH2m anno per anno, in % del nozionale per operazione: 2019 −0,1, 2020 +1,1, 2
 - La sottoperformance di chi compra opzioni coperte è minore lontano dal denaro (Bakshi e Kapadia 2003). È coerente con quello che abbiamo visto: le ali lontane non sono un affare per chi vende.
 - Su un mercato con costi da retail (Nifty 50, 2015–2025) tutte le strategie di vendita sono negative al netto dei costi, e la causa principale sono le code, non i costi (Pillai 2026).
 - Con prezzi di opzioni rumorosi le stime del premio cambiano molto (Duarte e altri 2024). Il nostro uso del mark al posto delle esecuzioni è una delle debolezze.
+
+## Terza prova: vendere solo quando ha senso (24 novembre)
+
+Tre filtri presi dalla letteratura, fissati prima del calcolo, sullo strangle coperto da maker (DH2m). Script: `scripts/research/vol_backtest3.py`.
+
+| BTC | Quando vende | Quando sta fermo | Differenza (t) |
+|---|---|---|---|
+| F1 implicita ATM > realizzata a 30 giorni | +0,74% | +0,54% | +0,2 |
+| F2 contango (breve sotto 30 giorni) | +0,29% | +1,30% | −1,1 |
+| F3 regime calmo (implicita sotto la mediana di un anno) | +0,26% | +1,88% | −1,7 |
+
+Su ETH lo stesso quadro (t +0,6, −1,0, −1,2). Nessun filtro migliora la strategia. F2 e F3 vanno al contrario: le settimane di volatilità alta e di panico hanno reso di più, coerente con Bakshi e Kapadia (2003). È stato visto dopo, quindi resta un'ipotesi da provare sui dati futuri, non una regola.
