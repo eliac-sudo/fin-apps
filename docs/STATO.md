@@ -27,7 +27,7 @@ BZD raccoglie dati gratuiti su cripto, azioni, bond, materie prime e forex. Li m
 
 Il codice sta in `bzd/app.py` (server), `bzd/app.html` (pagina) e `bzd/snapshot.py` (i dati). Il tasto Layout ha 4 stili. I dati si ricostruiscono in circa 30 secondi all'avvio, poi restano in cache.
 
-- **Oggi:** la frase del giorno, la **forza** per gruppo (0–100 rispetto alla propria storia: ipervenduto, sotto la norma, nella norma, sopra la norma, ipercomprato; `bzd/thermo.py`) e la tabella del momentum («▼ scende forte» e «▲ sale forte» sotto −50 e sopra +50; `bzd/zones.py`). Poi la **liquidità** (`bzd/liquidity.py`, `docs/wiki/liquidita.md`): Fed netta, M2, stablecoin, condizioni finanziarie, spread high yield e dollaro rispetto a 13 settimane prima, e per ogni mercato volumi, impatto e book di Hyperliquid; non testata. Poi il riquadro **BYZ, la capitolazione** (`bzd/capitulation.py`): scatta solo con un asset forte, un calo profondo, la volatilità spenta e il prezzo di lato da 40 sedute. È una regola nuova e non testata, e oggi non scatta su nessun mercato.
+- **Oggi:** la frase del giorno, la **forza** per gruppo (0–100 rispetto alla propria storia: ipervenduto, sotto la norma, nella norma, sopra la norma, ipercomprato; `bzd/thermo.py`) e la tabella del momentum («▼ scende forte» e «▲ sale forte» sotto −50 e sopra +50; `bzd/zones.py`). Poi la **liquidità** (`bzd/liquidity.py`, `docs/wiki/liquidita.md`): Fed netta, M2, stablecoin, condizioni finanziarie, spread high yield e dollaro rispetto a 13 settimane prima, e per ogni mercato volumi, impatto e book di Hyperliquid; non testata. Poi il riquadro **BZD, la capitolazione** (prima BYZ) (`bzd/capitulation.py`): scatta solo con un asset forte, un calo profondo, la volatilità spenta e il prezzo di lato da 40 sedute. È una regola nuova e non testata, e oggi non scatta su nessun mercato.
 - **Pagina del ticker:** si apre cliccando un asset ovunque o dalla ricerca. Riassume Oggi, Analisi tecnica, Opzioni, Sentiment e Chi compra, con un pulsante per ogni scheda.
 - **Opzioni:** costo rispetto al movimento previsto (Black-76, SVI, HAR), contratti economici e cari, gamma (`bzd/option_lab.py`, `docs/OPZIONI_MODELLI.md`).
 - **Analisi tecnica:** grafico con livelli disegnati dal codice, RSI, indicatori a confronto, e la ricerca di qualunque perpetuo Hyperliquid o ticker Yahoo (`bzd/technicals.py`, `bzd/lookup.py`).
@@ -88,7 +88,7 @@ Deciso il 5 novembre: **prima l'app, gli alert e le indicazioni devono avere sen
 ## Domande aperte
 
 - Avvio automatico anche da `~/.bashrc` o `postAttachCommand`, visto che il `postStartCommand` a volte non parte?
-- BYZ capitolazione: pre-registrarla per una prova sui dati futuri? È rara, quindi servirebbero anni.
+- BZD capitolazione: pre-registrarla per una prova sui dati futuri? È rara, quindi servirebbero anni.
 - Momentum anche sul bot? Consiglio: prima la prova sui dati futuri.
 - Segno COT dal vivo su USD/JPY, USD/CHF e USD/CAD: correggerlo ora o nella prossima versione dei setup? Intanto l'alert lo segnala.
 - Prezzi di bond non USA, per la forza e la tecnica?
