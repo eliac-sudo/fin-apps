@@ -32,12 +32,13 @@ Su 46 ipotesi pre-registrate (B3, v2–v6) più 484 combinazioni (v7) reggono so
 | Nove strategie sulle opzioni, sulla carta | 6 novembre 2027 | Quali tenere |
 | Trend lungo (v2) | in corso dal 9 novembre 2026 | Probabilmente niente: storico poco promettente |
 | AIsetups | ogni proposta seguita fino alla chiusura | Dopo 100 proposte chiuse, se valgono più del caso |
+| v8: posizione bassa, dollaro forte, impatto alto, paura ed euforia cripto | 60 cluster ciascuna, o il 24 novembre 2028 | Se una regge, diventa un setup |
 
 ## 4. Prossimi test da pre-registrare
 
 Si scrivono prima, si conta, si lancia una volta. Le idee nate guardando i risultati del v6 **non si riprovano sullo stesso storico**: si provano solo sui dati che arrivano da ora.
 
-1. **v8, prova sui dati futuri di ciò che è andato vicino:** «posizione bassa nell'anno → long 10 sedute» (v7: positiva nei tre periodi, p 0,025 all'esame contro soglia 0,017), dollaro in forte rialzo (L3, p 0,015 contro soglia 0,0125) e impatto alto (L4, p 0,012 contro 0,010). Regole identiche a v6 e v7, giudizio dopo almeno 100 cluster nuovi.
+1. **Fatto con il v8** (prova sui dati futuri partita il 25 novembre 2026): «posizione bassa nell'anno → long 10 sedute» (v7: positiva nei tre periodi, p 0,025 all'esame contro soglia 0,017), dollaro in forte rialzo (L3, p 0,015 contro soglia 0,0125) e impatto alto (L4, p 0,012 contro 0,010). Regole identiche a v6 e v7, giudizio dopo almeno 100 cluster nuovi.
 2. **Stablecoin sulle cripto (L2):** stessa regola, sui dati futuri. Serve tempo: oggi i casi sono 29.
 3. **BZD, la capitolazione:** pre-registrarla per i dati futuri. È rara, quindi servono anni.
 4. **Proiezioni della Fed (F1):** solo 12 edizioni dure dal 2016; si riguarda tra qualche anno.

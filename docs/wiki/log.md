@@ -2,6 +2,7 @@
 
 Le modifiche al motore, dalla più recente. Il dettaglio è nella storia di git; com'è il programma adesso sta in `docs/STATO.md`.
 
+- **2026-11-24** · Test v8: paura ed euforia cripto non reggono sulla storia; parte la prova sui dati futuri di cinque letture, contata ogni giorno ([[v8]]).
 - **2026-11-24** · Test v7: 484 combinazioni di letture su tre periodi separati, nessuna regge all'esame; «posizione bassa → long» è la più vicina ([[v7]]).
 - **2026-11-24** · Test v6 su liquidità e proiezioni della Fed: nessuna delle 5 ipotesi regge (`docs/V6_STORICO.md`). Roadmap in `docs/ROADMAP.md`. Il bot Deribit non scrive più su Telegram ([[bot-deribit]]).
 - **2026-11-24** · Nell'app la capitolazione si chiama BZD invece di BYZ ([[capitolazione]]). I codici interni e i test congelati restano BYZ.

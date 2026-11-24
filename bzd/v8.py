@@ -28,8 +28,12 @@ CONFIG = BASE / "config" / "setups_v8.json"
 DOC = BASE / "docs" / "PREREGISTRAZIONE_v8.md"
 RESULTS = BASE / "config" / "validation_v8_storico.json"
 REPORT = BASE / "docs" / "V8_STORICO.md"
-FORWARD = BASE / "config" / "validation_v8_futuro.json"
-FORWARD_REPORT = BASE / "docs" / "V8_FUTURO.md"
+# Forward results live in data/, which deploys never touch: a frozen verdict must survive every update of the code
+def forward_dir():
+    from .history import root
+    d = root().parent / "v8"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
 SIGN = {"long": 1, "short": -1, "ampiezza": 1}
 
 
@@ -108,7 +112,8 @@ def forward_state(cfg, now=None):
     F = cfg["forward"]
     now = now or pd.Timestamp.now(tz="UTC")
     first = pd.Timestamp(F["start"], tz="UTC")
-    done = json.loads(FORWARD.read_text()) if FORWARD.exists() else {}
+    fp = forward_dir() / "giudicate.json"
+    done = json.loads(fp.read_text()) if fp.exists() else {}
     counts = collect(cfg, F["hypotheses"], lambda k: F["markets"][F["hypotheses"][k]["markets"]], first, now, count_only=True)
     state = {}
     for k, h in F["hypotheses"].items():
@@ -132,7 +137,8 @@ def judge_forward(cfg, now=None):
             r["outcome"] = "supportata" if r.get("p") is not None and r["p"] < alpha and r.get("mean", 0) > 0 else r.get("outcome", "non supportata")
             done[k] = {**r, "alpha": alpha, "judged_on": now.isoformat(timespec="seconds"), "config_sha256": config_hash()}
             state[k].update(judged=True, result=done[k])
-    FORWARD.write_text(json.dumps(done, indent=1, ensure_ascii=False))
+    (forward_dir() / "giudicate.json").write_text(json.dumps(done, indent=1, ensure_ascii=False))
+    (forward_dir() / "stato.json").write_text(json.dumps({"at": now.isoformat(timespec="seconds"), "start": F["start"], "state": state}, indent=1, ensure_ascii=False, default=str))
     return state
 
 
@@ -166,6 +172,17 @@ def forward_page(state, cfg):
     return "\n".join(lines) + "\n"
 
 
+def daily():
+    """Called by the alerts service once a day: counts, and judges a hypothesis once it is due. Never raises."""
+    try:
+        cfg = load_config()
+        if config_hash() in DOC.read_text():
+            state = judge_forward(cfg)
+            (forward_dir() / "V8_FUTURO.md").write_text(forward_page(state, cfg))
+    except Exception as e:  # noqa: BLE001 - a forward count must never stop the alerts
+        print(f"v8 futuro non aggiornato: {type(e).__name__}: {e}", flush=True)
+
+
 def main(argv):
     cmd = argv[0] if argv else ""
     cfg = load_config()
@@ -195,7 +212,7 @@ def main(argv):
         return 0
     if cmd == "futuro":
         state = judge_forward(cfg)
-        FORWARD_REPORT.write_text(forward_page(state, cfg))
+        (forward_dir() / "V8_FUTURO.md").write_text(forward_page(state, cfg))
         for k, s in state.items():
             print(f"{k}: {s['clusters']} cluster, " + (s["result"]["outcome"] if s["judged"] else "in raccolta"))
         return 0
