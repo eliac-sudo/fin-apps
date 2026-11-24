@@ -1,6 +1,6 @@
 """Download and clean past data for every market class. Needs pandas. Re-running skips finished series.
 
-    python -m bzd.history get [group ...]     crypto tradfi vol cot macro attention positions
+    python -m bzd.history get [group ...]     crypto tradfi vol cot macro attention positions forecasts
     python -m bzd.history coverage
 
 Raw responses go to hist/raw with a hash in hist/manifest.jsonl. Clean tables go to hist/<group>/<name>.csv.gz.
@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from .jobs import Job
+from .jobs import FRED_ALL, FRED_FORECASTS, Job
 from .recorder import BASE, UA, load_env, redact
 
 CRYPTO = ["BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX", "LINK"]
@@ -34,13 +34,15 @@ VOL_CBOE = {"VIX": "CLOSE", "VIX9D": "CLOSE", "VIX3M": "CLOSE", "VVIX": "VVIX", 
 IV_SYMBOLS = ["FXE"]  # the only market in the options message with no volatility index of its own (EVZ stopped in March 2025)
 IV_START = "2019-02"
 DOLTHUB = "https://www.dolthub.com/api/v1alpha1/post-no-preference/options/master?q="
-FRED = ["DFF", "DGS2", "DGS10", "T10Y2Y", "BAMLH0A0HYM2", "DTWEXBGS", "EVZCLS"]
+# Every FRED series the recorder copies, except the Fed projections, which go to forecasts/fomc_sep with all their editions
+FRED = [s for s in FRED_ALL if s not in FRED_FORECASTS or s == "GDPNOW"]
+FRED_REFRESH_DAYS = 400  # covers revisions to monthly and quarterly data
 WIKI = ["Bitcoin", "Cryptocurrency", "Stock_market_crash", "Recession", "Inflation", "Gold_as_an_investment"]
 POSITIONS_START, POSITIONS_REFILL_DAYS, POSITIONS_BLOCK, POSITIONS_THREADS = "2021-12-01", 30, 120, 4  # Binance's metrics files start in December 2021
 KLINE_PAGE = {"spot": 1000, "perp": 1500}
 COT_FUNDS = {"equities": ("gpe5-46if", "lev_money_positions_long", "lev_money_positions_short"), "bonds": ("gpe5-46if", "lev_money_positions_long", "lev_money_positions_short"), "fx": ("gpe5-46if", "lev_money_positions_long", "lev_money_positions_short"),
              "commodities": ("72hh-3qpy", "m_money_positions_long_all", "m_money_positions_short_all")}
-GAPS = {"data.binance.vision": .05, "www.dolthub.com": 2, "cdn.cboe.com": 20, "query1.finance.yahoo.com": 2, "api.stlouisfed.org": 1, "publicreporting.cftc.gov": 1.5}
+GAPS = {"www.philadelphiafed.org": 2, "data-api.ecb.europa.eu": 2, "sdmx.oecd.org": 10, "data.binance.vision": .05, "www.dolthub.com": 2, "cdn.cboe.com": 20, "query1.finance.yahoo.com": 2, "api.stlouisfed.org": 1, "publicreporting.cftc.gov": 1.5}
 _last = {}
 
 
@@ -478,6 +480,10 @@ def refresh_dvol():
         save("crypto", n, merge_tail(pd.read_csv(root() / "crypto" / f"{n}.csv.gz"), d, "t"), quiet=True)
 
 
+def fred_rows(x):
+    return pd.DataFrame({"date": [o["date"] for o in x], "value": pd.to_numeric([o["value"] for o in x], errors="coerce")}).dropna()
+
+
 def get_macro(force=False):
     key = os.environ.get("FRED_API_KEY")
     if not key:
@@ -486,13 +492,26 @@ def get_macro(force=False):
         if done("macro", s):
             continue
         u = f"https://api.stlouisfed.org/fred/series/observations?series_id={s}&api_key={key}&file_type=json"
-        x = json.loads(get("macro", s, 0, u, secrets=("FRED_API_KEY",)))["observations"]
-        d = pd.DataFrame({"date": [o["date"] for o in x], "value": pd.to_numeric([o["value"] for o in x], errors="coerce")}).dropna()
-        save("macro", s, d)
+        save("macro", s, fred_rows(json.loads(get("macro", s, 0, u, secrets=("FRED_API_KEY",)))["observations"]))
     if force or not done("macro", "fear_greed"):
         x = json.loads(get("macro", "fear_greed", 0, "https://api.alternative.me/fng/?limit=0"))["data"]
         d = pd.DataFrame({"date": pd.to_datetime([int(o["timestamp"]) for o in x], unit="s").strftime("%Y-%m-%d"), "value": [int(o["value"]) for o in x]})
         save("macro", "fear_greed", d.sort_values("date"), quiet=force)
+
+
+def refresh_macro():
+    """Last 400 days of every FRED series already downloaded, so revisions land too. Series not yet downloaded are fetched whole."""
+    key = os.environ.get("FRED_API_KEY")
+    if not key:
+        return
+    tag, start = int(time.time()), (datetime.now(timezone.utc) - timedelta(days=FRED_REFRESH_DAYS)).strftime("%Y-%m-%d")
+    for s in FRED:
+        if not done("macro", s):
+            get_macro()
+            continue
+        u = f"https://api.stlouisfed.org/fred/series/observations?series_id={s}&api_key={key}&file_type=json&observation_start={start}"
+        new = fred_rows(json.loads(get("live", f"fred_{s}", tag, u, secrets=("FRED_API_KEY",)))["observations"])
+        save("macro", s, merge_tail(pd.read_csv(root() / "macro" / f"{s}.csv.gz"), new, "date"), quiet=True)
 
 
 def get_attention(force=False):
@@ -557,6 +576,11 @@ def refresh_daily(with_cot=False):
         save("tradfi", n, merge_tail(old, d[[c for c in old.columns if c in d]], "date"), quiet=True)
     get_vol(force=True)
     get_macro_fng_and_attention()
+    for step in (refresh_macro, lambda: get_forecasts(force=True)):
+        try:  # FRED or a forecaster's site being down must not stop the rest
+            step()
+        except Exception as e:
+            print(f"  macro or forecasts not refreshed: {type(e).__name__}: {e}", flush=True)
     refresh_dvol()
     try:
         if done("vol", f"IV_{IV_SYMBOLS[0]}"):  # the first full download is run by hand, not by the daily refresh
@@ -571,7 +595,13 @@ def refresh_daily(with_cot=False):
             print(f"  small traders not refreshed: {type(e).__name__}", flush=True)
 
 
-GROUPS = {"crypto": get_crypto, "tradfi": get_tradfi, "vol": get_vol, "iv": get_iv, "cot": get_cot, "macro": get_macro, "attention": get_attention, "positions": get_positions}
+def get_forecasts(force=False):
+    from .forecasts import get_forecasts as g  # forecasts imports this module
+    g(force)
+
+
+GROUPS = {"crypto": get_crypto, "tradfi": get_tradfi, "vol": get_vol, "iv": get_iv, "cot": get_cot, "macro": get_macro, "attention": get_attention, "positions": get_positions,
+          "forecasts": get_forecasts}
 
 
 def quality(df):
