@@ -8,6 +8,7 @@ HL = "https://api.hyperliquid.xyz/info"
 # Minimum seconds between requests to one host, set from testing on 4 Nov 2026:
 # Reddit returned 429 at 8s and worked at 60s; GDELT returned 429 even at 15s, so it gets a wide gap.
 HOST_GAP = {
+    "api.elections.kalshi.com": 2, "gamma-api.polymarket.com": 2, "sdmx.oecd.org": 10,
     "t.me": 4, "cdn.cboe.com": 20, "www.reddit.com": 60, "api.gdeltproject.org": 60, "news.google.com": 5,
     "api.stlouisfed.org": 1, "api.hyperliquid.xyz": 0.5,
 }
@@ -33,7 +34,7 @@ class Job:
     name: str
     url: str  # may hold {ENV_VAR} placeholders, expanded only at request time and never logged
     every: int
-    kind: str = "json"  # json | xml | csv | tg
+    kind: str = "json"  # json | xml | csv | tg | xlsx
     body: tuple = ()  # sorted (key, value) pairs of a JSON POST body
     needs: tuple = ()  # env vars required; the job is skipped without them
     keep: int = 0  # days of raw responses to keep; 0 keeps them for good
@@ -65,7 +66,7 @@ def all_jobs():
     for c in coins:
         slug = c.replace(":", "_").lower()
         j.append(hl(f"hl_l2_{slug}", 5 * MIN, type="l2Book", coin=c))
-    return j + social_jobs() + news_jobs() + macro_jobs()
+    return j + social_jobs() + news_jobs() + macro_jobs() + forecast_jobs()
 
 
 def candle_jobs():
@@ -112,6 +113,11 @@ def news_jobs():
         "theblock": "https://www.theblock.co/rss.xml",
         "fed": "https://www.federalreserve.gov/feeds/press_all.xml",
         "ecb": "https://www.ecb.europa.eu/rss/press.html",
+        # What central bankers say about the outlook
+        "fed_speeches": "https://www.federalreserve.gov/feeds/speeches.xml",
+        "boe_speeches": "https://www.bankofengland.co.uk/rss/speeches",
+        "boj": "https://www.boj.or.jp/en/rss/whatsnew.xml",
+        "bis_cb_speeches": "https://www.bis.org/doclist/cbspeeches.rss",
     }
     for n, u in feeds.items():
         j.append(Job(f"news_{n}", u, 30 * MIN, "xml"))
@@ -128,15 +134,61 @@ def news_jobs():
     return j
 
 
+# FRED series by theme, shared with the history download. Saving daily also records what was known when,
+# which matters most for the forecasts: the Fed's projections and GDPNow change without old values being kept on the page.
+FRED_SERIES = {
+    "rates": ("DFF", "DTB3", "DGS3MO", "DGS2", "DGS5", "DGS10", "DGS30", "T10Y2Y", "T10Y3M", "DFII10", "SOFR", "THREEFYTP10", "MORTGAGE30US"),
+    "inflation_expectations": ("T5YIE", "T10YIE", "T5YIFR", "MICH", "EXPINF1YR", "EXPINF10YR"),
+    "credit_and_stress": ("BAMLH0A0HYM2", "BAMLH0A0HYM2EY", "BAMLC0A0CM", "BAMLHE00EHYIOAS", "NFCI", "STLFSI4", "DRTSCILM"),
+    "liquidity": ("WALCL", "RRPONTSYD", "WTREGEN", "M2SL"),
+    "economy": ("ICSA", "UNRATE", "PAYEMS", "CPIAUCSL", "CPILFESL", "PCEPILFE", "INDPRO", "RSAFS", "UMCSENT", "HOUST", "CSUSHPINSA",
+                "GDPC1", "SAHMREALTIME", "RECPROUSM156N", "USREC"),
+    "dollar_and_volatility": ("DTWEXBGS", "VIXCLS", "OVXCLS", "GVZCLS", "EVZCLS"),
+    "commodities": ("DCOILWTICO", "DCOILBRENTEU", "DHHNGSP", "PCOPPUSDM"),
+    "world_rates": ("ECBDFR", "IRLTLT01DEM156N", "IRLTLT01ITM156N", "IRLTLT01GBM156N", "IRLTLT01JPM156N"),
+    # Forecasts: FOMC Summary of Economic Projections (median and range of the dots, growth, unemployment, inflation) and GDPNow
+    "forecasts": ("GDPNOW", "FEDTARMD", "FEDTARRH", "FEDTARRL", "FEDTARMDLR", "GDPC1MD", "UNRATEMD", "PCECTPIMD", "JCXFEMD"),
+}
+FRED_ALL = tuple(s for v in FRED_SERIES.values() for s in v)
+FRED_FORECASTS = FRED_SERIES["forecasts"]
+
+# Kalshi series with open markets on 24 Nov 2026: the crowd's odds on the Fed, inflation, growth, jobs and year-end prices
+KALSHI = ("KXFED", "KXFEDDECISION", "KXFEDFUNDSYEAR", "KXRATECUTCOUNT", "KXCPIYOY", "KXCPI", "KXCPICORE", "KXCPICOREYOY", "KXPCECORE",
+          "KXUSCPIYEAR", "KXGDP", "KXPAYROLLS", "KXU3", "KXRECSSNBER", "KXINXY", "KXNASDAQ100Y", "KXBTCMAXY", "KXWTIMAX", "KXEURUSD")
+POLYMARKET_TAGS = ("economy", "fed")  # the 50 most traded open events each: above 50 the API answers only gzip, which the recorder does not ask for
+OECD_EO = ("https://sdmx.oecd.org/public/rest/data/OECD.ECO.MAD,DSD_EO@DF_EO,/USA+EA17+CHN+JPN+DEU+ITA+GBR+FRA+W."
+           "GDPV_ANNPCT+CPI_YTYPCT+CPIH_YTYPCT+UNR+IRL+IRS.A?startPeriod=2020&format=csvfilewithlabels")
+ECB_SPF = "https://data-api.ecb.europa.eu/service/data/SPF/Q.U2.HICP+CORE+RGDP+UNEM.POINT..Q.AVG?format=csvdata"
+PHILLY_SPF = "https://www.philadelphiafed.org/-/media/FRBP/Assets/Surveys-And-Data/survey-of-professional-forecasters/historical-data/medianlevel.xlsx"
+
+
 def macro_jobs():
     j = [Job("macro_fng", "https://api.alternative.me/fng/?limit=2", DAY)]
-    # Rates, credit, dollar and volatility across markets. Saving daily also records what was known when.
-    for s in ("DFF", "DGS2", "DGS10", "T10Y2Y", "BAMLH0A0HYM2", "DTWEXBGS", "VIXCLS", "OVXCLS", "GVZCLS", "EVZCLS"):
+    for s in FRED_ALL:
         j.append(Job(
             f"macro_fred_{s.lower()}",
             f"https://api.stlouisfed.org/fred/series/observations?series_id={s}&api_key={{FRED_API_KEY}}&file_type=json&sort_order=desc&limit=30",
             DAY, needs=("FRED_API_KEY",),
         ))
+    j.append(Job("macro_treasury_debt", "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/debt_to_penny?sort=-record_date&page%5Bsize%5D=10", DAY))
+    j.append(Job("macro_nyfed_rates", "https://markets.newyorkfed.org/api/rates/all/latest.json", DAY))
+    j.append(Job("macro_stablecoins", "https://stablecoins.llama.fi/stablecoins?includePrices=false", DAY))
+    j.append(Job("macro_defi_tvl", "https://api.llama.fi/v2/chains", DAY))
     for geo in ("US", "IT"):
         j.append(Job(f"trends_google_{geo.lower()}", f"https://trends.google.com/trending/rss?geo={geo}", 2 * HOUR, kind="xml"))
+    return j
+
+
+def forecast_jobs():
+    """What important actors expect: central banks, professional forecasters, the OECD and prediction markets.
+
+    Survey pages show only the latest edition, so a daily copy is the only way to keep each edition as it was published.
+    Prediction markets move all day; every 6 hours is enough to follow the odds without hammering the API.
+    """
+    j = [Job(f"fc_kalshi_{s.lower()}", f"https://api.elections.kalshi.com/trade-api/v2/markets?series_ticker={s}&status=open&limit=1000", 6 * HOUR)
+         for s in KALSHI]
+    j += [Job(f"fc_polymarket_{t}", f"https://gamma-api.polymarket.com/events?tag_slug={t}&closed=false&limit=50&order=volume24hr&ascending=false", 6 * HOUR) for t in POLYMARKET_TAGS]
+    j.append(Job("fc_oecd_outlook", OECD_EO, DAY, "csv"))
+    j.append(Job("fc_ecb_spf", ECB_SPF + "&lastNObservations=2", DAY, "csv"))
+    j.append(Job("fc_philly_spf", PHILLY_SPF, DAY, "xlsx"))
     return j

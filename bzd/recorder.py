@@ -49,6 +49,8 @@ def validate(kind, body):
         return None if head[:1] == b"<" and not head[:15].lower().startswith((b"<!doctype html", b"<html")) else "not xml"
     if kind == "tg":
         return None if b"tgme_widget_message" in body else "no telegram messages"
+    if kind == "xlsx":
+        return None if body[:2] == b"PK" else "not xlsx"
     if kind == "csv":
         return "html, not csv" if head[:1] == b"<" else None
     if head[:1] not in (b"{", b"["):
