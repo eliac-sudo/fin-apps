@@ -482,6 +482,8 @@ def cycle(st, log=print, refresh=True):
             if now_ts - st["last_daily"] >= DAILY_EVERY:
                 with_cot = now_ts - st["last_cot"] >= COT_EVERY
                 H.refresh_daily(with_cot)
+                from . import v8
+                v8.daily()
                 st["last_daily"], changed = now_ts, True
                 if with_cot:
                     st["last_cot"] = now_ts

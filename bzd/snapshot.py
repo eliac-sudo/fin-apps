@@ -397,6 +397,21 @@ def studies_part():
         out.append({"id": vid, "title": title, "date": date, "question": question, "prereg": prereg, "report": report,
                     "rows": [study_row(k, h, results.get(k, {})) if vid != "v6" else {**study_row(k, h, results.get(k, {})), "id": f"{k} (v6)", "where": "Oggi"}
                              for k, h in hyp.items()]})
+    v8 = BASE / "config" / "validation_v8_storico.json"
+    if v8.exists():
+        from .v8 import forward_dir
+        res = json.loads(v8.read_text())["results"]
+        cfg8 = json.loads((BASE / "config" / "setups_v8.json").read_text())
+        st = forward_dir() / "stato.json"
+        fwd = json.loads(st.read_text())["state"] if st.exists() else {}
+        rows = [{**study_row(k, cfg8["historical"]["hypotheses"][k], x), "id": f"{k} (v8)", "where": "Oggi"} for k, x in res.items()]
+        for k, h in cfg8["forward"]["hypotheses"].items():
+            s8 = fwd.get(k, {})
+            r = s8.get("result") or {"outcome": f"in raccolta: {s8.get('clusters', 0)} cluster su {cfg8['forward']['judge_when']['min_clusters']}"}
+            rows.append({**study_row(k, h, r), "id": f"{k} (v8, futuro)", "where": "Oggi"})
+        out.append({"id": "v8", "title": "Paura ed euforia cripto, e prova sui dati futuri", "date": "24 novembre 2026",
+                    "question": "Dopo la paura estrema le cripto si muovono di più? Dopo l'euforia estrema rendono meno? E le letture andate vicino in v6 e v7 reggono sui dati che arrivano da ora?",
+                    "prereg": "docs/PREREGISTRAZIONE_v8.md", "report": "docs/V8_STORICO.md", "rows": rows})
     v7 = BASE / "config" / "validation_v7_esame.json"
     if v7.exists():
         res = json.loads(v7.read_text())["results"]
@@ -405,7 +420,7 @@ def studies_part():
                     "prereg": "docs/PREREGISTRAZIONE_v7.md", "report": "docs/V7_ESAME.md",
                     "rows": [{**study_row(k, {"reading": x["label"], "rule": x["label"], "trade": x["label"].rsplit("→ ", 1)[-1], "horizon_bars": 10}, x), "id": f"{k} (v7)", "where": "Oggi"}
                              for k, x in res.items()]})
-    return out
+    return sorted(out, key=lambda x: int(x["id"][1:]))
 
 
 def freshness(now):
