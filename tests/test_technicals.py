@@ -69,17 +69,16 @@ class TestReset(unittest.TestCase):
         self.assertIn("RESET", t)
         self.assertIn("settimanale", t)
         self.assertNotIn("non è salito più", t)  # v3 tested the daily only: a weekly reset must not borrow its result
-        self.assertIn("non è mai stata testata", t)
-        self.assertIn("su questo timeframe la regola non è testata", t)
+        self.assertNotIn("potenziale", t)  # no lean without a test that held
+        self.assertIn("80,000.00", t)
         for word in ("entra", "stop", "compra", "obiettivo"):
             self.assertNotIn(word, t.lower())
 
     def test_a_daily_reset_carries_the_v3_result(self):
         with mock.patch.object(K, "context_line", return_value=""):
             t = K.format_resets([{"market": "ETH", "tf": "1d", "rsi": 28.0, "threshold": 30, "trend": "rialzo", "kind": "x", "price": 1.0, "bar": "x"}], datetime(2026, 11, 5, tzinfo=timezone.utc))
-        self.assertIn("potenziale long a favore del trend, ma il test non lo conferma", t)
-        self.assertIn("non è salito più", t)
-        self.assertNotIn("mai stata testata", t)
+        self.assertNotIn("potenziale", t)  # R1 didn't hold: the alert says what happened, the miss stays in the app
+        self.assertNotIn("non è salito più", t)
 
 
 class TestContext(unittest.TestCase):
@@ -107,11 +106,13 @@ class TestContext(unittest.TestCase):
         with mock.patch.object(K, "analyze", side_effect=ValueError):
             self.assertEqual(K.context_line("X"), "")
 
-    def test_reset_message_says_which_way_it_leans(self):
-        with mock.patch.object(K, "context_line", return_value=""):
-            t = K.format_resets([{"market": "BTC", "tf": "1w", "rsi": 38.0, "threshold": 40, "trend": "rialzo", "kind": "x", "price": 1.0, "bar": "x"}, {"market": "ETH", "tf": "1d", "rsi": 72.0, "threshold": 70, "trend": "ribasso", "kind": "x", "price": 1.0, "bar": "x"}], datetime(2026, 11, 5, tzinfo=timezone.utc))
+    def test_reset_message_leans_only_where_the_test_held(self):
+        held = {"outcome": "supportata", "mean": 0.01}
+        with mock.patch.object(K, "context_line", return_value=""), mock.patch.object(K.V, "outcome", return_value=held), mock.patch.object(K.V, "alert_line", return_value=""):
+            t = K.format_resets([{"market": "BTC", "tf": "1d", "rsi": 28.0, "threshold": 30, "trend": "rialzo", "kind": "x", "price": 1.0, "bar": "x"}, {"market": "SOL", "tf": "1w", "rsi": 38.0, "threshold": 40, "trend": "rialzo", "kind": "x", "price": 1.0, "bar": "x"}, {"market": "ETH", "tf": "1d", "rsi": 72.0, "threshold": 70, "trend": "ribasso", "kind": "x", "price": 1.0, "bar": "x"}], datetime(2026, 11, 5, tzinfo=timezone.utc))
         self.assertIn("potenziale long", t)
         self.assertIn("potenziale short", t)
+        self.assertEqual(t.count("potenziale"), 2)  # the weekly reset was never tested: no lean
 
 
 class TestFrames(unittest.TestCase):

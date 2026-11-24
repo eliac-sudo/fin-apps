@@ -16,6 +16,7 @@ import re
 
 import pandas as pd
 
+from . import commands
 from . import exits as X
 from . import moves as M
 from . import technicals as K
@@ -159,40 +160,38 @@ def tested(cls, setup):
     return json.loads(p.read_text())["tests"].get(f"{cls}/{setup}") if p.exists() else None
 
 
+def passed(cls, setup):
+    t = tested(cls, setup)
+    return t if t and t["outcome"] == "supportata" else None
+
+
 def bias_line(cls, setup):
-    """The way this setup leans, and how far the test backs it. It's a reading, not an instruction."""
-    lean = {"panic": "📈 <b>Potenziale long</b>", "squeeze": "📈 <b>Potenziale long</b>", "overheating": "📉 <b>Potenziale presa di profitto</b>"}[setup]
-    t = tested(cls, setup)
-    outcome = t["outcome"] if t else None
-    return lean + {"supportata": ", con un supporto debole dai test.", "non supportata": ", ma i test non lo confermano.", "non informativa": ", ma i casi sono troppo pochi per dirlo."}.get(outcome, ".")
-
-
-def history_line(cls, setup):
-    """What followed similar cases in the test period."""
-    t = tested(cls, setup)
-    if not t or t.get("share_up") is None or t.get("mean") is None:
+    """The lean, only where the test held. Elsewhere the alert just says what happened: the misses stay in the app's Test tab (user, 24 Nov 2026)."""
+    t = passed(cls, setup)
+    if not t:
         return None
+    lean = {"panic": "📈 <b>Potenziale long</b>", "squeeze": "📈 <b>Potenziale long</b>", "overheating": "📉 <b>Potenziale presa di profitto</b>"}[setup]
     after = "24 ore" if cls == "crypto" else "5 sedute"
-    return f"In passato, dopo {after}: in salita il {100 * t['share_up']:.0f}% delle volte, {100 * t['mean']:+.2f}% rispetto a ingressi casuali ({t['clusters']} episodi)."
+    return f"{lean} · ✅ testato: dopo {after} {100 * t['mean']:+.2f}% rispetto a ingressi casuali ({t['clusters']} episodi), effetto piccolo."
 
 
 LEAN_UP = {"panic": True, "squeeze": True, "overheating": False}
 
 
 def price_clash(setup, pos):
-    """A warning when the lean and the price point opposite ways, such as a long on a market already dear. The test didn't measure which matters more."""
+    """A warning when the lean and the price point opposite ways, such as a long on a market already dear."""
     if not pos:
         return None
     up, label = LEAN_UP[setup], pos["label"]
     if up and label in ("caro", "molto caro"):
-        return f"  ⚠️ In contrasto: spinge verso un long, ma il prezzo è già {label} rispetto all'ultimo anno. Il test non dice quale dei due pesa di più."
+        return f"  ⚠️ Ma il prezzo è già {label} rispetto all'ultimo anno."
     if not up and label in ("economico", "molto economico"):
-        return f"  ⚠️ In contrasto: spinge verso una presa di profitto, ma il prezzo è {label} rispetto all'ultimo anno. Il test non dice quale dei due pesa di più."
+        return f"  ⚠️ Ma il prezzo è {label} rispetto all'ultimo anno."
     return None
 
 
-def format_item(a):
-    """What moved and whether it's cheap or dear. Entries, stops and targets are logged, and shown only where you ask for them."""
+def format_item(a, lean=False):
+    """What moved, whether it's cheap or dear, and what confirms it. Entries, stops and targets stay in the app."""
     name = THERMO_LABELS.get(a["market"], a["market"])
     out = [f"• <b>{name}</b>" + (f": movimento {a['z']:+.1f} volte il normale" if a["z"] is not None else "")]
     pos = safe_position(a["market"])
@@ -204,18 +203,14 @@ def format_item(a):
     context = K.context_line(a["market"])
     if context:
         out.append(context)
-    clash = price_clash(a["setup"], pos)
+    clash = price_clash(a["setup"], pos) if lean else None
     if clash:
         out.append(clash)
     total = len(a["met"]) + len(a["not_met"]) + len(a["unknown"])
-    if total:
-        out.append(f"  Conferme: {len(a['met'])} su {total}" + (": " + ", ".join(COND_IT[n] for n in a["met"]) if a["met"] else ""))
-    if a["not_met"]:
-        out.append("  Mancano: " + ", ".join(COND_IT[n] for n in a["not_met"]))
-    if a["unknown"]:
-        out.append("  Non ancora noto: " + ", ".join(COND_IT[n] for n in a["unknown"]))
-    if cot_reversed(a):
-        out.append("  ⚠️ Su questa coppia le regole congelate leggono il COT al contrario: la conferma sugli speculatori va letta girata.")
+    if total and a["met"]:
+        out.append(f"  Conferme {len(a['met'])} su {total}: " + ", ".join(COND_IT[n] for n in a["met"]))
+    if cot_reversed(a) and any(n in ("spec_low", "spec_high") for n in a["met"]):
+        out.append("  ⚠️ Su questa coppia la conferma sugli speculatori va letta al contrario.")
     return "\n".join(out)
 
 
@@ -225,21 +220,21 @@ def cot_reversed(a):
 
 
 def format_group(alerts, review=None):
-    """One message per class and setup, so a market-wide move doesn't send nine."""
+    """One message per class and setup, so a market-wide move doesn't send nine. Short: what happened, where, and the lean only if its test held."""
     a0 = alerts[0]
     setup = a0["setup"]
-    lines = [f"🧪 <b>{SETUP_IT[setup]}</b> · {CLASS_IT.get(a0['class'], a0['class'])}", SETUP_MEANS[setup], bias_line(a0["class"], setup), f"Trigger {a0['trigger'][:16].replace('T', ' ')} UTC", ""]
-    lines += [format_item(a) for a in alerts] + [""]
+    when = a0["trigger"][:16].replace("T", " ")
+    lines = [f"🧪 <b>{SETUP_IT[setup]}</b> · {CLASS_IT.get(a0['class'], a0['class'])} · {when[8:10]}/{when[5:7]} {when[11:]} UTC", SETUP_MEANS[setup]]
+    bias = bias_line(a0["class"], setup)
+    if bias:
+        lines.append(bias)
+    lines += [""] + [format_item(a, lean=bool(bias)) for a in alerts] + [""]
     if review:
         lines += [format_review(review), ""]
-    history = history_line(a0["class"], setup)
-    if history:
-        lines.append(history)
-    lines.append(test_verdict(a0["class"], setup, number=not history))
     options = safe_options([(a["class"], a["market"]) for a in alerts])
     if options:
-        lines += ["", options, ""]
-    lines.append("Economico e caro sono rispetto al passato di quel mercato, non a quanto vale. Non è consulenza finanziaria.")
+        lines += [options, ""]
+    lines.append("Livelli e piano nell'app. Economico e caro sono rispetto al passato del mercato. Non è consulenza finanziaria.")
     return "\n".join(lines)
 
 
@@ -280,7 +275,7 @@ def check_moves(st, telegram_on, now=None, root=None, sigma=M.market_sigma):
 
 
 def poll_commands(st, log=print, now=None):
-    """Answer /piano from your own chat only. Anything else, or anything old after a pause, is ignored. This reads and replies: it never trades."""
+    """Answer commands from your own chat only (/piano and the ones in bzd.commands; an unknown command gets the list, plain text is ignored). Old messages after a pause are ignored. This reads and replies: it never trades."""
     from . import plan
     now = now or time.time()
     updates = telegram_call("getUpdates", {"offset": st.get("tg_offset", 0), "timeout": 0, "allowed_updates": json.dumps(["message"])}).get("result", [])
@@ -292,8 +287,18 @@ def poll_commands(st, log=print, now=None):
             continue
         cmd = words[0].split("@")[0].lower()
         if cmd in ("/piano", "/plan"):
-            for part in split_message(plan.answer(words[1:])):
-                send_text(part)
+            reply = plan.answer(words[1:])
+        else:
+            try:
+                reply = commands.answer(cmd, words[1:])
+            except Exception as e:  # a bad reply must not stop the next commands
+                log(f"command {cmd} failed: {type(e).__name__}: {e}")
+                reply = "Qualcosa non ha funzionato con questo comando. Il dettaglio è nell'app."
+            reply = reply or (commands.HELP if cmd.startswith("/") else None)
+        if not reply:
+            continue
+        for part in split_message(reply):
+            send_text(part)
     save_state(st)
 
 

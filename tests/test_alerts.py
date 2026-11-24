@@ -72,20 +72,21 @@ class TestMessages(unittest.TestCase):
             with mock.patch.object(A, "market_position", return_value=pos):
                 t = A.format_group([alert(setup=setup)])
             self.assertIn("molto economico", t)
-            self.assertIn("Test", t)
             self.assertIn("Non è consulenza", t)
-            self.assertIn("Non ancora noto", t)
+            for word in ("NON superato", "non lo confermano", "Non ancora noto", "Mancano"):  # the misses stay in the app (24 Nov 2026)
+                self.assertNotIn(word, t)
             for word in ("95.0000", "115.0000", "stop", "Ingresso", "/piano", "3R", "valuta di ridurla"):
                 self.assertNotIn(word, t.lower() if word == "stop" else t)
 
-    def test_alert_says_which_way_it_leans_and_how_far_the_test_backs_it(self):
+    def test_alert_leans_only_where_the_test_held(self):
         self.assertIn("Potenziale long", A.format_group([alert()]))
-        self.assertIn("presa di profitto", A.format_group([alert(setup="overheating")]))
-        self.assertIn("non lo confermano", A.bias_line("commodities", "panic"))
-        self.assertIn("supporto debole", A.bias_line("crypto", "panic"))
-        self.assertIn("in salita il 46%", A.history_line("commodities", "panic"))
-        self.assertIn("5 sedute", A.history_line("commodities", "panic"))
-        self.assertIn("24 ore", A.history_line("crypto", "panic"))
+        self.assertIn("testato", A.bias_line("crypto", "panic"))
+        self.assertIn("24 ore", A.bias_line("crypto", "panic"))
+        for cls, setup in (("commodities", "panic"), ("crypto", "overheating"), ("bonds", "panic")):
+            self.assertIsNone(A.bias_line(cls, setup))
+        t = A.format_group([alert(setup="overheating")])
+        for word in ("Potenziale", "NON superato", "non lo confermano", "Mancano"):
+            self.assertNotIn(word, t)
 
     def test_context_failure_never_loses_an_alert(self):
         with mock.patch.object(A.K, "analyze", side_effect=ValueError):
@@ -168,28 +169,30 @@ class TestVerdict(unittest.TestCase):
 
 
 class TestItem(unittest.TestCase):
-    def item(self, setup, label):
+    def item(self, setup, label, lean=True):
         a = {"market": "X", "setup": setup, "z": 2.0, "met": ["volume_high"], "not_met": ["spec_low"], "unknown": ["oi_rising"]}
         pos = {"label": label, "from_high": -5.0, "from_low": 30.0}
         with mock.patch.object(A, "safe_position", return_value=pos), mock.patch.object(A.K, "context_line", return_value=""):
-            return A.format_item(a)
+            return A.format_item(a, lean=lean)
 
     def test_counts_and_names_what_is_missing(self):
         t = self.item("squeeze", "nella media")
-        self.assertIn("Conferme: 1 su 3: volume alto", t)
-        self.assertIn("Mancano: speculatori poco esposti", t)
-        self.assertNotIn("In contrasto", t)
+        self.assertIn("Conferme 1 su 3: volume alto", t)
+        self.assertNotIn("Mancano", t)
+        self.assertNotIn("Non ancora noto", t)
+        self.assertNotIn("⚠️", t)
 
     def test_warns_when_lean_and_price_disagree(self):
-        self.assertIn("long, ma il prezzo è già molto caro", self.item("squeeze", "molto caro"))
-        self.assertIn("presa di profitto, ma il prezzo è economico", self.item("overheating", "economico"))
-        self.assertNotIn("In contrasto", self.item("panic", "economico"))
+        self.assertIn("Ma il prezzo è già molto caro", self.item("squeeze", "molto caro"))
+        self.assertIn("Ma il prezzo è economico", self.item("overheating", "economico"))
+        self.assertNotIn("⚠️", self.item("panic", "economico"))
+        self.assertNotIn("⚠️", self.item("squeeze", "molto caro", lean=False))
 
     def test_flags_the_reversed_cot_sign_on_three_pairs(self):
         a = {"market": "USDJPY=X", "setup": "panic", "z": -3.1, "met": ["spec_low"], "not_met": ["vol_index_high"], "unknown": []}
         with mock.patch.object(A, "safe_position", return_value=None), mock.patch.object(A.K, "context_line", return_value=""):
-            self.assertIn("COT al contrario", A.format_item(a))
-            self.assertNotIn("COT al contrario", A.format_item({**a, "market": "EURUSD=X"}))
+            self.assertIn("va letta al contrario", A.format_item(a))
+            self.assertNotIn("va letta al contrario", A.format_item({**a, "market": "EURUSD=X"}))
 
 
 class TestDelivery(unittest.TestCase):

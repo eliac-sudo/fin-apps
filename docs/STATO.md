@@ -1,6 +1,6 @@
 # Stato del progetto
 
-Aggiornato al 23 novembre 2026. Da leggere per primo quando si riprende il lavoro. Branch `roadmap-v0.3`: `main` non contiene questo lavoro. La cronaca delle modifiche sta in `docs/wiki/log.md` e nella storia git; qui c'è solo com'è adesso.
+Aggiornato al 24 novembre 2026. Da leggere per primo quando si riprende il lavoro. Branch `roadmap-v0.3`, unito in `main` il 24 novembre 2026 (pull request 2). La cronaca delle modifiche sta in `docs/wiki/log.md` e nella storia git; qui c'è solo com'è adesso.
 
 ## Cos'è
 
@@ -8,7 +8,7 @@ BZD raccoglie dati gratuiti su cripto, azioni, bond, materie prime e forex. Li m
 
 ## Cosa gira
 
-Tutto nel Codespace: se si spegne si ferma tutto. Alla riaccensione `scripts/start-services.sh` non sempre parte (5 e 6 novembre). **Dopo ogni riaccensione:** `su codespace -c 'bash scripts/ensure-services.sh'`. Lo lancia Claude, senza chiedere. Riaccende anche il bot Deribit se ha le chiavi ed è fermo, perché uno strangle venduto ha bisogno della sua copertura. **Buco nei dati dal 7 al 23 novembre 2026:** i servizi si sono fermati il 7 verso le 14 e nessuno li ha riaccesi per 16 giorni. Quello che si scarica di nuovo (prezzi giornalieri, COT) si recupera; le fotografie dal vivo (opzioni in prova, posizioni Hyperliquid, Telegram) no. Il 23 novembre i servizi erano di nuovo fermi da circa 4 ore, riaccesi alle 16 UTC circa.
+**Dal 24 novembre 2026 alle 16:39 UTC tutti i servizi girano sul server Hetzner** (`bzd-server`, `docs/SERVER.md`) come servizi systemd con utente `bzd` in `/opt/bzd`. Ripartono da soli se cadono o se il server si riavvia. Il Codespace serve solo per lo sviluppo: con `.sul-server` presente non accende niente e apre solo il tunnel per l'app sulla porta 8787. **L'app da PC e telefono:** `https://bzd.tail5e1e60.ts.net`, solo dentro la rete Tailscale dell'utente; ad altri si dà accesso condividendo il nodo `bzd`. Il codice si aggiorna con `bash scripts/server-update.sh bzd-server`, che Claude lancia senza chiedere. Lo stato si controlla con `ssh bzd-server 'systemctl is-active bzd-recorder bzd-wallets bzd-alerts bzd-vol-bot bzd-app'`; i log sono in `/opt/bzd/data/*.log`. Il backup gira ogni notte alle 03:30 UTC in `/home/bzd/bzd-backups`, sullo stesso disco: una copia fuori dal server manca ancora. Dopo una riaccensione del Codespace, `su codespace -c 'bash scripts/ensure-services.sh'` riapre solo il tunnel. Nella tabella sotto ci sono i comandi che i servizi eseguono. **Buco nei dati dal 7 al 23 novembre 2026:** i servizi si sono fermati il 7 verso le 14 e nessuno li ha riaccesi per 16 giorni. Quello che si scarica di nuovo (prezzi giornalieri, COT) si recupera; le fotografie dal vivo (opzioni in prova, posizioni Hyperliquid, Telegram) no. Il 23 novembre i servizi erano di nuovo fermi da circa 4 ore, riaccesi alle 16 UTC circa.
 
 | Servizio | Comando | Note |
 |---|---|---|
@@ -19,8 +19,8 @@ Tutto nel Codespace: se si spegne si ferma tutto. Alla riaccensione `scripts/sta
 | App | `.venv/bin/python -u -m bzd.app` | porta 8787, privata |
 | Bot Deribit | `.venv/bin/python -u -m bzd.vol_bot run` | parte solo con `DERIBIT_CLIENT_ID` in `.env`; testnet. Dal 24 novembre 2026 solo lo strangle coperto (v2); la prima versione a put spread è chiusa e archiviata in `data/vol_bot_v1_archivio/` |
 
-- I servizi girano come utente `codespace`, Claude come root. Dopo ogni modifica da root: `chown -R codespace:codespace /workspaces/fin-apps` e `chmod 600 .env`. Per riavviare un servizio si cerca il PID con `pgrep -f` su un'espressione ancorata, non con `pkill -f` largo. Lo script avvia anche l'app: prima va fermata un'eventuale copia lanciata da root.
-- Revisione degli alert con l'LLM **accesa** (`BZD_AGENTS=on`), tetto 1,50 $ al mese (`BZD_LLM_BUDGET_USD`), condiviso con gli agenti di ricerca. Spesa totale 0,36 $ al 5 novembre. Il 23 novembre la chiave API Anthropic era scaduta: le revisioni fallivano e gli alert partivano senza. Sostituita lo stesso giorno. Se torna «chiave API non valida» in `data/agents/reviews.jsonl`, va rinnovata in `.env`.
+- Nel Codespace, prima del server, i servizi giravano come utente `codespace` e Claude come root. Dopo ogni modifica da root: `chown -R codespace:codespace /workspaces/fin-apps` e `chmod 600 .env`. Per riavviare un servizio si cerca il PID con `pgrep -f` su un'espressione ancorata, non con `pkill -f` largo. Lo script avvia anche l'app: prima va fermata un'eventuale copia lanciata da root.
+- Revisione degli alert con l'LLM **accesa** (`BZD_AGENTS=on`), tetto 1,50 $ al mese (`BZD_LLM_BUDGET_USD`), condiviso con gli agenti di ricerca. Spesa totale 0,36 $ al 5 novembre. Il 23 novembre la chiave API Anthropic era scaduta: le revisioni fallivano e gli alert partivano senza. Sostituita lo stesso giorno; il 24 novembre risponde. Se torna «chiave API non valida» in `data/agents/reviews.jsonl`, va rinnovata in `.env`.
 - Il push su GitHub usa il token copiato con `gl` da un terminale di VS Code: quando scade, il push fallisce finché l'utente non rilancia `gl`.
 
 ## L'app, scheda per scheda
@@ -36,7 +36,7 @@ Il codice sta in `bzd/app.py` (server), `bzd/app.html` (pagina) e `bzd/snapshot.
 - **Alert e Piano:** gli alert di Telegram con i livelli, e il calcolo di dimensione, stop e obiettivo (`bzd/alerts.py`, `bzd/plan.py`).
 - **Esito accanto a ogni lettura:** ogni frase di Oggi e della pagina del ticker ha un'etichetta con l'esito del suo test, presa dai file congelati (`bzd/verdicts.py`). Quelle mai testate da sole dicono «non testato».
 - **Reset:** testato solo sul giornaliero; su settimanale e mensile app e alert dicono «non testato».
-- **Test:** tutte le ipotesi e i risultati, letti dai file congelati in `config/`; le strategie sulle opzioni in prova; l'elenco di ciò che non è testato. Le altre schede rimandano qui.
+- **Test:** tutte le ipotesi in un'unica tabella (setup degli alert B3, v2–v5 e ciò che non è testato), con filtri per esito e per test; un clic apre la scheda o il resoconto. Sotto, le strategie sulle opzioni in prova. Le altre schede rimandano qui.
 - **Bots:** il bot Deribit con stato, posizioni, delta, margine ed eventi, e i comandi pausa, riprendi, dimensione (solo più bassa) e chiusura d'emergenza (`bzd/bots.py`). L'app scrive solo il file di comandi, il bot lo legge ogni 10 secondi.
 - **Motore:** il wiki del programma in `docs/wiki/`, una pagina per parte. `python -m bzd.wiki lint` controlla che ogni citazione porti a un file vero e che ogni modulo abbia una pagina; lo verifica anche un test.
 
@@ -65,7 +65,7 @@ Il dettaglio di ogni test è nella scheda Test e nei file `docs/V*_STORICO.md`. 
 
 - Solo fonti gratuite e leggibili, niente API di X.
 - Niente chiamate a pagamento agli agenti senza chiedere.
-- Alert su Telegram: insight e direzione («potenziale long»), sempre con l'esito del test. Entry, stop e target solo nell'app. Il 4h solo nell'app.
+- Alert su Telegram: brevi, dicono cosa è successo. Direzione («potenziale long») ed esito del test solo dove il test ha retto; i test non superati, le conferme mancanti e le regole mai testate restano nell'app (24 novembre). Entry, stop e target solo nell'app. Il 4h solo nell'app.
 - Paura rossa, euforia verde. App per PC, non per telefono, e fuori da AMBRA.
 - Le operazioni reali dell'utente (A2) più avanti: non proporle prima che ne riparli.
 - Gli agenti possono citare e dare un parere, non cambiare numeri o bloccare un alert.
@@ -88,4 +88,3 @@ Deciso il 5 novembre: **prima l'app, gli alert e le indicazioni devono avere sen
 - Momentum anche sul bot? Consiglio: prima la prova sui dati futuri.
 - Segno COT dal vivo su USD/JPY, USD/CHF e USD/CAD: correggerlo ora o nella prossima versione dei setup? Intanto l'alert lo segnala.
 - Prezzi di bond non USA, per la forza e la tecnica?
-- Portare il lavoro su `main` con una pull request.

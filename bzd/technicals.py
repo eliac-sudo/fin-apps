@@ -280,28 +280,24 @@ def context_line(market, live=None):
 TESTED_RESET_TF = "1d"  # v3 tested the reset on daily bars only, at RSI 30/70 (R1, R2)
 
 
-def reset_tested(r):
-    """A few words after the lean: what the test said about this reset, or that this timeframe was never tested."""
-    if r["tf"] != TESTED_RESET_TF:
-        return ", ma su questo timeframe la regola non è testata."
-    t = V.outcome("R1" if r["trend"] == "rialzo" else "R2")
-    if not t:
-        return ", non ancora testato."
-    return ", con un supporto debole dal test." if t["outcome"] == "supportata" else ", ma il test non lo conferma."
+def reset_lean(r):
+    """The lean after a reset, only where the test held (daily bars). Elsewhere just the trend, as a fact."""
+    t = V.outcome("R1" if r["trend"] == "rialzo" else "R2") if r["tf"] == TESTED_RESET_TF else None
+    if t and t["outcome"] == "supportata":
+        return ("📈 potenziale long a favore del trend" if r["trend"] == "rialzo" else "📉 potenziale short a favore del trend") + " · ✅ testato"
+    return None
 
 
 def format_resets(found, now, name=lambda m: m):
     order = {"1M": 0, "1w": 1, "1d": 2}
     lines = [f"🔄 <b>RESET</b> · {now:%d/%m %H:%M} UTC", "L'RSI è tornato a un estremo mentre il trend di fondo resta quello.", ""]
     for r in sorted(found, key=lambda x: order[x["tf"]]):
-        bias = ("📈 potenziale long a favore del trend" if r["trend"] == "rialzo" else "📉 potenziale short a favore del trend") + reset_tested(r)
-        lines.append(f"• <b>{name(r['market'])}</b> · {FRAME_IT[r['tf']]}: RSI {r['rsi']:.0f} (soglia {r['threshold']}), {r['kind']}. Prezzo {r['price']:,.4g}\n  {bias}")
+        lean = reset_lean(r)
+        lines.append(f"• <b>{name(r['market'])}</b> · {FRAME_IT[r['tf']]}: RSI {r['rsi']:.0f} (soglia {r['threshold']}), {r['kind']}. Prezzo {price_text(r['price'])}" + (f"\n  {lean}" if lean else ""))
         context = context_line(r["market"])
         if context:
             lines.append(context)
     daily_found = [r for r in found if r["tf"] == TESTED_RESET_TF]
-    tested = " ".join(V.line(rid) for rid, trend in (("R1", "rialzo"), ("R2", "ribasso")) if any(r["trend"] == trend for r in daily_found))
-    if len(daily_found) < len(found):
-        tested += (" " if tested else "") + f"Su settimanale e mensile la soglia è {RESET_RSI['1w']}/{100 - RESET_RSI['1w']} e non è mai stata testata."
-    lines += ["", "Grafico e livelli sono nell'app, in Analisi tecnica. Soglie scelte da noi. " + tested + " Non è consulenza finanziaria."]
+    tested = " ".join(x for x in (V.alert_line(rid) for rid, trend in (("R1", "rialzo"), ("R2", "ribasso")) if any(r["trend"] == trend for r in daily_found)) if x)
+    lines += ["", " ".join(x for x in ["Grafico e livelli nell'app, in Analisi tecnica.", tested, "Non è consulenza finanziaria."] if x)]
     return "\n".join(lines)

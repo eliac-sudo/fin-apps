@@ -63,6 +63,12 @@ def line(rid):
     return f"Testato {PERIOD}: dopo {what} il prezzo non è {went} più che in un giorno qualsiasi{tail}."
 
 
+def alert_line(rid):
+    """The test sentence for a Telegram message: only when the test held. The user asked (24 Nov 2026) not to see the misses in alerts; they stay in the app's Test tab."""
+    t = outcome(rid)
+    return line(rid) if t and t["outcome"] == "supportata" else ""
+
+
 def short(rid):
     """A few words for a badge."""
     t = outcome(rid)

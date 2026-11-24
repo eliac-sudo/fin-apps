@@ -2,6 +2,8 @@
 
 Le modifiche al motore, dalla più recente. Il dettaglio è nella storia di git; com'è il programma adesso sta in `docs/STATO.md`.
 
+- **2026-11-24** · I servizi girano su un server Hetzner con systemd, non più nel Codespace, che apre solo il tunnel per l'app (`docs/SERVER.md`). Aggiunto il servizio del [[bot-deribit]] al kit.
+- **2026-11-24** · Alert più corti: la direzione e l'esito del test solo dove il test ha retto, niente più righe sui test non superati né sulle conferme mancanti ([[alert-telegram]]). La scheda Test dell'app mette tutti i test in un'unica tabella con filtri.
 - **2026-11-24** · Il [[bot-deribit]] copre solo alle 08:00, come testato: la copertura d'emergenza, simulata ora per ora, peggiorava media e coda. Simulati anche i raddoppi tutto o niente (`docs/RADDOPPI.md`).
 - **2026-11-24** · Nuova scheda BOTS: stato del [[bot-deribit]] e comandi di pausa, dimensione e chiusura d'emergenza.
 - **2026-11-24** · Il [[bot-deribit]] ora fa solo lo strangle BTC venduto da maker e coperto sul perpetuo, l'unica variante che ha retto; i filtri provati non la migliorano. Put spread e garanzia in moneta tolti.

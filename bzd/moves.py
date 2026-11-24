@@ -117,5 +117,5 @@ def format_moves(moves, now, options=""):
             lines.append(m["context"])
     if options:
         lines += ["", options]
-    lines += ["", "Prezzi Hyperliquid. Dice che il prezzo si muove, non dove andrà. " + V.line("M1") + " Non è consulenza finanziaria."]
+    lines += ["", " ".join(x for x in ["Prezzi Hyperliquid. Dice che il prezzo si muove, non dove andrà.", V.alert_line("M1"), "Non è consulenza finanziaria."] if x)]
     return "\n".join(lines)

@@ -153,16 +153,18 @@ def options_note(markets):
         name = MARKET_BLOCK.get(market) or MARKET_BLOCK.get(cls)
         if name and name not in names:
             names.append(name)
-    out = []
+    out, cheap = [], False
     for b in BLOCKS:
         if b["name"] in names:
             try:
-                lines = block_lines(b)[0]
+                lines, _, cost = block_lines(b)
             except Exception:
-                lines = []
+                lines, cost = [], None
+            cheap = cheap or bool(cost and cost.get("label") == "economiche")
             if lines:
                 out += [f"<b>{b['name']}</b>"] + [f"• {x}" for x in lines]
-    return "\n".join(["📊 Opzioni (contesto)"] + out + [V.line("O2"), V.line("O1")]) if out else ""
+    tested = V.alert_line("O2") if cheap else ""  # the one options test that held is about cheap options: say it only when they are
+    return "\n".join(["📊 Opzioni (contesto)"] + out + ([tested] if tested else [])) if out else ""
 
 
 def build_report(now=None):
@@ -183,7 +185,7 @@ def build_report(now=None):
     if costs:
         costs.sort()
         head.append(f"Opzioni più care rispetto al movimento previsto: {costs[-1][1]}. Più economiche: {costs[0][1]}.")
-    return "\n".join(head + out + ["", V.line("O2"), V.line("O1"), "Le strategie in prova sui prezzi veri sono nell'app, in Opzioni. Non è consulenza finanziaria."])
+    return "\n".join(head + out + ["", *[x for x in [V.alert_line("O2")] if x], "Le strategie in prova sui prezzi veri sono nell'app, in Opzioni. Non è consulenza finanziaria."])
 
 
 def main(argv):

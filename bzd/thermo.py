@@ -214,7 +214,7 @@ def build_digest(now=None):
     fg = fear_greed()
     if fg:
         out += ["", f"Fear &amp; Greed cripto: {fg['value']}"]
-    out += ["", "Descrive e non prevede. " + V.line("T1"), V.line("T2") + " Non è consulenza finanziaria."]
+    out += ["", " ".join(x for x in ["Descrive e non prevede.", V.alert_line("T1"), V.alert_line("T2"), "Non è consulenza finanziaria."] if x)]
     return "\n".join(out), rows
 
 
