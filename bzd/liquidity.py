@@ -81,7 +81,7 @@ def _indicator(key, label, s, unit, more_when, meaning, days=91, ratio=False, di
     tone = None if ch is None or abs(ch) < 1e-9 else ("più" if (ch > 0) == (more_when == "up") else "meno")
     hist = s[s.index >= s.index[-1] - pd.Timedelta(days=365 * YEARS)]
     return {"key": key, "label": label, "value": round(float(s.iloc[-1]), digits), "unit": unit, "date": s.index[-1].strftime("%Y-%m-%d"),
-            "change": None if ch is None else round(ch, 2), "change_unit": "%" if ratio else unit, "days": days, "tone": tone,
+            "change": None if ch is None else round(ch, 2), "change_unit": "%" if ratio else (" punti" if unit == "%" else unit), "days": days, "tone": tone,
             "pct_3y": pct_rank(hist, s.iloc[-1]), "meaning": meaning}
 
 

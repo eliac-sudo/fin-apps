@@ -2,6 +2,7 @@
 
 Le modifiche al motore, dalla più recente. Il dettaglio è nella storia di git; com'è il programma adesso sta in `docs/STATO.md`.
 
+- **2026-11-24** · Liquidità in Oggi e sulla pagina di ogni ticker: Fed, M2, stablecoin, credito, dollaro, e per ogni mercato volumi, impatto e book di Hyperliquid ([[liquidita]]).
 - **2026-11-24** · Nuova scheda Previsioni nell'app: Fed, previsori professionali, OCSE e mercati di previsione ([[previsioni]]).
 - **2026-11-24** · Più dati e le previsioni degli attori importanti: 58 serie FRED aggiornate ogni giorno ([[macro]]), proiezioni del FOMC, previsori professionali di Filadelfia e BCE, OCSE, Kalshi, Polymarket e discorsi dei banchieri centrali ([[previsioni]]).
 - **2026-11-24** · I servizi girano su un server Hetzner con systemd, non più nel Codespace, che apre solo il tunnel per l'app (`docs/SERVER.md`). Aggiunto il servizio del [[bot-deribit]] al kit.

@@ -1,7 +1,7 @@
 ---
 title: Liquidità
-kind: lettura
-status: non testato
+kind: calcolo
+status: descrive, non prevede; non testato
 brief: Quanta moneta gira (Fed, M2, stablecoin, credito, dollaro) e quanto facilmente si scambia ogni mercato (volumi, impatto, book).
 code: bzd/liquidity.py#macro, bzd/liquidity.py#net_liquidity, bzd/liquidity.py#markets, bzd/liquidity.py#volume_liquidity, bzd/liquidity.py#refresh_books, bzd/history.py#get_stablecoins
 data: data/hist/macro, data/hist/liquidity, data/raw/hl_l2_btc
