@@ -27,7 +27,7 @@ BZD raccoglie dati gratuiti su cripto, azioni, bond, materie prime e forex. Li m
 
 Il codice sta in `bzd/app.py` (server), `bzd/app.html` (pagina) e `bzd/snapshot.py` (i dati). Il tasto Layout ha 4 stili. I dati si ricostruiscono in circa 30 secondi all'avvio, poi restano in cache.
 
-- **Oggi:** la frase del giorno, la **forza** per gruppo (0–100 rispetto alla propria storia: ipervenduto, sotto la norma, nella norma, sopra la norma, ipercomprato; `bzd/thermo.py`) e la tabella del momentum («▼ scende forte» e «▲ sale forte» sotto −50 e sopra +50; `bzd/zones.py`). Poi la **liquidità** (`bzd/liquidity.py`, `docs/wiki/liquidita.md`): Fed netta, M2, stablecoin, condizioni finanziarie, spread high yield e dollaro rispetto a 13 settimane prima, e per ogni mercato volumi, impatto e book di Hyperliquid; non testata. Poi il riquadro **BYZ, la capitolazione** (`bzd/capitulation.py`): scatta solo con un asset forte, un calo profondo, la volatilità spenta e il prezzo di lato da 40 sedute. È una regola nuova e non testata, e oggi non scatta su nessun mercato.
+- **Oggi:** la frase del giorno, la **forza** per gruppo (0–100 rispetto alla propria storia: ipervenduto, sotto la norma, nella norma, sopra la norma, ipercomprato; `bzd/thermo.py`) e la tabella del momentum («▼ scende forte» e «▲ sale forte» sotto −50 e sopra +50; `bzd/zones.py`). Poi la **liquidità** (`bzd/liquidity.py`, `docs/wiki/liquidita.md`): Fed netta, M2, stablecoin, condizioni finanziarie, spread high yield e dollaro rispetto a 13 settimane prima, e per ogni mercato volumi, impatto e book di Hyperliquid; non testata. Poi il riquadro **BZD, la capitolazione** (prima BYZ) (`bzd/capitulation.py`): scatta solo con un asset forte, un calo profondo, la volatilità spenta e il prezzo di lato da 40 sedute. È una regola nuova e non testata, e oggi non scatta su nessun mercato.
 - **Pagina del ticker:** si apre cliccando un asset ovunque o dalla ricerca. Riassume Oggi, Analisi tecnica, Opzioni, Sentiment e Chi compra, con un pulsante per ogni scheda.
 - **Opzioni:** costo rispetto al movimento previsto (Black-76, SVI, HAR), contratti economici e cari, gamma (`bzd/option_lab.py`, `docs/OPZIONI_MODELLI.md`).
 - **Analisi tecnica:** grafico con livelli disegnati dal codice, RSI, indicatori a confronto, e la ricerca di qualunque perpetuo Hyperliquid o ticker Yahoo (`bzd/technicals.py`, `bzd/lookup.py`).
@@ -55,6 +55,7 @@ Il dettaglio di ogni test è nella scheda Test e nei file `docs/V*_STORICO.md`. 
 - **v3, le 15 letture dell'app:** regge solo O2: con opzioni «economiche» comprare uno straddle rende 22 punti di premio più del solito, ma il netto resta −1%. Le altre 14 non reggono.
 - **v4, momentum su 50 mercati nuovi:** dopo «scende forte» e «sale forte» il prezzo continua per 10 sedute, circa +0,6% rispetto al caso, ma tolti i costi lo short perde e il long è in pari. Regge anche «sale forte da 3 sedute».
 - **v5, BYZ e SZT letti come il nome:** nessuna ipotesi regge su 99 azioni USA nuove. Per questo BYZ non è più un nome del momentum.
+- **v6, liquidità e proiezioni della Fed (24 novembre, `docs/V6_STORICO.md`):** nessuna delle 5 regge. Liquidità della Fed in forte aumento: no (p 0,20). Dollaro in forte rialzo (short) e impatto alto (long) vanno vicini ma non passano Holm (p 0,015 e 0,012). Stablecoin e Fed più dura: troppi pochi casi. Le vicine si provano solo sui dati futuri.
 - **Uscite:** stop + 3R taglia le perdite peggiori ma rende meno del tenere.
 - **Volatilità:** HAR batte GARCH ed EWMA, ma su BTC ed ETH la volatilità implicita prevede meglio.
 - **Opzioni in prova:** nove strategie sulla carta dal 7 novembre 2026 sui prezzi veri (`docs/OPZIONI_IN_PROVA.md`). Nessun giudizio prima del 6 novembre 2027.
@@ -76,19 +77,20 @@ Il dettaglio di ogni test è nella scheda Test e nei file `docs/V*_STORICO.md`. 
 - L'indirizzo Hyperliquid dell'utente non va chiesto.
 - Bot che vende volatilità su Deribit: dal 24 novembre solo la strategia che ha retto nello storico (strangle BTC coperto, da maker), le altre tolte su richiesta dell'utente. Prima sul testnet. Il conto vero solo con una decisione esplicita dell'utente, con la cifra, e dopo il server. Il direzionale con approvazione resta fuori finché un segnale non regge un test.
 - Claude ha pieno controllo su script e servizi del progetto (7 novembre).
+- Il bot Deribit non scrive su Telegram (24 novembre, `BZD_BOT_TELEGRAM=off`): stato ed eventi solo nella scheda Bots.
 
 ## Prossimi passi
 
-Deciso il 5 novembre: **prima l'app, gli alert e le indicazioni devono avere senso, poi il server.**
+La roadmap completa, in ordine di urgenza, è in `docs/ROADMAP.md` (24 novembre). Deciso il 5 novembre: **prima l'app, gli alert e le indicazioni devono avere senso, poi il server.**
 
 1. **App e alert:** che ogni indicazione sia chiara e coerente con i test.
 2. **Agenti di ricerca:** il supervisore (Opus) ricontrolla le note del lettore (Haiku) e scrive bozze solo da quelle che reggono, una volta al mese o ogni 10 note nuove (`python -m bzd.research stima`). Un'idea resta «non testata» finché non passa una pre-registrazione su dati nuovi.
-3. **Server, poi backup fuori dal Codespace:** il kit è pronto. `data/` e `.env` non sono su GitHub.
+3. **Backup fuori dal server:** il server c'è dal 24 novembre; manca la copia fuori. `data/` e `.env` non sono su GitHub.
 
 ## Domande aperte
 
 - Avvio automatico anche da `~/.bashrc` o `postAttachCommand`, visto che il `postStartCommand` a volte non parte?
-- BYZ capitolazione: pre-registrarla per una prova sui dati futuri? È rara, quindi servirebbero anni.
+- BZD capitolazione: pre-registrarla per una prova sui dati futuri? È rara, quindi servirebbero anni.
 - Momentum anche sul bot? Consiglio: prima la prova sui dati futuri.
 - Segno COT dal vivo su USD/JPY, USD/CHF e USD/CAD: correggerlo ora o nella prossima versione dei setup? Intanto l'alert lo segnala.
 - Prezzi di bond non USA, per la forza e la tecnica?

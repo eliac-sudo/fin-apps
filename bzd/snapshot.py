@@ -368,6 +368,7 @@ STUDIES = (  # every historical test, in the order they were run. Each was pre-r
     ("v3", "Le letture dell'app", "6 novembre 2026", "Ognuna delle 15 letture che l'app mostra, sulla storia 2008–2026: dopo la lettura, il prezzo ha fatto meglio di un giorno qualsiasi?", "docs/PREREGISTRAZIONE_v3.md", "docs/V3_STORICO.md"),
     ("v4", "Il momentum su mercati nuovi", "6 novembre 2026", "Dopo «scende forte» e «sale forte» (ex MOM↓ e MOM↑, e prima BYZ e SZT) il prezzo continua nella stessa direzione anche su 50 mercati mai usati?", "docs/PREREGISTRAZIONE_v4.md", "docs/V4_STORICO.md"),
     ("v5", "BYZ e SZT agli estremi e sul mensile", "6 novembre 2026", "Letti come il loro nome, agli estremi (±70) e sul mensile, su 99 azioni USA mai usate: dopo BYZ si sale, dopo SZT si scende?", "docs/PREREGISTRAZIONE_v5.md", "docs/V5_STORICO.md"),
+    ("v6", "Liquidità e proiezioni della Fed", "24 novembre 2026", "Liquidità della Fed e stablecoin in forte aumento, dollaro in forte rialzo, impatto alto su un mercato, Fed più dura nelle proiezioni: dopo, i prezzi fanno meglio (o peggio) di un giorno qualsiasi?", "docs/PREREGISTRAZIONE_v6.md", "docs/V6_STORICO.md"),
 )
 WHERE = {"O": "Opzioni", "Z": "Oggi", "R": "Analisi tecnica", "T": "Oggi", "S": "Sentiment", "F": "Chi compra", "M": "Alert", "L": "Analisi tecnica", "N": "Oggi", "E": "Oggi"}
 
@@ -394,7 +395,8 @@ def studies_part():
             continue
         hyp, results = json.loads(cfg.read_text())["hypotheses"], json.loads(res.read_text())["results"]
         out.append({"id": vid, "title": title, "date": date, "question": question, "prereg": prereg, "report": report,
-                    "rows": [study_row(k, h, results.get(k, {})) for k, h in hyp.items()]})
+                    "rows": [study_row(k, h, results.get(k, {})) if vid != "v6" else {**study_row(k, h, results.get(k, {})), "id": f"{k} (v6)", "where": "Oggi"}
+                             for k, h in hyp.items()]})
     return out
 
 

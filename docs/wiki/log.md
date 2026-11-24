@@ -2,6 +2,8 @@
 
 Le modifiche al motore, dalla più recente. Il dettaglio è nella storia di git; com'è il programma adesso sta in `docs/STATO.md`.
 
+- **2026-11-24** · Test v6 su liquidità e proiezioni della Fed: nessuna delle 5 ipotesi regge (`docs/V6_STORICO.md`). Roadmap in `docs/ROADMAP.md`. Il bot Deribit non scrive più su Telegram ([[bot-deribit]]).
+- **2026-11-24** · Nell'app la capitolazione si chiama BZD invece di BYZ ([[capitolazione]]). I codici interni e i test congelati restano BYZ.
 - **2026-11-24** · Liquidità in Oggi e sulla pagina di ogni ticker: Fed, M2, stablecoin, credito, dollaro, e per ogni mercato volumi, impatto e book di Hyperliquid ([[liquidita]]).
 - **2026-11-24** · Nuova scheda Previsioni nell'app: Fed, previsori professionali, OCSE e mercati di previsione ([[previsioni]]).
 - **2026-11-24** · Più dati e le previsioni degli attori importanti: 58 serie FRED aggiornate ogni giorno ([[macro]]), proiezioni del FOMC, previsori professionali di Filadelfia e BCE, OCSE, Kalshi, Polymarket e discorsi dei banchieri centrali ([[previsioni]]).
