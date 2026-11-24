@@ -99,12 +99,63 @@ def momentum_short():
     return "test: piccolo, non copre i costi" if r["N1"]["outcome"] == "supportata" and r["N2"]["outcome"] == "supportata" else "test: nessun vantaggio"
 
 
+def _res(name):
+    p = BASE / "config" / name
+    return json.loads(p.read_text())["results"] if p.exists() else {}
+
+
+def _forward(k):
+    """The forward state of one v8 hypothesis, or None before the first daily count."""
+    try:
+        from .v8 import forward_dir
+        st = json.loads((forward_dir() / "stato.json").read_text())["state"].get(k)
+    except (OSError, ValueError, KeyError):
+        return None
+    return st
+
+
+def _fwd_text(k):
+    st = _forward(k)
+    if not st:
+        return "In prova sui dati futuri dal 25 novembre 2026."
+    if st.get("judged"):
+        return f"Prova sui dati futuri: {st['result']['outcome']} il {st['result']['judged_on'][:10]}."
+    return f"In prova sui dati futuri dal 25 novembre 2026: {st['clusters']} episodi su 60."
+
+
+def findings():
+    """Labels for the readings tested on 24 November 2026 (v6, v7, v8), from the frozen result files."""
+    it = lambda x: f"{100 * x:+.2f}".replace(".", ",") + "%"
+    pv = lambda x: f"{x:.3f}".replace(".", ",")
+    v6, v7, v8 = _res("validation_v6_storico.json"), _res("validation_v7_esame.json"), _res("validation_v8_storico.json")
+    out = {}
+    def put(key, short, line):
+        out[key] = {"short": short, "line": line, "outcome": None}
+    if "L1" in v6:
+        put("LIQ_NET", "test: nessun vantaggio", f"Test v6: dopo un forte aumento della liquidità netta della Fed, azioni, oro, rame e cripto hanno fatto {it(v6['L1']['mean'])} in 20 sedute rispetto al caso, p {pv(v6['L1']['p'])}: non regge.")
+    if "L2" in v6:
+        put("LIQ_STABLE", "test: pochi casi", f"Test v6: dopo un forte aumento delle stablecoin le cripto hanno fatto {it(v6['L2']['mean'])} in 20 sedute rispetto al caso, ma su {v6['L2']['clusters']} episodi soli: non informativo.")
+    if "L3" in v6:
+        put("LIQ_USD", "test: vicino, in prova", f"Test v6: dopo un forte rialzo del dollaro, azioni, oro, rame e cripto hanno fatto {it(-v6['L3']['mean'])} in 20 sedute rispetto al caso, p {pv(v6['L3']['p'])}: vicino alla soglia ma non regge. " + _fwd_text("D1"))
+    if "L4" in v6:
+        put("LIQ_IMPACT", "test: vicino, in prova", f"Test v6: con l'impatto al 90° percentile, comprare ha reso {it(v6['L4']['mean'])} in 10 sedute rispetto al caso, p {pv(v6['L4']['p'])}: vicino alla soglia ma non regge. Volumi da soli e book non sono testati. " + _fwd_text("A1"))
+    if "F1" in v6:
+        put("FED_SEP", "test: pochi casi", f"Test v6: dopo un'edizione delle proiezioni con la Fed più dura, S&P, Nasdaq e Treasury hanno fatto {it(-v6['F1']['mean'])} in 20 sedute rispetto al caso, su {v6['F1']['clusters']} edizioni soltanto: non informativo.")
+    if "C1" in v7:
+        put("POS", "test: vicino, in prova", f"Test v7: comprare con il prezzo nel quinto più basso del suo ultimo anno ha reso più del caso in tutti e tre i periodi; all'esame 2023–2026 {it(v7['C1']['mean'])} in 10 sedute, p {pv(v7['C1']['p'])} contro una soglia di {pv(v7['C1']['holm_threshold'])}: vicino, non ancora dimostrato. " + _fwd_text("P1"))
+    if "G1" in v8 and "G2" in v8:
+        put("FG", "test: nessun vantaggio", f"Test v8: dopo la paura estrema (≤ 20) le cripto si sono mosse meno del solito in 3 giorni ({it(v8['G1']['mean'])} di ampiezza), non di più. Dopo l'euforia estrema (≥ 80) vendere ha perso ({it(v8['G2']['mean'])} in 20 giorni), su {v8['G2']['clusters']} episodi. Il panico cripto del B3 resta l'unico segnale che regge. " + _fwd_text("G1"))
+    put("LIQ_OTHER", "non testato", "M2, condizioni finanziarie e spread high yield non sono testati: il primo cambia poco, gli altri due non hanno uno storico usabile (ricalcolato all'indietro, o solo 3 anni gratis).")
+    return out
+
+
 def all_lines():
     out = {rid: {"line": line(rid), "short": short(rid), "outcome": (outcome(rid) or {}).get("outcome")} for rid in TEXT}
     out["momentum"] = {"line": momentum_line(), "short": momentum_short(), "outcome": None}
     out.update({k: {"line": v, "short": "non testato", "outcome": None} for k, v in UNTESTED.items()})
     out["RESET"] = {"line": line("R1") + " " + line("R2"), "short": short("R1") if short("R1") == short("R2") else "test: vedi Test", "outcome": None}
     out["OPT"] = {"line": line("O2") + " " + line("O1"), "short": "test: un po' meglio solo le economiche", "outcome": None}
+    out.update(findings())
     return out
 
 
