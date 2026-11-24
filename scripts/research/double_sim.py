@@ -18,7 +18,6 @@ BARS = json.loads((D / "perp_1h.json").read_text())
 T = np.array([b[0] for b in BARS])
 O, H, L_, C = (np.array([b[i] for b in BARS], float) for i in (1, 2, 3, 4))
 _f = json.loads((D / "funding_1h.json").read_text())
-FT = sorted(int(k) for k in _f)
 FR = {int(k): v for k, v in _f.items()}
 FUND = np.array([FR.get(int(t), 0.0) for t in T])  # hourly rate at each bar's start; zero before Deribit's history
 
