@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Start the recorder, the Telegram backfill, the wallet tracker, the alerts and the app in the background. Safe to run twice: each takes a lock.
 cd "$(dirname "$0")/.." || exit 1
+# On the server the services are systemd units in /opt/bzd: a development copy there must never start a second set (two Telegram and Deribit bots).
+if [ -d /opt/bzd ] && [ "$(pwd -P)" != /opt/bzd ]; then
+    echo "BZD: sei sul server, i servizi sono quelli systemd: systemctl is-active bzd-recorder bzd-alerts bzd-vol-bot bzd-app"; exit 0
+fi
 mkdir -p data
 # Once the services have moved to the server (.sul-server holds user@host), the Codespace runs none of them, so the Telegram and Deribit bots stay in one place.
 # It only opens a tunnel, so the app on port 8787 shows the server's.
