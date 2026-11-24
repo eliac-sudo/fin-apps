@@ -1,6 +1,6 @@
 # Report Gemini: dinamiche dei mercati e asset pricing
 
-Fonte: conversazione Gemini condivisa dall'utente il 5 novembre 2026, https://share.gemini.google/nraNLbqdR2oX. Il testo è copiato così com'è. Fanno eccezione tre formule nel testo e la tabella delle formule, ricostruite a mano perché la pagina le spezzava in un simbolo per riga.
+Fonte: conversazione Gemini condivisa dall'utente il 5 novembre 2026, https://share.gemini.google/nraNLbqdR2oX. Lo stesso report in PDF, caricato dall'utente su GitHub lo stesso giorno, è `docs/letteratura/REPORT_GEMINI.pdf`: il testo coincide. Il testo è copiato così com'è. Fanno eccezione tre formule nel testo e la tabella delle formule, ricostruite a mano perché la pagina le spezzava in un simbolo per riga.
 
 **È testo generato da un modello, non letteratura letta.** Le citazioni e le affermazioni sono controllate in `VERIFICA_REPORT_GEMINI.md`. Il report parla soprattutto di azioni USA, microstruttura e fattori: quasi niente su cripto, posizionamento del retail o COT, cioè su ciò che fa BZD.
 
