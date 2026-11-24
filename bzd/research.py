@@ -3,6 +3,7 @@
     python -m bzd.research verifica            free: checks every paper the Gemini report cites against OpenAlex
     python -m bzd.research stima               free: what reading and drafting would cost, before spending anything
     python -m bzd.research leggi --paga [N]    paid: notes on the Gemini papers, plus the N most cited from the catalogue
+    python -m bzd.research scopri --psicologia free: only the market-psychology topics; `leggi` and `stima` take --psicologia too
     python -m bzd.research scopri              free: searches OpenAlex and arXiv again, recent work too, and follows who cites the papers read
     python -m bzd.research mese --paga         the monthly research agent: scopri, then leggi on everything new, then the supervisor if due
     python -m bzd.research idee --paga         paid: the supervisor rechecks every note against its abstract, then drafts up to three
@@ -456,16 +457,19 @@ def notes(path=None):
     return list(latest.values())
 
 
-def to_read(extra=0):
-    """The Gemini papers found on OpenAlex, then `extra` catalogue papers: the most cited of each topic, one topic at a time."""
+def to_read(extra=0, topics=None):
+    """The Gemini papers found on OpenAlex, then `extra` catalogue papers: the most cited of each topic, one topic at a time.
+    With `topics`, only catalogue papers of those topics, and no Gemini papers."""
     p = store() / "gemini_refs.json"
     refs = json.loads(p.read_text()) if p.exists() else []
     out = [{"key": r["key"], "title": r["match"]["title"], "year": r["match"]["year"], "venue": r["match"]["venue"], "authors_found": r["match"]["authors"], "url": r["match"]["doi"] or r["match"]["id"],
             "id": r["match"]["id"], "source": "report Gemini", "claims": r["claims"]} for r in refs if r["esito"] != "non trovato"]
     have = {L.key(x["title"]) for x in out}
+    if topics:
+        out = []
     cat = L.path()
     rows = json.loads(cat.read_text()) if cat.exists() else []
-    queues = [[c for c in rows if topic in c["topics"]] for topic in [*L.TOPICS, L.SNOWBALL]]  # each topic's most cited first, taken in turn
+    queues = [[c for c in rows if topic in c["topics"]] for topic in (list(topics) if topics else [*L.TOPICS, L.SNOWBALL])]  # each topic's most cited first, taken in turn
     added = 0
     while added < extra and any(queues):
         for q in queues:
@@ -520,13 +524,21 @@ def discover(sleep=time.sleep, search=None, cite=None, log=print):
 SUPERVISE_MAX_NOTES = 40  # one call can't review hundreds of notes: the rest wait for the next run
 
 
-def supervisor_batch():
+def topic_keys(topics):
+    """Note keys of the catalogue papers filed under `topics`."""
+    cat = L.path()
+    rows = json.loads(cat.read_text()) if cat.exists() else []
+    return {"cat-" + L.key(r["title"])[:40] for r in rows if any(t in topics for t in r["topics"])}
+
+
+def supervisor_batch(topics=None):
     """The notes the supervisor hasn't reviewed in a run that passed, most relevant first, at most SUPERVISE_MAX_NOTES.
     With none reviewed yet beyond the first run, this is every usable note, as before."""
     p = store() / "ideas.jsonl"
     runs = [json.loads(x) for x in p.read_text().splitlines() if x.strip()] if p.exists() else []
     seen = {k for r in runs if r.get("status", "ok") == "ok" for k in r.get("notes", [])}
-    usable = [n for n in notes() if n["status"] == "ok" and n["note"]["pertinenza"] != "nessuna" and n["key"] not in seen]
+    keys = topic_keys(topics) if topics else None
+    usable = [n for n in notes() if n["status"] == "ok" and n["note"]["pertinenza"] != "nessuna" and n["key"] not in seen and (keys is None or n["key"] in keys)]
     rank = {"alta": 0, "media": 1, "bassa": 2}
     return sorted(usable, key=lambda n: (rank.get(n["note"]["pertinenza"], 3), n["title"]))[:SUPERVISE_MAX_NOTES]
 
@@ -637,6 +649,11 @@ def main(argv, client=None, sleep=time.sleep):
             print(f"{r['esito']:26} {r['authors']} ({r['year']})")
         return 0
     if cmd == "scopri":
+        if "--psicologia" in argv:
+            rows, failed = L.run(topics=L.PSYCH_TOPICS)
+            (BASE / "docs" / "CATALOGO.md").write_text(L.markdown(L.load()))
+            print(f"catalogo: {len(rows)} lavori, di cui {sum(any(t in L.PSYCH_TOPICS for t in r['topics']) for r in rows)} di psicologia; errori: {failed or 'nessuno'}")
+            return 0
         discover()
         return 0
     if cmd == "mese":
@@ -655,8 +672,9 @@ def main(argv, client=None, sleep=time.sleep):
             return main(["idee", "--paga"], client, sleep)
         return 0
     extra = next((int(a) for a in argv[1:] if a.isdigit()), 0)
+    topics = L.PSYCH_TOPICS if "--psicologia" in argv else None
     if cmd == "stima":
-        e = estimate(to_read(extra))
+        e = estimate(to_read(extra, topics))
         print(f"Lettura con {e['reader']}: {e['papers']} lavori, circa {e['read_each']:.3f} $ l'uno, {e['read_total']:.2f} $ in tutto. Supervisore con {e['model']}: circa {e['ideas']:.2f} $.")
         print(f"Caso peggiore, con un nuovo tentativo per ogni chiamata: {e['retry_worst']:.2f} $. Speso questo mese: {G.spent_this_month():.2f} $ su {G.budget():.2f} $.")
         due, why = supervisor_due()
@@ -675,7 +693,7 @@ def main(argv, client=None, sleep=time.sleep):
     if cmd == "leggi":
         done = {r["key"] for r in notes() if r["status"] == "ok"}
         with open(store() / "notes.jsonl", "a") as f:
-            for p in to_read(extra):
+            for p in to_read(extra, topics):
                 if p["key"] in done:
                     continue
                 if not room_for_research():
@@ -691,7 +709,7 @@ def main(argv, client=None, sleep=time.sleep):
         (DOCS / "NOTE.md").write_text(notes_page(notes(), last_verdicts()))
         return 0
     if cmd == "idee":
-        usable = supervisor_batch()
+        usable = supervisor_batch(topics)
         if not usable:
             print("nessuna nota nuova da rivedere: lancia prima `leggi`")
             return 1

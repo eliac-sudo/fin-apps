@@ -35,6 +35,24 @@ TOPICS = {
     "Correlazione azioni e bond": "stock bond correlation inflation regime change",
     "Liquidazioni cripto": "cryptocurrency liquidation cascades leverage crash",
 }
+# Market psychology, added on 24 November 2026 for a deep dive: the biases and emotions behind buying lows and selling highs
+PSYCH_TOPICS = {
+    "Psicologia: avversione alle perdite": "prospect theory loss aversion asset prices investors",
+    "Psicologia: eccesso di fiducia": "overconfidence investors excessive trading returns",
+    "Psicologia: comportamento gregge": "herding behavior financial markets investors crashes",
+    "Psicologia: attenzione limitata": "investor attention limited attention stock returns search volume",
+    "Psicologia: aspettative estrapolative": "extrapolative expectations investor surveys returns bubbles",
+    "Psicologia: bolle ed euforia": "speculative bubbles investor euphoria overreaction experimental markets",
+    "Psicologia: paura e panico": "fear emotions panic selling market crashes investors",
+    "Psicologia: ancoraggio ai massimi": "anchoring 52-week high investor behavior momentum",
+    "Psicologia: preferenza per la lotteria": "lottery-like stocks gambling preferences retail investors",
+    "Psicologia: umore e sentiment": "investor mood weather sports outcomes stock returns",
+    "Psicologia: FOMO e cripto retail": "fear of missing out cryptocurrency retail investors speculation",
+    "Psicologia: vendere i vincitori": "realization utility selling winners holding losers individual investors",
+    "Psicologia: neurofinanza": "neurofinance brain trading decisions risk taking",
+    "Psicologia: reazione alle notizie": "investor underreaction overreaction news limited attention",
+}
+TOPICS.update(PSYCH_TOPICS)
 SNOWBALL = "Citano lavori letti"  # newer works that cite a paper the reader found relevant (bzd.research scopri)
 RECENT_DAYS = 730
 
@@ -128,11 +146,12 @@ def load(root=None):
     return json.loads(p.read_text()) if p.exists() else []
 
 
-def run(root=None, sleep=time.sleep, today=None):
+def run(root=None, sleep=time.sleep, today=None, topics=None):
+    """Search every topic, or only `topics` (a dict like TOPICS)."""
     found, failed = [], []
     old = load(root)
     since = ((today or datetime.now(timezone.utc)) - timedelta(days=RECENT_DAYS)).strftime("%Y-%m-%d")
-    for topic, query in TOPICS.items():
+    for topic, query in (topics or TOPICS).items():
         for name, search in (("OpenAlex", search_openalex), ("OpenAlex recenti", lambda q, t: search_openalex(q, t, since)), ("arXiv", search_arxiv)):
             try:
                 found += search(query, topic)
