@@ -1,0 +1,40 @@
+{
+ "name": "v8: paura ed euforia cripto (storico) e prova sui dati futuri di ciò che è andato vicino in v6 e v7",
+ "why": "Il supervisore degli agenti di ricerca, dalla letteratura sulla psicologia dei mercati, propone due idee sul Fear & Greed cripto mai testate così. Le letture andate vicino in v6 e v7 hanno già usato tutta la storia: si possono giudicare solo sui dati che arrivano da ora.",
+ "historical": {
+  "period": {"from": "2018-02-01", "to": "2026-11-24"},
+  "markets": ["BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX", "LINK"],
+  "publication_lag_days": 1,
+  "hypotheses": {
+   "G1": {"reading": "paura estrema cripto", "rule": "Fear & Greed <= 20", "measure": "ampiezza: valore assoluto del rendimento", "trade": "ampiezza", "horizon_bars": 3, "alternative": "greater",
+          "from": "supervisore, 24 novembre 2026, idea 1"},
+   "G2": {"reading": "euforia estrema cripto", "rule": "Fear & Greed >= 80", "measure": "rendimento", "trade": "short", "horizon_bars": 20, "alternative": "greater",
+          "from": "supervisore, 24 novembre 2026, idea 2"}
+  }
+ },
+ "forward": {
+  "start": "2026-11-25",
+  "judge_when": {"min_clusters": 60, "or_on": "2028-11-24"},
+  "hypotheses": {
+   "P1": {"reading": "prezzo basso nell'ultimo anno", "rule": "posizione nelle 252 sedute prima <= 20 (come v7)", "markets": "all", "trade": "long", "horizon_bars": 10, "alternative": "greater", "from": "v7 C1"},
+   "D1": {"reading": "dollaro in forte rialzo", "rule": "come v6 L3", "markets": "risk", "trade": "short", "horizon_bars": 20, "alternative": "greater", "from": "v6 L3"},
+   "A1": {"reading": "impatto alto", "rule": "come v6 L4", "markets": "volume", "trade": "long", "horizon_bars": 10, "alternative": "greater", "from": "v6 L4"},
+   "G1": {"reading": "paura estrema cripto, ampiezza", "rule": "come G1 storico", "markets": "crypto", "trade": "ampiezza", "horizon_bars": 3, "alternative": "greater", "from": "v8 G1"},
+   "G2": {"reading": "euforia estrema cripto", "rule": "come G2 storico", "markets": "crypto", "trade": "short", "horizon_bars": 20, "alternative": "greater", "from": "v8 G2"}
+  },
+  "markets": {
+   "all": ["ES=F", "NQ=F", "RTY=F", "ZT=F", "ZF=F", "ZN=F", "ZB=F", "CL=F", "NG=F", "GC=F", "SI=F", "HG=F", "ZC=F", "ZW=F", "ZS=F",
+           "EURUSD=X", "USDJPY=X", "GBPUSD=X", "AUDUSD=X", "USDCHF=X", "USDCAD=X", "BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX", "LINK"],
+   "risk": ["ES=F", "NQ=F", "RTY=F", "GC=F", "HG=F", "BTC", "ETH"],
+   "volume": ["ES=F", "NQ=F", "RTY=F", "ZT=F", "ZF=F", "ZN=F", "ZB=F", "CL=F", "NG=F", "GC=F", "SI=F", "HG=F", "ZC=F", "ZW=F", "ZS=F",
+              "BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX", "LINK"],
+   "crypto": ["BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX", "LINK"]
+  }
+ },
+ "test": {"family_alpha": 0.05, "method": "holm", "baseline_draws": 200, "baseline_seed": 20261126, "min_pool": 20,
+          "bootstrap_reps": 5000, "merge_days": 3, "power_d": 0.3, "power_min": 0.5, "also_report_t": 3.0},
+ "costs": {"fee_per_side": 0.0, "slippage_per_side": 0.0005},
+ "lookback_weeks": 156,
+ "publication_lag_days": {"fed_balance_sheet": 2, "stablecoins": 1, "dollar": 7, "sep": 0},
+ "min_bars": 400
+}
