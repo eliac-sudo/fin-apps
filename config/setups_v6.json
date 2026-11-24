@@ -1,0 +1,33 @@
+{
+ "name": "v6: liquidità e proiezioni della Fed, le letture nuove del 24 novembre 2026",
+ "why": "Il 24 novembre l'app ha aggiunto la liquidità (Fed, stablecoin, dollaro, impatto per mercato) e le previsioni. Sono letture non testate: qui si prova quelle che hanno abbastanza storico gratuito.",
+ "period": {"from": "2006-01-01", "to": "2026-11-20"},
+ "entry": "apertura della prima seduta dopo il giorno in cui il dato era pubblico",
+ "test": {"family_alpha": 0.05, "method": "holm", "baseline_draws": 200, "baseline_seed": 20261124, "min_pool": 20,
+          "bootstrap_reps": 5000, "merge_days": 3, "power_d": 0.3, "power_min": 0.5, "also_report_t": 3.0},
+ "baseline": "ingressi casuali sullo stesso mercato nello stesso anno, lontani dagli eventi, come v3, v4 e v5",
+ "costs": {"fee_per_side": 0.0, "slippage_per_side": 0.0005},
+ "lookback_weeks": 156,
+ "publication_lag_days": {"fed_balance_sheet": 2, "stablecoins": 1, "dollar": 7, "sep": 0},
+ "markets": {
+  "risk": ["ES=F", "NQ=F", "RTY=F", "GC=F", "HG=F", "BTC", "ETH"],
+  "crypto": ["BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX", "LINK"],
+  "volume": ["ES=F", "NQ=F", "RTY=F", "ZT=F", "ZF=F", "ZN=F", "ZB=F", "CL=F", "NG=F", "GC=F", "SI=F", "HG=F", "ZC=F", "ZW=F", "ZS=F",
+             "BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX", "LINK"],
+  "fed": ["ES=F", "NQ=F", "ZN=F"]
+ },
+ "hypotheses": {
+  "L1": {"reading": "liquidità netta della Fed in forte aumento", "rule": "variazione a 13 settimane di WALCL - WTREGEN - RRPONTSYD nel terzo più alto delle 156 settimane prima",
+         "markets": "risk", "trade": "long", "horizon_bars": 20, "alternative": "greater"},
+  "L2": {"reading": "stablecoin in forte aumento", "rule": "crescita a 30 giorni dell'offerta totale nel terzo più alto dei 3 anni prima (stessa data della settimana, 156 osservazioni settimanali)",
+         "markets": "crypto", "trade": "long", "horizon_bars": 20, "alternative": "greater"},
+  "L3": {"reading": "dollaro in forte rialzo", "rule": "variazione % a 13 settimane di DTWEXBGS nel terzo più alto delle 156 settimane prima",
+         "markets": "risk", "trade": "short", "horizon_bars": 20, "alternative": "greater"},
+  "L4": {"reading": "impatto alto: il mercato si scambia male", "rule": "Amihud medio di 20 sedute al 90° percentile o più dei 3 anni prima, sullo stesso mercato",
+         "markets": "volume", "trade": "long", "horizon_bars": 10, "alternative": "greater"},
+  "F1": {"reading": "Fed più dura nelle proiezioni", "rule": "mediana del tasso per la fine dell'anno dopo più alta di almeno 0,25 punti rispetto all'edizione prima",
+         "markets": "fed", "trade": "short", "horizon_bars": 20, "alternative": "greater"}
+ },
+ "source": "FRED (WALCL, WTREGEN, RRPONTSYD, DTWEXBGS, versioni di oggi), DefiLlama (stablecoin), ALFRED (proiezioni del FOMC per edizione), Yahoo (futures giornalieri), Binance (cripto a 4 ore, unite per giorno)",
+ "min_bars": 400
+}
