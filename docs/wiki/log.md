@@ -2,6 +2,7 @@
 
 Le modifiche al motore, dalla più recente. Il dettaglio è nella storia di git; com'è il programma adesso sta in `docs/STATO.md`.
 
+- **2026-11-24** · Nuova scheda BOTS: stato del [[bot-deribit]] e comandi di pausa, dimensione e chiusura d'emergenza.
 - **2026-11-24** · Il [[bot-deribit]] ora fa solo lo strangle BTC venduto da maker e coperto sul perpetuo, l'unica variante che ha retto; i filtri provati non la migliorano. Put spread e garanzia in moneta tolti.
 - **2026-11-24** · Storico della vendita di volatilità su prezzi veri Deribit dal 2019: il put spread del [[bot-deribit]] non guadagna al netto dei costi. Il bot gira sul testnet.
 - **2026-11-23** · Nasce il [[bot-deribit]]: vende put spread su BTC in USDC con rischio definito, compra l'ala prima di vendere, ripara da solo una put scoperta, si ferma dopo un drawdown del 15%. Gira sul testnet; il conto vero è spento.

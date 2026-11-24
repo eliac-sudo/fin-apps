@@ -37,6 +37,7 @@ Il codice sta in `bzd/app.py` (server), `bzd/app.html` (pagina) e `bzd/snapshot.
 - **Esito accanto a ogni lettura:** ogni frase di Oggi e della pagina del ticker ha un'etichetta con l'esito del suo test, presa dai file congelati (`bzd/verdicts.py`). Quelle mai testate da sole dicono «non testato».
 - **Reset:** testato solo sul giornaliero; su settimanale e mensile app e alert dicono «non testato».
 - **Test:** tutte le ipotesi e i risultati, letti dai file congelati in `config/`; le strategie sulle opzioni in prova; l'elenco di ciò che non è testato. Le altre schede rimandano qui.
+- **Bots:** il bot Deribit con stato, posizioni, delta, margine ed eventi, e i comandi pausa, riprendi, dimensione (solo più bassa) e chiusura d'emergenza (`bzd/bots.py`). L'app scrive solo il file di comandi, il bot lo legge ogni 10 secondi.
 - **Motore:** il wiki del programma in `docs/wiki/`, una pagina per parte. `python -m bzd.wiki lint` controlla che ogni citazione porti a un file vero e che ogni modulo abbia una pagina; lo verifica anche un test.
 
 Fuori dall'app: catalogo di 334 lavori (`docs/CATALOGO.md`), note degli agenti di ricerca (`docs/letteratura/`), backup e kit per il server mai provato su un server vero (`docs/SERVER.md`), vecchi progetti in `docs/archivio/`.

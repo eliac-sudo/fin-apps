@@ -530,7 +530,7 @@ function drawLabels(){const box=$("#lbBox");if(!box||!LB)return;if(LB.error){box
   box.replaceChildren(...head,el("p",{class:"sub",style:"margin:0 0 6px"},"Che umore esprime questo testo sul mercato di cui parla? Giudica il tono, non se la notizia è buona per i prezzi. «Non pertinente» se non parla di mercati. Servono per misurare se il sentiment dell'app legge i testi come te."),
     el("div",{class:"text",style:"font-size:1.05em;padding:10px 12px;border:1px solid var(--line);border-radius:8px"},t.text),el("div",{class:"tiny muted",style:"margin:4px 0 8px"},t.source.replace(/^(news|soc)_/,"")+" · "+when(t.time)+(/^https?:\/\//.test(t.url||"")?" · ":""),/^https?:\/\//.test(t.url||"")?el("a",{href:t.url,target:"_blank",rel:"noopener noreferrer"},"fonte"):null),
     el("div",{class:"chips"},LB.labels.map(l=>el("button",{class:"chip",onclick:()=>sendLabel(t.id,l)},names[l]||l))),LB.failed?el("p",{class:"notice bad"},"Non salvata, riprova."):"")}
-const TABS=[["oggi","Oggi"],["opzioni","Opzioni"],["tecnica","Analisi tecnica"],["sentiment","Sentiment"],["chi","Chi compra"],["alert","Alert"],["piano","Piano"],["test","Test"],["motore","Motore"]];
+const TABS=[["oggi","Oggi"],["opzioni","Opzioni"],["tecnica","Analisi tecnica"],["sentiment","Sentiment"],["chi","Chi compra"],["alert","Alert"],["piano","Piano"],["bots","Bots"],["test","Test"],["motore","Motore"]];
 const PARTS={slancio:"Slancio",rsi:"RSI",estensione:"Distanza dalla media",funding:"Funding",oi:"Leva (OI)",posizionamento:"Speculatori",calma:"Calma (volatilità bassa)"};
 const BANDS=[
   {word:"ipervenduto",short:"ipervenduto",range:"0–19",brief:"Venduto forte e in fretta: quasi tutto è ai minimi della sua storia.",long:"Quasi tutti i fattori sono ai minimi rispetto alla storia di questo mercato: è stato venduto forte e in fretta, e chi usava la leva è già in buona parte uscito. Lo spazio per nuove vendite forzate si riduce, ma un mercato così può continuare a scendere: non è un segnale d'acquisto."},
@@ -857,6 +857,11 @@ piano(){
   return [el("p",{class:"hero"},"Quanto comprare e dove uscire"),el("p",{class:"sub"},"Decidi quanto sei disposto a perdere: il piano ricava da lì la dimensione della posizione, lo stop e l'obiettivo. Gli ordini li inserisci tu."),
     from?el("div",{class:"notice"},"🧮 Aperto da: "+from.why+". Mercato impostato; stop e obiettivo sono calcolati sul prezzo di adesso, con la tua stessa regola."+(from.short?" Questo reset guarda al ribasso: per uno short indica uno stop sopra il prezzo, in Opzioni avanzate.":"")):null,
     el("div",{class:"grid",style:"grid-template-columns:270px minmax(0,1fr);align-items:start"},form,out)]},
+bots(){
+  if(!BOTS.data){loadBots();return el("p",{class:"muted"},"Leggo lo stato dei bot…")}
+  if(BOTS.data.error)return el("p",{class:"notice bad"},"Non riesco a leggere lo stato dei bot.");
+  return [el("p",{class:"hero"},"I bot"),el("p",{class:"sub"},"Qui guardi cosa fanno i bot e li fermi. L'app non ha le chiavi e non manda ordini: scrive un comando che il bot legge entro 10 secondi. Per ora c'è un solo bot, l'unica strategia che ha retto nello storico."),
+    BOTS.msg?el("div",{class:"notice"+(BOTS.msgBad?" bad":"")},BOTS.msg):null,...BOTS.data.bots.flatMap(botCard)].filter(Boolean)},
 asset(){return assetView()},
 test(){
   const SD=D.studies||[],T=D.tests;setTimeout(drawPaper);
@@ -1210,6 +1215,51 @@ function classDetail(k,c){const d=$("#dlg");hideTip();const n=bin(c.heat),rows=D
     el("p",{class:"tiny",style:"margin-top:10px"},"Clicca un mercato per la sua scheda. Descrive uno stato e non prevede il futuro."));d.showModal()}
 function render(){if(!VIEWS[tab])tab="oggi";$("#nav").replaceChildren(...TABS.map(([k,n])=>el("button",{role:"tab","aria-selected":String(k===tab),onclick:()=>{tab=k;location.hash=k;render();scrollTo(0,0)}},n)));
   const m=$("#main");const parts=[];if(Object.keys(D.errors||{}).length)parts.push(el("div",{class:"notice bad"},"▲ Parti non disponibili: "+Object.keys(D.errors).join(", ")));if(Q)parts.push(el("div",{class:"small",style:"margin-top:6px"},"Filtro attivo: «"+$("#q").value+"» ",el("button",{class:"ghost",onclick:()=>{$("#q").value="";Q="";closeSugg();render()}},"Togli")));parts.push(...[VIEWS[tab]()].flat());parts.push(el("p",{class:"foot"},"Descrive e non prevede. Non è consulenza finanziaria. L'app legge dati salvati e pubblici e non esegue ordini."));m.replaceChildren(...parts)}
+/* BOTS: status written by the bot, commands written to its control file */
+const BOTS={data:null,msg:"",msgBad:false};
+async function loadBots(){try{const r=await fetch("/api/bots");BOTS.data=r.ok?await r.json():{error:true}}catch(e){BOTS.data={error:true}}if(tab==="bots")render()}
+async function botAct(body,ok){try{const r=await fetch("/api/bots",{method:"POST",headers:{"Content-Type":"application/json","X-BZD":"1"},body:JSON.stringify({bot:"deribit",...body})}),j=await r.json();if(r.ok){BOTS.data=j;BOTS.msg=ok;BOTS.msgBad=false}else{BOTS.msg=j.error||"Comando rifiutato";BOTS.msgBad=true}}catch(e){BOTS.msg="L'app non risponde: comando non inviato";BOTS.msgBad=true}render()}
+const pctTxt=(x,d=1)=>x==null?"–":fmt(x*100,d)+"%";
+const BOT_STATE={"acceso":["●","var(--good)","Acceso: entra il lunedì, copre ogni giorno."],"in pausa":["❚❚","var(--warn)","In pausa: niente entrate nuove, la copertura continua."],"fermo":["■","var(--crit)","Fermo dopo il drawdown: niente entrate finché non riprendi."],"bloccato":["▲","var(--crit)","Bloccato: il conto non torna con il registro."],"spento":["○","var(--muted)","Spento: il processo non gira, e le posizioni aperte non sono coperte."],"non risponde":["▲","var(--crit)","Il processo c'è ma non aggiorna lo stato da troppo."]};
+function botEvent(e){const t=when(e.t);switch(e.event){
+  case"ordine":return[t,(e.side==="sell"?"Vendo ":"Compro ")+e.name+" "+e.filled+"/"+e.amount+(e.price?" a "+fmt(e.price,1):"")+" ("+e.state+")"];
+  case"copertura":return[t,"Copertura ("+e.reason+"): delta opzioni "+sgn(e.option_delta,4)+", perpetuo "+sgn(e.trade,4)+" BTC"];
+  case"conto":return[t,"Conto "+fmt(e.equity,2)+" USDC, margine "+fmt(e.maintenance,2)];
+  case"entrata":return[t,"Strangle venduto: "+e.put+" "+e.put_amount+" / "+e.call+" "+e.call_amount+", premio "+fmt(e.cash_in,2)+" USDC"];
+  case"chiuso":return[t,"Chiuso "+e.id+" ("+e.reason+")"+(e.pnl_options!=null?": opzioni "+sgn(e.pnl_options,2)+" USDC":"")];
+  case"saltata":return[t,"Entrata saltata: "+e.why];
+  default:return[t,e.event]}}
+function botCard(b){const s=b.status||{},[ic,col,line]=BOT_STATE[b.state]||["?","var(--muted)",b.state],eq=s.equity,dd=s.peak&&eq!=null?Math.min(0,Math.round((eq/s.peak-1)*1000)/1000)||0:null,mr=eq?s.maintenance/eq:null;
+  const open=(s.book||[]),btc=open.reduce((a,p)=>a+Math.max(p.put_amount,p.call_amount),0),R=b.rules,top=R.size.notional_per_entry,cap=b.control.notional_per_entry??top;
+  const exp=n=>{const m=/-(\d{1,2}[A-Z]{3}\d{2})-/.exec(n);return m?m[1]:""};
+  return [el("section",{class:"card"},
+    el("div",{class:"selectline"},el("h2",null,b.name+" · "+b.venue),el("span",{class:"chip",style:s.net==="live"?"background:var(--down);color:var(--crit)":null},s.net==="live"?"CONTO VERO":"TESTNET")),
+    el("p",{style:"margin:4px 0;font-weight:600;color:"+col},ic+" "+b.state.toUpperCase()+" — "+line),
+    el("p",{class:"tiny muted"},b.age_min==null?"Nessuno stato scritto finora.":"Stato aggiornato "+fmt(b.age_min)+" min fa ("+when(s.t)+")."+(s.error?" Ultimo errore: "+s.error:"")),
+    b.pending_close?el("div",{class:"notice bad"},"🛑 Chiusura d'emergenza inviata: il bot la esegue entro 10 secondi"+(b.running?".":", ma il bot è spento: va acceso perché succeda.")):null,
+    s.halted?el("div",{class:"notice bad"},"Fermo: "+s.halted):null,s.blocked?el("div",{class:"notice bad"},"Bloccato: "+s.blocked):null,
+    el("div",{class:"kv"},el("div",null,el("b",null,eq==null?"–":fmt(eq,2)+" USDC"),el("span",null,"conto")),el("div",null,el("b",null,pctTxt(dd)),el("span",null,"dal massimo (stop a −"+pctTxt(R.risk.kill_drawdown,0)+")")),
+      el("div",null,el("b",null,pctTxt(mr,0)),el("span",null,"margine (blocco "+pctTxt(R.risk.margin_block,0)+", chiude a "+pctTxt(R.risk.margin_close_all,0)+")")),el("div",null,el("b",null,s.net_delta==null?"–":sgn(s.net_delta,4)+" BTC"),el("span",null,"delta netto, coperto"))),
+    el("h3",null,"Posizioni aperte"),open.length?Table([{k:"put",label:"Put venduta"},{k:"put_amount",label:"BTC",num:true},{k:"call",label:"Call venduta"},{k:"call_amount",label:"BTC",num:true},{k:"cash_in",label:"Premio USDC",num:true,cell:r=>fmt(r.cash_in,2)},{k:"exp",label:"Scadenza",val:r=>exp(r.put)}],open):el("p",{class:"small muted"},"Nessuno strangle aperto."),
+    open.length?el("p",{class:"tiny"},"In tutto "+fmt(btc,2)+" BTC di strangle. Perpetuo di copertura: "+sgn(s.perp,4)+" BTC."):null,
+    s.working?el("div",{class:"notice"},"In vendita adesso al prezzo medio: "+Object.values(s.working.legs).map(l=>l.name+" "+l.filled+"/"+s.working.amount).join(", ")):null),
+  el("section",{class:"card"},el("h2",null,"Comandi"),
+    el("div",{style:"display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0"},
+      b.control.paused?el("button",{class:"btn",onclick:()=>botAct({action:"riprendi"},"Ripreso: entrate di nuovo attive, anche dopo l'interruttore.")},"▶ Riprendi"):el("button",{class:"btn",onclick:()=>botAct({action:"pausa"},"In pausa: niente entrate nuove. Copertura e sicurezza continuano.")},"❚❚ Pausa"),
+      b.state==="fermo"&&!b.control.paused?el("button",{class:"btn",onclick:()=>botAct({action:"riprendi"},"Ripreso dopo l'interruttore.")},"▶ Riprendi dopo lo stop"):null,
+      el("label",{class:"small",style:"display:flex;gap:6px;align-items:center"},"Dimensione per entrata",el("select",{onchange:e=>botAct({action:"dimensione",value:e.target.value},"Dimensione per entrata: "+pctTxt(+e.target.value,0)+" del conto.")},
+        [0,.05,.1,.15,.2,top].filter((v,i,a)=>a.indexOf(v)===i&&v<=top).map(v=>el("option",{value:v,selected:Math.abs(v-cap)<1e-9?"selected":null},pctTxt(v,0)+(v===top?" (regola)":v===0?" (nessuna entrata)":"")))))),
+    el("div",{style:"margin-top:10px;padding-top:10px;border-top:1px solid var(--line)"},el("b",null,"Emergenza"),el("p",{class:"small",style:"margin:2px 0 6px"},"Ricompra subito tutte le opzioni al prezzo di mercato, chiude la copertura e mette in pausa. Costa lo spread: usala se qualcosa non va, non per uscire da una perdita normale."),
+      el("button",{class:"btn",style:"border-color:var(--crit);color:var(--crit)",onclick:()=>{const c=prompt("Chiudo tutte le posizioni del bot adesso. Scrivi CHIUDI per confermare.");if(c==="CHIUDI")botAct({action:"chiudi",confirm:c},"Chiusura d'emergenza inviata.")}},"🛑 Chiudi tutto adesso")),
+    el("p",{class:"tiny muted",style:"margin-top:8px"},"La dimensione si può solo abbassare: alzarla cambierebbe le regole della prova in corso. Le altre regole sono fissate in config/vol_bot_v2.json dal "+R.frozen+".")),
+  el("section",{class:"card"},el("h2",null,"Regole e prova"),el("p",{class:"small"},R.strategy),
+    el("ul",{class:"plain small"},el("li",null,"Entrata: ogni lunedì "+R.entry.window_utc_hours.join("–")+" UTC, put e call vicine a "+fmt(R.entry.delta*100)+" delta, scadenza vicina a "+R.entry.target_days+" giorni."),
+      el("li",null,"Dimensione: "+pctTxt(top,0)+" del conto per entrata, al massimo "+fmt(R.size.max_notional,1)+"× in tutto."),el("li",null,"Copertura: ogni giorno alle 0"+R.hedge.hour_utc+":00 UTC e dopo ogni esecuzione, sul perpetuo BTC_USDC."),
+      el("li",null,"Sicurezza fuori dal backtest: "+R.safety+"."),
+      el("li",null,"Nello storico 2019–2026: "+sgn(b.backtest.per_entry*100,2)+"% del nozionale per entrata, "+sgn(b.backtest.yearly*100,1)+"% l'anno, calo massimo "+fmt(b.backtest.max_dd*100)+"%, t "+fmt(b.backtest.t,1)+": la migliore di 15 varianti, non significativa."),
+      el("li",null,"Giudizio sui dati futuri non prima del "+R.readout.not_before+" e di "+R.readout.min_entries+" entrate."))),
+  (s.closed||[]).length?el("section",{class:"card"},el("h2",null,"Chiusi"),Table([{k:"put",label:"Put"},{k:"call",label:"Call"},{k:"reason",label:"Motivo"},{k:"pnl_options",label:"Opzioni USDC",num:true,cell:r=>r.pnl_options==null?"–":sgn(r.pnl_options,2)},{k:"closed",label:"Quando",cell:r=>when(r.closed)}],s.closed),el("p",{class:"tiny"},"Il risultato delle opzioni non comprende la copertura: quello vero è la variazione del conto.")):null,
+  el("section",{class:"card"},el("details",{open:b.events.length&&b.events.length<8?"open":null},el("summary",null,"Ultimi eventi ("+b.events.length+")"),b.events.length?el("ul",{class:"plain small"},b.events.map(e=>{const[t,x]=botEvent(e);return el("li",null,el("span",{class:"tiny muted"},t+" · "),x)})):el("p",{class:"small muted"},"Ancora nessun evento.")))].filter(Boolean)}
 function closeSugg(){$("#sugg").style.display="none"}
 
 function goAsset(m){openAsset(m.market)}
@@ -1221,7 +1271,7 @@ async function load(){$("#fresh").textContent="Carico…";try{const r=await fetc
 function drawThemes(){const now=document.documentElement.dataset.theme,cur=THEMES.find(t=>t[0]===now)||THEMES[0],btn=$("#themeBtn"),box=$("#themes");btn.textContent="◐ Layout: "+cur[1];btn.title="Cambia layout";
   box.replaceChildren(...THEMES.map(([k,n,d,c])=>el("button",{"aria-pressed":String(k===now),onclick:()=>{document.documentElement.dataset.theme=k;localStorage.setItem("bzd-theme",k);box.classList.remove("open");btn.setAttribute("aria-expanded","false");drawThemes();if(D)render()}},el("span",{class:"swatch"},c.map(x=>el("i",{style:`background:${x}`}))),el("span",null,el("b",null,n),el("small",null,d)))))}
 $("#themeBtn").onclick=e=>{e.stopPropagation();const o=$("#themes").classList.toggle("open");$("#themeBtn").setAttribute("aria-expanded",String(o))};addEventListener("click",e=>{if(!e.target.closest(".themebox")){$("#themes").classList.remove("open");$("#themeBtn").setAttribute("aria-expanded","false")}});drawThemes();
-$("#reload").onclick=()=>{WK.data=null;load()};addEventListener("keydown",e=>{if(e.key==="Escape")hideTip()});load();setInterval(()=>{if(tab==="oggi"||tab==="sentiment")load()},300000);
+$("#reload").onclick=()=>{WK.data=null;load()};addEventListener("keydown",e=>{if(e.key==="Escape")hideTip()});load();setInterval(()=>{if(tab==="oggi"||tab==="sentiment")load()},300000);setInterval(()=>{if(tab==="bots")loadBots()},20000);
 </script>
 </body>
 </html>

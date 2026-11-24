@@ -1,12 +1,15 @@
 """The read-only desktop app: python -m bzd.app, then open http://127.0.0.1:8787
 
 It serves saved data on this machine only. It holds no trading keys, places no orders, and makes no paid calls.
+The BOTS tab only reads the bot's status file and writes its control file (pause, resume, emergency close, smaller size):
+the bot itself, with its own keys, does the trading.
 A plan calculated here isn't logged, since trying numbers isn't a decision.
 """
 import json, os, re, sys, threading, time, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from . import bots as BT
 from . import labels as LB
 from . import lookup as LK
 from . import option_lab as L
@@ -155,6 +158,8 @@ class Handler(BaseHTTPRequestHandler):
                     self.send(200, json.dumps(S.clean(OP.view())).encode())
             elif url.path == "/api/labels":
                 self.send(200, json.dumps(LB.next_text()).encode())
+            elif url.path == "/api/bots":
+                self.send(200, json.dumps(S.clean(BT.view())).encode())
             elif url.path == "/api/wiki":
                 self.send(200, json.dumps(WK.pages()).encode())
             elif url.path in ("/api/source", "/api/data"):
@@ -171,13 +176,18 @@ class Handler(BaseHTTPRequestHandler):
             self.send(500, json.dumps({"error": type(e).__name__}).encode())
 
     def do_POST(self):
-        """The only write: your sentiment labels. The custom header can't be sent by another site's page, so only this app can label."""
+        """Two writes: your sentiment labels and the bot's control file. The custom header can't be sent by another site's page,
+        so only this app can write."""
         try:
-            if urllib.parse.urlsplit(self.path).path != "/api/labels" or self.headers.get("X-BZD") != "1":
+            path = urllib.parse.urlsplit(self.path).path
+            if path not in ("/api/labels", "/api/bots") or self.headers.get("X-BZD") != "1":
                 self.send(403, b'{"error":"non permesso"}')
                 return
             n = int(self.headers.get("Content-Length") or 0)
             body = json.loads(self.rfile.read(min(n, 4096)) or b"{}")
+            if path == "/api/bots":
+                self.send(200, json.dumps(S.clean(BT.act(body))).encode())
+                return
             LB.save_label(str(body.get("id", "")), str(body.get("label", "")))
             self.send(200, json.dumps(LB.next_text()).encode())
         except ValueError as e:

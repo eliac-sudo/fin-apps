@@ -42,7 +42,9 @@ Lo strangle non ha ali, quindi la coda la gestiscono queste regole:
 .venv/bin/python -m bzd.vol_bot chiudi     # ricompra tutte le opzioni e chiude la copertura
 ```
 
-Registro in `data/vol_bot/`: `state.json`, `journal.jsonl` (ordini, coperture, conto ogni giorno), `control.json`. Il registro della prima versione è in `data/vol_bot_v1_archivio/`.
+**Scheda BOTS dell'app:** stato, posizioni, delta, margine, eventi, e i comandi pausa, riprendi, dimensione per entrata (solo verso il basso) e chiusura d'emergenza, che chiede di scrivere CHIUDI. L'app scrive `data/vol_bot/control.json`; il bot lo legge ogni 10 secondi e scrive `data/vol_bot/status.json` a ogni giro. L'app non ha le chiavi.
+
+Registro in `data/vol_bot/`: `state.json`, `journal.jsonl` (ordini, coperture, conto ogni giorno), `control.json`, `status.json`. Il registro della prima versione è in `data/vol_bot_v1_archivio/`.
 
 ## Prova sui dati futuri
 

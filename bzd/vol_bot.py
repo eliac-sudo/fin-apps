@@ -8,6 +8,9 @@ docs/BOT_DERIBIT.md). It is DH2m of docs/BOT_DERIBIT_STORICO.md, the only varian
     python -m bzd.vol_bot riprendi   entries again, also after the kill switch
     python -m bzd.vol_bot chiudi     buy back every option and flatten the hedge now
 
+The app's BOTS tab (bzd/bots.py) reads data/vol_bot/status.json, written every cycle, and writes the same control file as
+pausa and riprendi: an emergency close, or a smaller size per entry. The loop reads that file every 10 seconds.
+
 Testnet unless DERIBIT_NETWORK=live and BZD_BOT_LIVE=ho-capito are both set by hand.
 
 Every Monday 10-16 UTC it offers the put and the call nearest 25 delta, 21-45 days out, at the mid of the order book with
@@ -165,10 +168,12 @@ def choose_strangle(book, exp_ms, now, cfg):
     return {"put": best["put"][0], "call": best["call"][0], "under": best["put"][2]}
 
 
-def entry_amount(equity, under, open_amount, cfg, lot):
-    """BTC of strangle so this entry carries notional_per_entry of equity and all open ones at most max_notional."""
+def entry_amount(equity, under, open_amount, cfg, lot, cap=None):
+    """BTC of strangle so this entry carries notional_per_entry of equity and all open ones at most max_notional.
+    cap, set from the app, can only lower notional_per_entry."""
     s = cfg["size"]
-    btc = min(equity * s["notional_per_entry"] / under, equity * s["max_notional"] / under - open_amount)
+    per = s["notional_per_entry"] if cap is None else max(0.0, min(cap, s["notional_per_entry"]))
+    btc = min(equity * per / under, equity * s["max_notional"] / under - open_amount)
     n = math.floor(btc / lot + EPS)
     return round(n * lot, 8) if n >= 1 else 0.0
 
@@ -205,7 +210,7 @@ def hedge_due(now, last_day, cfg):
 
 def new_state():
     return {"book": [], "closed": [], "working": None, "peak": None, "last_week": None, "last_hedge_day": None,
-            "paused": False, "halted": None, "blocked": None, "resumed": None, "sent": {}}
+            "paused": False, "halted": None, "blocked": None, "resumed": None, "close_done": None, "cap": None, "sent": {}}
 
 
 def load_state(root=None):
@@ -233,11 +238,22 @@ def read_control(root=None):
 
 
 def write_control(ctrl, root=None):
-    """pausa and riprendi go through their own file, so the CLI never writes over the running bot's book."""
+    """pausa, riprendi and the app go through their own file, so nobody writes over the running bot's book."""
     d = bot_dir(root)
     d.mkdir(parents=True, exist_ok=True)
     (d / "control.json.tmp").write_text(json.dumps(ctrl))
     (d / "control.json.tmp").replace(d / "control.json")
+
+
+def update_control(root=None, **changes):
+    """Change some keys of the control file and keep the others."""
+    ctrl = {**read_control(root), **changes}
+    write_control(ctrl, root)
+    return ctrl
+
+
+def close_requested(st, ctrl):
+    return bool(ctrl.get("close_all")) and ctrl["close_all"] != st.get("close_done")
 
 
 # ---- the bot
@@ -418,7 +434,7 @@ class Bot:
             if not legs:
                 return self.skip("nessuna opzione vicina a 25 delta")
             open_amt = sum(max(p["put_amount"], p["call_amount"]) for p in self.st["book"])
-            amount = entry_amount(equity, legs["under"], open_amt, self.cfg, self.inst(legs["put"])["min_trade_amount"])
+            amount = entry_amount(equity, legs["under"], open_amt, self.cfg, self.inst(legs["put"])["min_trade_amount"], self.st.get("cap"))
             if amount <= 0:
                 return self.skip("nozionale già al tetto o conto troppo piccolo")
             w = self.st["working"] = {"week": week_key(now), "id": uuid.uuid4().hex[:8], "amount": amount,
@@ -512,10 +528,38 @@ class Bot:
     # -- the cycle
 
     def apply_control(self):
+        """Pause, resume, size cap and the emergency close, from the CLI or the app."""
         ctrl = read_control(self.root)
         self.st["paused"] = bool(ctrl.get("paused"))
+        self.st["cap"] = ctrl.get("notional_per_entry")
         if ctrl.get("resume") and ctrl["resume"] != self.st.get("resumed"):
             self.st["halted"], self.st["resumed"], self.st["peak"] = None, ctrl["resume"], None
+        if close_requested(self.st, ctrl):
+            self.say("🛑 Chiusura d'emergenza chiesta dall'app: ricompro tutte le opzioni e chiudo la copertura. Entrate in pausa.")
+            self.close_all("emergenza dall'app")
+            self.st["close_done"] = ctrl["close_all"]
+            self.save()
+
+    def write_status(self, equity=None, maint=None):
+        """What the app shows: the exchange as of now and the book. No keys, nothing the app could trade with."""
+        try:
+            if equity is None:
+                equity, maint = self.account()
+            opts, perp = self.positions()
+        except DeribitError as e:
+            opts, perp, err = [], None, str(e)
+        else:
+            err = None
+        st = self.st
+        snap = {"t": self.now().isoformat(timespec="seconds"), "net": self.net, "equity": equity, "maintenance": maint, "peak": st["peak"],
+                "options": [{"name": p["instrument_name"], "size": p["size"], "delta": p.get("delta")} for p in opts], "perp": perp,
+                "net_delta": None if perp is None else round(sum(float(p.get("delta") or 0) for p in opts) + perp, 5),
+                "book": st["book"], "working": st["working"], "closed": st["closed"][-20:], "paused": st["paused"], "halted": st["halted"],
+                "blocked": st["blocked"], "cap": st.get("cap"), "last_week": st["last_week"], "last_hedge_day": st["last_hedge_day"], "error": err}
+        d = bot_dir(self.root)
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "status.json.tmp").write_text(json.dumps(snap, default=str))
+        (d / "status.json.tmp").replace(d / "status.json")
 
     def cycle(self):
         self.apply_control()
@@ -536,6 +580,7 @@ class Bot:
         if not stop or self.st["working"]:
             self.entry(equity)
         self.save()
+        self.write_status(equity, maint)
 
     def close_all(self, reason="a mano"):
         if self.st["working"]:
@@ -617,7 +662,10 @@ def main(argv):
                 bot.say(f"Errore: {type(e).__name__}: {e}", key=f"err:{type(e).__name__}")
             if cmd == "once":
                 break
-            time.sleep(bot.cfg["loop_seconds"])
+            for _ in range(int(bot.cfg["loop_seconds"] / 10)):  # the app's emergency close waits at most 10 seconds
+                time.sleep(10)
+                if close_requested(bot.st, read_control()):
+                    break
     else:
         print(__doc__)
 
