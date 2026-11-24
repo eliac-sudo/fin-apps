@@ -18,8 +18,8 @@ SNAP = {
 }
 
 
-def prop(h="breve", m="BTC", d="long", inv=58779.3, tgt=64986.11, test="nessuno", tesi="RSI a 25 e prezzo molto economico, 38% sotto il massimo."):
-    return {"orizzonte": h, "mercato": m, "direzione": d, "tesi": tesi, "fatti": ["Paura a 11"], "test": test, "invalidazione": inv, "obiettivo": tgt, "rischi": "Il trend è in ribasso."}
+def prop(h="breve", m="BTC", d="long", inv=58779.3, tgt=64986.11, test="nessuno", tesi="RSI a 25 e prezzo molto economico, 38% sotto il massimo.", titolo="Rimbalzo da ipervenduto"):
+    return {"orizzonte": h, "mercato": m, "direzione": d, "titolo": titolo, "tesi": tesi, "fatti": ["Paura a 11"], "test": test, "invalidazione": inv, "obiettivo": tgt, "rischi": "Il trend è in ribasso."}
 
 
 GOOD = {"quadro": "Mercati deboli.", "proposte": [prop(), prop(m="Oro", inv=3500, tgt=3800, tesi="Oro sotto la norma."), prop("medio"), prop("medio", m="Oro", d="short", inv=3800, tgt=3500, tesi="Oro debole."), prop("lungo", test="B3-panic-crypto")]}

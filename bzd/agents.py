@@ -283,27 +283,21 @@ def source_name(item):
 
 
 def format_review(rec):
-    """The part of the Telegram message that comes from the agents."""
-    lines = ["", "🤖 <b>Controlli e lettura degli agenti</b>"]
-    lines += [f"⚠️ {html.escape(c)}" for c in rec.get("checks", [])]
+    """The agents' part of the Telegram message, short: their reading, one sentence, the strongest point each way with its source. The rest is in the log."""
+    lines = [f"⚠️ {html.escape(c)}" for c in rec.get("checks", [])]
     if rec["status"] != "ok":
-        reason = {"off": "agenti spenti", "no_texts": rec.get("detail"), "budget": rec.get("detail"), "error": rec.get("detail"), "rejected": rec.get("detail")}.get(rec["status"], rec["status"])
-        lines.append(html.escape(f"Lettura non disponibile: {reason}."))
-        return "\n".join(lines)
+        return "\n".join(lines)  # no review: the alert speaks for itself, the reason stays in the log
     r, cited = rec["review"], rec.get("cited", {})
-    lines.append(f"<b>Lettura: {html.escape(r['lettura'].upper())}</b> · umore: {html.escape(r['umore'])} · {rec['n_texts']} testi letti")
-    lines.append(html.escape(r["sintesi"]))
+    reading = {"pro": "🟢 a favore", "contro": "🔴 contro", "neutro": "⚪ neutro"}.get(r["lettura"], html.escape(r["lettura"]))
+    mood = {"paura": "🔴 paura", "euforia": "🟢 euforia"}.get(r["umore"], html.escape(r["umore"]))
+    lines.append(f"🤖 <b>Parere AI</b> {reading} · umore {mood} · {rec['n_texts']} {'testo' if rec['n_texts'] == 1 else 'testi'}")
+    lines.append(f"<i>{html.escape(r['sintesi'])}</i>")
     for side, mark in (("pro", "➕"), ("contro", "➖")):
-        for p in r[side][:MAX_POINTS_SHOWN]:
+        for p in r[side][:1]:
             it = cited.get(p["item_id"], {})
             name = html.escape(source_name(it) or "fonte")
             link = f'<a href="{html.escape(it["url"], quote=True)}">{name}</a>' if it.get("url") else name
-            lines.append(f"{mark} {html.escape(p['punto'])}\n   «{html.escape(p['quote'])}» ({link})")
-        if len(r[side]) > MAX_POINTS_SHOWN:
-            lines.append(f"   + altri {len(r[side]) - MAX_POINTS_SHOWN} nel registro")
-    if r["non_sappiamo"]:
-        lines.append("Non sappiamo: " + html.escape("; ".join(r["non_sappiamo"][:3])))
-    lines.append("La lettura è un parere, non una conferma che il setup funzioni.")
+            lines.append(f"{mark} {html.escape(p['punto'])} ({link})")
     return "\n".join(lines)
 
 

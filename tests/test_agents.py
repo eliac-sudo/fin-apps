@@ -76,8 +76,8 @@ class TestGuardrails(unittest.TestCase):
         pts = [{"punto": f"p{i}", "item_id": "t1", "quote": "q"} for i in range(5)]
         rec = {"status": "ok", "checks": [], "n_texts": 1, "cited": {"t1": item()}, "review": good(pro=pts, contro=[])}
         t = G.format_review(rec)
-        self.assertNotIn("p3", t)
-        self.assertIn("altri 2", t)
+        self.assertIn("p0", t)
+        self.assertNotIn("p1", t)  # one point each way on Telegram, the rest in the log
 
     def test_quote_match_ignores_case_and_spacing(self):
         r = good()
@@ -175,15 +175,17 @@ class TestReview(Base):
         c, _ = client_with(good())
         rec = G.review_alerts([alert()], client=c, items=[item()], now=NOW)
         t = G.format_review(rec)
-        self.assertIn("CONTRO", t)
+        self.assertIn("🔴 contro", t)
         self.assertIn("https://x/t1", t)
-        self.assertIn("non una conferma", t)
+        self.assertIn("Parere AI", t)  # an opinion, said in the heading
 
     def test_source_names_are_readable(self):
         self.assertEqual(G.source_name(item()), "gnews oil price")
 
     def test_failed_review_says_so(self):
-        self.assertIn("Lettura non disponibile", G.format_review({"status": "error", "detail": "x", "checks": []}))
+        # no review: nothing about it in the message, the alert speaks for itself and the reason stays in the log
+        self.assertEqual(G.format_review({"status": "error", "detail": "x", "checks": []}), "")
+        self.assertIn("pochi", G.format_review({"status": "error", "detail": "x", "checks": ["pochi testi"]}))
 
 
 class TestAlertIntegration(Base):
@@ -196,7 +198,7 @@ class TestAlertIntegration(Base):
         with mock.patch.object(A, "safe_options", return_value=""):
             A.enqueue([alert()], st, True, lambda g: rec)
         self.assertEqual(len(st["pending"]), 1)
-        self.assertIn("CONTRO", st["pending"][0])
+        self.assertIn("🔴 contro", st["pending"][0])
         row = json.loads((Path(self.tmp.name) / "alerts" / "log.jsonl").read_text())
         self.assertEqual((row["review_status"], row["review_stance"]), ("ok", "contro"))
 

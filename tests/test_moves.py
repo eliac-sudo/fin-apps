@@ -77,8 +77,9 @@ class TestFind(unittest.TestCase):
             moved = A.check_moves(st, True, NOW, self.tmp.name, lambda m: .02)
         self.assertEqual(len(moved), 2)
         self.assertEqual(len(st["pending"]), 1)
-        for word in ("BTC", "ETH", "OPZ-QUI", "Non è consulenza"):
+        for word in ("BTC", "ETH", "−10,0%"):
             self.assertIn(word, st["pending"][0])
+        self.assertNotIn("OPZ-QUI", st["pending"][0])  # options stay in the daily report
         self.assertNotIn("Testato 2008", st["pending"][0])  # M1 didn't hold: the miss stays in the app
         self.assertEqual(len((Path(self.tmp.name) / "alerts" / "moves.jsonl").read_text().splitlines()), 2)
 

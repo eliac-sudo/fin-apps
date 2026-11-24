@@ -106,16 +106,23 @@ def price_text(x):
 
 
 def format_moves(moves, now, options=""):
-    """One message for all moves in a check, so a market-wide drop doesn't send nineteen."""
+    """One short message for all moves in a check: the move, RSI, trend, where the price sits in its year, and the levels. Options stay in the daily report."""
+    from . import tg
     lines = [f"⚡ <b>FORTE MOVIMENTO</b> · {now:%d/%m %H:%M} UTC", ""]
     for m in sorted(moves, key=lambda x: -x["strength"]):
-        name = NAMES.get(m["name"], m["name"])
-        lines.append(f"{'🔻' if m['down'] else '🔺'} <b>{name}</b> {m['pct']:+.1f}% in {m['window']} · ora {price_text(m['mark'])} (soglia {m['limit_pct']:+.1f}%)")
-        if m.get("position"):
-            lines.append(f"  Prezzo: {m['position']}")
-        if m.get("context"):
-            lines.append(m["context"])
-    if options:
-        lines += ["", options]
-    lines += ["", " ".join(x for x in ["Prezzi Hyperliquid. Dice che il prezzo si muove, non dove andrà.", V.alert_line("M1"), "Non è consulenza finanziaria."] if x)]
+        name = tg.esc(NAMES.get(m["name"], m["name"]))
+        lines.append(f"{'🔻' if m['down'] else '🔺'} <b>{name} {tg.pct(m['pct'])}</b> in {m['window']} · {tg.num(m['mark'])}")
+        ctx, pos, bits = m.get("levels") or {}, m.get("pos") or {}, []
+        if ctx.get("rsi_d") is not None:
+            bits.append(f"RSI {ctx['rsi_d']:.0f}")
+        if ctx.get("trend_w"):
+            bits.append(f"trend {tg.arrow(ctx['trend_w'])}")
+        if pos.get("from_high") is not None:
+            bits.append(f"{tg.pct(pos['from_high'], 0, plus=False)} dal max annuo")
+        if bits:
+            lines.append("   " + " · ".join(bits))
+        lv = tg.levels(ctx)
+        if lv:
+            lines.append(f"   {lv}")
+    lines += ["", tg.app_link("alert")]
     return "\n".join(lines)

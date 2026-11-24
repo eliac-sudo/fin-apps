@@ -2,6 +2,7 @@
 
     python -m bzd.aisetups run --paga     one round (the server's timer runs it at 06:30 and 13:30 UTC)
     python -m bzd.aisetups stima          what a round costs, free
+    python -m bzd.aisetups invia          send the latest round to Telegram again
 
 They are ideas, not signals: almost nothing the app shows has held up in a test, and a model choosing among those readings adds no proven edge.
 So every proposal says which test backs it (usually none), the code checks that each one cites only numbers the app shows and that its
@@ -30,6 +31,7 @@ Regole:
 - «invalidazione» è il prezzo che, se toccato, dice che l'idea era sbagliata: sotto il prezzo attuale per un long, sopra per uno short. Preferisci un livello di supporto o resistenza presente in <dati>.
 - «obiettivo» sta dalla parte opposta: sopra il prezzo per un long, sotto per uno short.
 - «test»: il codice della lettura testata su cui l'idea si appoggia, preso da <test>, solo se il suo esito è «supportata»; altrimenti «nessuno». Quasi tutte le letture dell'app non hanno retto ai test: dillo nei rischi quando l'idea si basa su quelle.
+- «titolo»: l'idea in poche parole, al massimo 60 caratteri, senza numeri (es. «rimbalzo da ipervenduto verso la resistenza»).
 - Tesi breve e concreta, in italiano semplice. Niente consigli finanziari personali, niente dimensione della posizione.
 - Se il quadro è confuso, proponi comunque le 5 idee ma dillo in «quadro»."""
 
@@ -39,9 +41,10 @@ SCHEMA = {
         "quadro": {"type": "string"},
         "proposte": {"type": "array", "items": {
             "type": "object", "additionalProperties": False,
-            "required": ["orizzonte", "mercato", "direzione", "tesi", "fatti", "test", "invalidazione", "obiettivo", "rischi"],
+            "required": ["orizzonte", "mercato", "direzione", "titolo", "tesi", "fatti", "test", "invalidazione", "obiettivo", "rischi"],
             "properties": {
                 "orizzonte": {"type": "string", "enum": list(HORIZONS)},
+                "titolo": {"type": "string"},
                 "mercato": {"type": "string"},
                 "direzione": {"type": "string", "enum": ["long", "short"]},
                 "tesi": {"type": "string"},
@@ -154,7 +157,9 @@ def check(out, data, tests):
             problems.append(f"proposta {i} ({p['mercato']}): l'obiettivo {p['obiettivo']} sta dalla parte sbagliata del prezzo {price}")
         if p["test"] != "nessuno" and (tests.get(p["test"]) or {}).get("esito") != "supportata":
             problems.append(f"proposta {i}: il test «{p['test']}» non esiste o non ha retto; scrivi «nessuno»")
-        bad = numbers_ok(" ".join([p["tesi"], p["rischi"], *p["fatti"]]), allowed + [p["invalidazione"], p["obiettivo"]])
+        if len(p.get("titolo", "")) > 80:
+            problems.append(f"proposta {i}: il titolo supera 60 caratteri")
+        bad = numbers_ok(" ".join([p.get("titolo", ""), p["tesi"], p["rischi"], *p["fatti"]]), allowed + [p["invalidazione"], p["obiettivo"]])
         if bad:
             problems.append(f"proposta {i}: numeri che non compaiono nei dati: {', '.join(str(b) for b in bad[:4])}")
     return problems
@@ -196,6 +201,41 @@ def run(client=None, get=C.fetch, now=None):
     with open(store() / "runs.jsonl", "a") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
     return rec
+
+
+def first_sentence(text, limit=70):
+    s = re.split(r"(?<=[.:;])\s", text.strip())[0].rstrip(".:;")
+    return s if len(s) <= limit else s[:limit - 1].rsplit(" ", 1)[0] + "…"
+
+
+def format_telegram(rec):
+    """The round on Telegram, at a glance: one line per idea with entry, target and invalidation, its idea in a few words."""
+    from . import tg
+    when = rec["ts"][11:16]
+    out = [f"🤖 <b>AI SETUPS</b> · {rec['ts'][8:10]}/{rec['ts'][5:7]} {when} UTC", f"<i>{tg.esc(first_sentence(rec.get('quadro', ''), 110))}</i>"]
+    heads = {"breve": "⏱ <b>Breve</b> · 1–10 giorni", "medio": "📅 <b>Medio</b> · 2–8 settimane", "lungo": "🗓 <b>Lungo</b> · 3–12 mesi"}
+    for h in HORIZONS:
+        props = [p for p in rec.get("proposte") or [] if p["orizzonte"] == h]
+        if not props:
+            continue
+        out += ["", heads[h]]
+        for p in props:
+            long = p["direzione"] == "long"
+            tgt, inv = 100 * (p["obiettivo"] / p["prezzo"] - 1), 100 * (p["invalidazione"] / p["prezzo"] - 1)
+            out.append(f"{'🟢' if long else '🔴'} <b>{tg.esc(p['mercato'])} {'long' if long else 'short'}</b> {tg.num(p['prezzo'])} → 🎯 {tg.num(p['obiettivo'])} <i>{tg.pct(tgt, None)}</i> · ✖ {tg.num(p['invalidazione'])} <i>{tg.pct(inv, None)}</i>")
+            out.append(f"   {tg.esc(p.get('titolo') or first_sentence(p['tesi']))}" + (" · ✅ testato" if p.get("test", "nessuno") != "nessuno" else ""))
+    out += ["", "<i>Idee del modello, non testate: ognuna è seguita nell'app.</i>", tg.app_link("aisetups")]
+    return "\n".join(out)
+
+
+def send(rec):
+    """Send the round when the bot is on. A failure never loses the round: it's already saved."""
+    from .alerts import send_text, sending_enabled, split_message
+    if rec.get("status") != "ok" or not sending_enabled():
+        return False
+    for part in split_message(format_telegram(rec)):
+        send_text(part)
+    return True
 
 
 def follow(prop, ts, now_price, now, history=None):
@@ -262,6 +302,10 @@ def main(argv):
         tokens, one = estimate()
         print(f"Un giro con {R.model_for(PURPOSE)}: circa {tokens:,.0f} token in ingresso, {one:.3f} $ (il doppio se serve il secondo tentativo). Due giri al giorno: circa {one * 60:.2f} $ al mese.")
         return 0
+    if cmd == "invia":
+        last = next((x for x in reversed(runs()) if x["status"] == "ok"), None)
+        print("inviato" if last and send(last) else "niente da inviare (nessun giro riuscito o Telegram spento)")
+        return 0
     if cmd == "run":
         if "--paga" not in argv:
             print("comando a pagamento: aggiungi --paga")
@@ -273,6 +317,10 @@ def main(argv):
             print(f"tetto mensile di {G.budget():.2f} $ raggiunto: niente AIsetups fino al mese prossimo")
             return 1
         rec = run()
+        try:
+            send(rec)
+        except Exception as e:
+            print(f"invio Telegram fallito: {type(e).__name__}: {e}")
         print(rec["status"], rec.get("detail") or "", *(f"\n  {p['orizzonte']:6} {p['direzione']:5} {p['mercato']}: {p['tesi'][:90]}" for p in rec.get("proposte") or []))
         return 0 if rec["status"] == "ok" else 1
     print(__doc__)

@@ -70,7 +70,7 @@ class TestReset(unittest.TestCase):
         self.assertIn("settimanale", t)
         self.assertNotIn("non è salito più", t)  # v3 tested the daily only: a weekly reset must not borrow its result
         self.assertNotIn("potenziale", t)  # no lean without a test that held
-        self.assertIn("80,000.00", t)
+        self.assertIn("80.000", t)
         for word in ("entra", "stop", "compra", "obiettivo"):
             self.assertNotIn(word, t.lower())
 

@@ -201,20 +201,33 @@ def build_digest(now=None):
     groups = {c: sorted([r for r in rows if r["class"] == c and r["heat"] is not None], key=lambda r: -r["heat"]) for c in CLASS_IT}
     groups = {c: g for c, g in groups.items() if g}
     summaries = {c: class_summary(g) for c, g in groups.items()}
-    out = [f"🌡 <b>Termometro</b> · {now:%d/%m %H:%M} UTC", "Forza da 0 a 100 rispetto al suo passato: 0 ipervenduto, 50 la sua norma, 100 ipercomprato.", "", f"<b>{overview(summaries)}</b>"]
+    from . import tg
+    name = lambda r: LABELS.get(r["market"], r["market"])
+    width = max((len(CLASS_IT[c]) for c in groups), default=6)
+    rows_txt = []
     for c, g in groups.items():
-        s = summaries[c]
-        change = f" ({s['change_7d']:+.0f} in 7 giorni)" if s["change_7d"] is not None else ""
-        name = lambda r: LABELS.get(r["market"], r["market"])
-        extremes = f"Più in alto {name(g[0])} {g[0]['heat']:.0f} · più in basso {name(g[-1])} {g[-1]['heat']:.0f}" if len(g) > 1 else f"{name(g[0])} {g[0]['heat']:.0f}"
-        out += ["", f"<b>{CLASS_IT[c]}: {s['heat']:.0f}</b> {s['band']}{change}", extremes, why_text(s)]
+        sm = summaries[c]
+        ch = sm["change_7d"]
+        delta = "" if ch is None or round(ch) == 0 else f" {'▲' if ch > 0 else '▼'}{abs(ch):.0f}"
+        rows_txt.append(f"{CLASS_IT[c]:<{width}} {tg.bar(sm['heat'])} {sm['heat']:>3.0f}{delta}")
+    every = sorted((r for g in groups.values() for r in g), key=lambda r: -r["heat"])
+    out = [f"🌡 <b>TERMOMETRO</b> · {now:%d/%m}", "<i>Forza 0–100 rispetto alla propria storia · 50 = norma · ▲▼ in 7 giorni</i>",
+           "<pre>" + tg.esc("\n".join(rows_txt)) + "</pre>"]
+    if every:
+        out.append("🔥 Più forti: " + " · ".join(f"{tg.esc(name(r))} {r['heat']:.0f}" for r in every[:3]))
+        weak = [r for r in every[:-4:-1] if r not in every[:3]]
+        if weak:
+            out.append("🧊 Più deboli: " + " · ".join(f"{tg.esc(name(r))} {r['heat']:.0f}" for r in weak))
     pos = sorted((p["pct"], LABELS.get(m, m)) for m, p in ((m, market_position(m)) for m in [*CRYPTO, *MARKETS]) if p)
     if pos:
-        out += ["", "<b>Prezzo rispetto all'ultimo anno</b>", "Più economici: " + " · ".join(n for _, n in pos[:5]), "Più cari: " + " · ".join(n for _, n in pos[:-6:-1])]
+        out.append("🏷 Economici nell'anno: " + " · ".join(tg.esc(n) for _, n in pos[:4]))
+        out.append("💎 Cari nell'anno: " + " · ".join(tg.esc(n) for _, n in pos[:-5:-1]))
     fg = fear_greed()
     if fg:
-        out += ["", f"Fear &amp; Greed cripto: {fg['value']}"]
-    out += ["", " ".join(x for x in ["Descrive e non prevede.", V.alert_line("T1"), V.alert_line("T2"), "Non è consulenza finanziaria."] if x)]
+        v = fg["value"]
+        word = "paura estrema" if v < 25 else "paura" if v < 45 else "neutro" if v <= 55 else "euforia" if v <= 75 else "euforia estrema"
+        out.append(f"{'🔴' if v < 45 else '🟢' if v > 55 else '⚪'} Fear &amp; Greed cripto: <b>{v}</b> {word}")
+    out += ["", tg.app_link("oggi")]
     return "\n".join(out), rows
 
 

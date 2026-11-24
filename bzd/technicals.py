@@ -250,6 +250,24 @@ def price_text(x):
 SAME_INSTRUMENT = 0.15  # a live price this close to the last close is the same instrument; further off it's a proxy, such as TLT for the bond future
 
 
+def levels_of(market, live=None):
+    """The same picture as context_line, as data for the short Telegram format: weekly and daily trend, daily RSI, and the nearest
+    weekly support and resistance as (price, % from the price). None if the data can't say."""
+    try:
+        a = analyze(market)
+    except Exception:
+        return None
+    wk, dy = a.get("1w"), a.get("1d")
+    if not wk or not dy:
+        return None
+    px = live if live and abs(live / dy["price"] - 1) < SAME_INSTRUMENT else dy["price"]
+    every = [*wk["supports"], *wk["resistances"]]
+    sup = max((lv["price"] for lv in every if lv["price"] < px), default=None)
+    res = min((lv["price"] for lv in every if lv["price"] > px), default=None)
+    return {"trend_w": wk["trend"], "trend_d": dy["trend"], "rsi_d": dy["rsi"],
+            "sup": (sup, 100 * (sup / px - 1)) if sup else None, "res": (res, 100 * (res / px - 1)) if res else None}
+
+
 def context_line(market, live=None):
     """The picture around an alert: trend and nearest weekly levels. Empty if the data can't say, so it never holds an alert back.
 
@@ -289,15 +307,18 @@ def reset_lean(r):
 
 
 def format_resets(found, now, name=lambda m: m):
+    """Short: one line per market, the levels under it, the lean only where the test held."""
+    from . import tg
     order = {"1M": 0, "1w": 1, "1d": 2}
-    lines = [f"🔄 <b>RESET</b> · {now:%d/%m %H:%M} UTC", "L'RSI è tornato a un estremo mentre il trend di fondo resta quello.", ""]
+    lines = [f"🔄 <b>RESET RSI</b> · {now:%d/%m %H:%M} UTC", "<i>RSI a un estremo, il trend di fondo resta quello</i>", ""]
     for r in sorted(found, key=lambda x: order[x["tf"]]):
+        icon = "📉" if r["kind"].startswith("ipervenduto") else "📈"
+        lines.append(f"{icon} <b>{tg.esc(name(r['market']))}</b> {FRAME_IT[r['tf']]} · RSI {r['rsi']:.0f} · trend {tg.arrow(r['trend'])} · {tg.num(r['price'])}")
+        lv = tg.levels(levels_of(r["market"]))
+        if lv:
+            lines.append(f"   {lv}")
         lean = reset_lean(r)
-        lines.append(f"• <b>{name(r['market'])}</b> · {FRAME_IT[r['tf']]}: RSI {r['rsi']:.0f} (soglia {r['threshold']}), {r['kind']}. Prezzo {price_text(r['price'])}" + (f"\n  {lean}" if lean else ""))
-        context = context_line(r["market"])
-        if context:
-            lines.append(context)
-    daily_found = [r for r in found if r["tf"] == TESTED_RESET_TF]
-    tested = " ".join(x for x in (V.alert_line(rid) for rid, trend in (("R1", "rialzo"), ("R2", "ribasso")) if any(r["trend"] == trend for r in daily_found)) if x)
-    lines += ["", " ".join(x for x in ["Grafico e livelli nell'app, in Analisi tecnica.", tested, "Non è consulenza finanziaria."] if x)]
+        if lean:
+            lines.append(f"   {lean}")
+    lines += ["", tg.app_link("tecnica", "Grafico e livelli nell'app")]
     return "\n".join(lines)
