@@ -12,7 +12,7 @@ BZD raccoglie dati gratuiti su cripto, azioni, bond, materie prime e forex. Li m
 
 | Servizio | Comando | Note |
 |---|---|---|
-| Recorder | `python3 -u -m bzd.recorder run` | 150 lavori di raccolta |
+| Recorder | `python3 -u -m bzd.recorder run` | 218 lavori di raccolta (dal 24 novembre anche 58 serie FRED e le previsioni) |
 | Storico Telegram | `python3 -u -m bzd.telegram backfill` | canali pubblici |
 | Alert e bot | `.venv/bin/python -u -m bzd.alerts run` | invio attivo, risponde a `/piano` |
 | Portafogli HL | `python3 -u -m bzd.wallets run` | classifica ogni giorno, posizioni ogni ora |
@@ -40,6 +40,8 @@ Il codice sta in `bzd/app.py` (server), `bzd/app.html` (pagina) e `bzd/snapshot.
 - **Bots:** il bot Deribit con stato, posizioni, delta, margine ed eventi, e i comandi pausa, riprendi, dimensione (solo più bassa) e chiusura d'emergenza (`bzd/bots.py`). L'app scrive solo il file di comandi, il bot lo legge ogni 10 secondi.
 - **AIsetups:** due volte al giorno (06:30 e 13:30 UTC) Haiku legge ciò che mostra l'app e propone 5 operazioni da approfondire: 2 di breve, 2 di medio e 1 di lungo periodo. Il codice controlla numeri e lati di invalidazione e obiettivo, e segue ogni proposta fino alla chiusura (`bzd/aisetups.py`, circa 0,004 $ a giro). Sono idee senza vantaggio dimostrato: la tabella «Come sono andate» dirà se valgono qualcosa.
 - **Motore:** il wiki del programma in `docs/wiki/`, una pagina per parte. `python -m bzd.wiki lint` controlla che ogni citazione porti a un file vero e che ogni modulo abbia una pagina; lo verifica anche un test.
+
+**Dati macro e previsioni (24 novembre, non ancora nell'app):** 58 serie FRED in `data/hist/macro`, aggiornate ogni giorno con le revisioni (`docs/wiki/macro.md`). In `data/hist/forecasts` le previsioni con la data in cui sono uscite: proiezioni del FOMC dal 2015, previsori professionali della Fed di Filadelfia dal 1968 e della BCE dal 1999, Economic Outlook dell'OCSE. Il recorder salva anche le probabilità di Kalshi e Polymarket ogni 6 ore e i discorsi di Fed, BoE, BoJ e BIS (`docs/wiki/previsioni.md`). Il FMI blocca il server. Nessuna previsione è testata come segnale.
 
 Fuori dall'app: catalogo di 334 lavori (`docs/CATALOGO.md`), note degli agenti di ricerca (`docs/letteratura/`), backup e kit per il server mai provato su un server vero (`docs/SERVER.md`), vecchi progetti in `docs/archivio/`.
 
