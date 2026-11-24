@@ -33,3 +33,42 @@ Regole: ogni stato da solo (22) e ogni coppia di stati di due letture diverse (4
 - **Le cripto partono dal 2019:** nella ricerca non ci sono; entrano solo nel controllo e nell'esame.
 - **Il caso:** su 484 regole, nella ricerca ce ne aspettiamo circa 24 con t sopra 1,65 senza nessun vantaggio vero. Il controllo e l'esame servono a scartarle.
 - **Mercati e periodi si muovono insieme:** un cluster di 3 giorni unisce gli eventi dello stesso momento, ma i regimi lunghi (liquidità, dollaro) restano pochi casi indipendenti.
+
+## Risultato della ricerca e del controllo
+
+Eseguiti il 2026-11-24. Regole provate: 484; con almeno 40 cluster: 440. Sul periodo di ricerca il t delle regole va da -4.0 a 4.0; per puro caso, su 440 regole, ce ne aspetteremmo circa 22 con t sopra 1,65.
+
+| # | Regola | Cluster ricerca | Eccesso ricerca | t ricerca | Cluster controllo | Eccesso controllo | t controllo | Passa |
+|---:|---|---:|---:|---:|---:|---:|---:|:---:|
+| 1 | posizione basso → long | 447 | +0.50% | 4.00 | 120 | +0.67% | 1.92 | sì |
+| 2 | momentum basso + posizione basso → long | 405 | +0.67% | 3.88 | 128 | +1.02% | 2.54 | sì |
+| 3 | estensione basso + posizione basso → long | 419 | +0.53% | 3.11 | 101 | +1.19% | 1.67 | sì |
+| 4 | estensione basso → long | 444 | +0.46% | 3.04 | 94 | +0.53% | 0.99 | no |
+| 5 | slancio alto + impatto alto → short | 147 | +1.42% | 2.98 | 78 | -0.65% | -0.89 | no |
+| 6 | estensione alto + cot alto → short | 309 | +0.67% | 2.83 | 93 | +0.82% | 1.56 | no |
+| 7 | slancio basso + estensione basso → long | 363 | +0.53% | 2.67 | 100 | +0.19% | 0.19 | no |
+| 8 | slancio alto → short | 441 | +0.36% | 2.63 | 134 | -0.50% | -0.96 | no |
+| 9 | rsi alto + impatto alto → short | 43 | +1.46% | 2.62 | 28 | -1.04% | -0.77 | no |
+| 10 | slancio basso + posizione basso → long | 374 | +0.48% | 2.60 | 109 | +1.67% | 2.15 | sì |
+| 11 | momentum basso + volatilita alto → long | 112 | +1.21% | 2.43 | 46 | +0.18% | 0.28 | no |
+| 12 | momentum alto + impatto alto → short | 130 | +0.80% | 2.41 | 70 | +0.18% | 0.31 | no |
+| 13 | estensione basso + momentum basso → long | 382 | +0.52% | 2.41 | 117 | +0.58% | 0.63 | no |
+| 14 | momentum alto + liquidita_fed alto → short | 175 | +0.48% | 2.39 | 58 | +0.57% | 0.85 | no |
+| 15 | estensione alto + posizione alto → short | 409 | +0.45% | 2.34 | 140 | +0.63% | 1.45 | no |
+| 16 | posizione basso + cot basso → long | 431 | +0.34% | 2.34 | 129 | +0.26% | 1.23 | no |
+| 17 | estensione basso + dollaro alto → long | 159 | +0.61% | 2.32 | 47 | +0.80% | 0.59 | no |
+| 18 | slancio alto + cot alto → short | 279 | +0.55% | 2.22 | 93 | -0.23% | -0.37 | no |
+| 19 | estensione alto + volumi alto → short | 176 | +1.09% | 2.21 | 74 | -0.68% | -0.45 | no |
+| 20 | slancio alto + momentum alto → short | 415 | +0.36% | 2.21 | 138 | +0.37% | 0.67 | no |
+| 21 | slancio alto + estensione alto → short | 323 | +0.46% | 2.20 | 119 | -0.45% | -0.59 | no |
+| 22 | cot basso + dollaro basso → long | 116 | +0.52% | 2.20 | 46 | +0.20% | 0.88 | no |
+| 23 | estensione alto → short | 433 | +0.35% | 2.04 | 140 | +0.58% | 1.19 | no |
+| 24 | estensione basso + volumi alto → long | 255 | +0.71% | 2.03 | 88 | +1.67% | 1.55 | no |
+| 25 | slancio basso + momentum basso → long | 426 | +0.37% | 2.02 | 123 | +1.07% | 1.38 | no |
+| 26 | momentum alto + volatilita basso → short | 253 | +0.28% | 2.02 | 101 | +0.11% | 0.67 | no |
+| 27 | posizione alto + impatto alto → short | 135 | +0.63% | 2.02 | 66 | +0.12% | 0.27 | no |
+| 28 | estensione alto + impatto basso → short | 198 | +0.70% | 2.02 | 96 | +0.74% | 0.78 | no |
+| 29 | momentum alto + cot alto → short | 319 | +0.39% | 2.01 | 99 | +0.32% | 0.70 | no |
+| 30 | volatilita basso + dollaro basso → long | 81 | +0.53% | 1.99 | 34 | -0.05% | -0.72 | no |
+
+Passano il controllo **4** regole su 30. Solo queste vanno all'esame 2023–2026, una volta sola.
