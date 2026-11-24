@@ -49,3 +49,33 @@ Nessuna variante sopra lo zero in modo apprezzabile. Il put spread del bot fa �
 4. **La garanzia in moneta è peggiore della garanzia in USDC** in ogni variante.
 5. **L'unico risultato positivo e coerente è la put venduta, nuda o molto lontana** (A e H su BTC), ed è piccolo e non significativo (t 1,4 e 0,7). Sull'S&P la put venduta ha un rendimento per rischio simile all'indice, non migliore.
 6. **Limiti:** prezzi di mark, non esecuzioni vere; tenute a scadenza, mentre il bot esce al 50% o a 7 giorni; 2019–2020 con pochi scambi; un periodo in cui BTC è salito da 3.500 a oltre 100.000 dollari, che favorisce chi vende put.
+
+## Seconda prova: entrare da maker e coprire il delta (24 novembre)
+
+Sette varianti in più, fissate prima del calcolo, sugli stessi dati. Script: `scripts/research/vol_backtest2.py` e `scripts/research/vol_fetch_funding.py`.
+- **Da maker:** esecuzione al prezzo di mark, senza spread e senza commissioni. Le opzioni in USDC di Deribit non hanno commissioni per chi fa da maker. È lo scenario ottimista: suppone che ogni ordine venga eseguito.
+- **Copertura:** delta di Black-76 alla volatilità di entrata, aggiustato ogni giorno alle 08:00 UTC sul perpetuo, con 0,05% a scambio e il funding vero ora per ora (in media circa 7,6% l'anno, pagato da chi è long).
+- **Risultato:** in quota del nozionale (1 BTC). Il portafoglio ha il 25% del conto come nozionale per entrata, circa 1× in tutto.
+
+| BTC | Medio per operazione | t | All'anno | max DD |
+|---|---|---|---|---|
+| M1 put spread 20/7 da maker | +0,15% | 0,3 | +0,9% | −17% |
+| M2 put nuda 20Δ da maker | +0,73% | 1,5 | +6,3% | −16% |
+| M3 put spread 10/3 da maker | +0,32% | 1,5 | +2,7% | −5% |
+| DH1 straddle coperto | +0,17% | 0,3 | +1,1% | −18% |
+| DH1m straddle coperto, da maker | +0,80% | 1,5 | +6,5% | −14% |
+| DH2 strangle 25Δ coperto | +0,53% | 1,2 | +4,6% | −13% |
+| **DH2m strangle 25Δ coperto, da maker** | **+0,81%** | **1,9** | **+7,3%** | **−12%** |
+
+DH2m anno per anno, in % del nozionale per operazione: 2019 −0,1, 2020 +1,1, 2021 +2,2, 2022 +0,7, 2023 +0,6, 2024 +1,2, 2025 +0,6, 2026 +0,1. Senza funding aveva t 3,0: il funding ne porta via circa un terzo.
+
+**ETH:** nessuna variante sopra zero in modo apprezzabile, e quasi tutte negative nella seconda metà.
+
+**Lettura:** con 15 varianti provate su questi dati, nessuna supera una soglia corretta per i confronti multipli. La candidata è DH2m su BTC: vendere lo strangle 25Δ da maker e coprire il delta ogni giorno. È coerente in tutti gli anni, ma il suo risultato dipende dall'esecuzione al prezzo medio, che non è garantita. Prima di usarla va provata sui dati futuri con una regola fissata prima, come le strategie in [prova sulla carta](OPZIONI_IN_PROVA.md).
+
+## Cosa dice la letteratura
+
+- Il premio sulla volatilità è negativo per chi compra e positivo per chi vende, sull'S&P (Bakshi e Kapadia 2003) e su Deribit (Lucic e Sepp 2024; Grith e altri 2025; Atanasova e altri 2026). Su BTC è più alto che sull'S&P.
+- La sottoperformance di chi compra opzioni coperte è minore lontano dal denaro (Bakshi e Kapadia 2003). È coerente con quello che abbiamo visto: le ali lontane non sono un affare per chi vende.
+- Su un mercato con costi da retail (Nifty 50, 2015–2025) tutte le strategie di vendita sono negative al netto dei costi, e la causa principale sono le code, non i costi (Pillai 2026).
+- Con prezzi di opzioni rumorosi le stime del premio cambiano molto (Duarte e altri 2024). Il nostro uso del mark al posto delle esecuzioni è una delle debolezze.
