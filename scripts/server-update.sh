@@ -5,7 +5,7 @@ set -euo pipefail
 host="${1:?usage: server-update.sh user@host}"
 cd "$(dirname "$0")/.."
 finish='sudo chown -R bzd:bzd /opt/bzd && sudo -u bzd /opt/bzd/.venv/bin/pip install -q -r /opt/bzd/requirements.txt && sudo cp /opt/bzd/deploy/*.service /opt/bzd/deploy/*.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl restart bzd-recorder bzd-backfill bzd-wallets bzd-alerts bzd-vol-bot bzd-app && systemctl is-active bzd-recorder bzd-backfill bzd-wallets bzd-alerts bzd-vol-bot bzd-app'
-excl=(--exclude data --exclude .venv --exclude .env --exclude .git --exclude __pycache__ --exclude .claude)
+excl=(--exclude data --exclude .venv --exclude .env --exclude .git --exclude __pycache__ --exclude .claude --exclude .pytest_cache --exclude .sul-server)
 if [ "$host" = local ]; then
     sudo rsync -a --delete "${excl[@]}" ./ /opt/bzd/
     bash -c "$finish"; exit
