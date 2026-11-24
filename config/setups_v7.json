@@ -1,0 +1,31 @@
+{
+ "name": "v7: ricerca a tappeto sulle combinazioni di letture, con storia divisa in tre parti",
+ "why": "Le letture da sole non hanno retto (v3-v6). Qui si cercano coppie di letture che insieme danno un vantaggio, senza cadere nel data snooping: si cerca su una parte della storia, si controlla su un'altra e si giudica una sola volta su una terza mai guardata.",
+ "periods": {"search": ["2008-01-01", "2019-01-01"], "check": ["2019-01-01", "2023-01-01"], "exam": ["2023-01-01", "2026-11-20"]},
+ "horizon_bars": 10,
+ "markets": ["ES=F", "NQ=F", "RTY=F", "ZT=F", "ZF=F", "ZN=F", "ZB=F", "CL=F", "NG=F", "GC=F", "SI=F", "HG=F", "ZC=F", "ZW=F", "ZS=F",
+             "EURUSD=X", "USDJPY=X", "GBPUSD=X", "AUDUSD=X", "USDCHF=X", "USDCAD=X", "BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX", "LINK"],
+ "features": {
+  "slancio": "percentile del rendimento a 20 sedute sulla storia prima; basso <= 20, alto >= 80",
+  "rsi": "RSI a 14 sedute; basso <= 30, alto >= 70",
+  "estensione": "percentile della distanza dalla media a 200 sedute; basso <= 20, alto >= 80",
+  "momentum": "punteggio del momentum dell'app (zones.indicator_score 1d); basso <= -50, alto >= 50",
+  "posizione": "posizione del prezzo nell'ultimo anno (252 sedute prima); basso <= 20, alto >= 80",
+  "cot": "posizionamento netto degli speculatori (COT), percentile sulla storia prima, con il verso corretto per le coppie col dollaro davanti; basso <= 20, alto >= 80",
+  "volatilita": "percentile dell'indice di volatilità del mercato (VIX, MOVE, OVX, GVZ, EVZ); basso <= 20, alto >= 80",
+  "volumi": "volume medio di 20 sedute, percentile dei 3 anni prima; basso <= 20, alto >= 80",
+  "impatto": "Amihud di 20 sedute, percentile dei 3 anni prima; basso <= 20, alto >= 80",
+  "liquidita_fed": "variazione a 13 settimane della liquidità netta della Fed, nel terzo più basso o più alto delle 156 settimane prima, dal giorno in cui è pubblica",
+  "dollaro": "variazione a 13 settimane del dollaro ampio, nel terzo più basso o più alto delle 156 settimane prima, dal giorno in cui è pubblica"
+ },
+ "rules": "ogni stato (basso o alto) da solo e ogni coppia di stati di due letture diverse, sia long sia short: 22 + 4 x 55 = 242 condizioni, 484 regole",
+ "search": {"min_clusters": 40, "keep_top": 30, "rank_by": "t della media per cluster dell'eccesso, nel verso dell'operazione",
+            "baseline": "media del rendimento a 10 sedute di tutte le sedute dello stesso mercato nello stesso anno"},
+ "check": {"min_clusters": 15, "min_t": 1.65, "baseline": "come nella ricerca"},
+ "exam": {"method": "v3-v6: 200 ingressi casuali sullo stesso mercato nello stesso anno lontani dagli eventi, cluster di 3 giorni, t-test a una coda più bootstrap, Holm al 5% sulle regole sopravvissute"},
+ "test": {"family_alpha": 0.05, "method": "holm", "baseline_draws": 200, "baseline_seed": 20261125, "min_pool": 20,
+          "bootstrap_reps": 5000, "merge_days": 3, "power_d": 0.3, "power_min": 0.5, "also_report_t": 3.0},
+ "costs": {"fee_per_side": 0.0, "slippage_per_side": 0.0005},
+ "lookback_weeks": 156,
+ "publication_lag_days": {"fed_balance_sheet": 2, "dollar": 7}
+}

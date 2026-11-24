@@ -56,6 +56,7 @@ Il dettaglio di ogni test è nella scheda Test e nei file `docs/V*_STORICO.md`. 
 - **v4, momentum su 50 mercati nuovi:** dopo «scende forte» e «sale forte» il prezzo continua per 10 sedute, circa +0,6% rispetto al caso, ma tolti i costi lo short perde e il long è in pari. Regge anche «sale forte da 3 sedute».
 - **v5, BYZ e SZT letti come il nome:** nessuna ipotesi regge su 99 azioni USA nuove. Per questo BYZ non è più un nome del momentum.
 - **v6, liquidità e proiezioni della Fed (24 novembre, `docs/V6_STORICO.md`):** nessuna delle 5 regge. Liquidità della Fed in forte aumento: no (p 0,20). Dollaro in forte rialzo (short) e impatto alto (long) vanno vicini ma non passano Holm (p 0,015 e 0,012). Stablecoin e Fed più dura: troppi pochi casi. Le vicine si provano solo sui dati futuri.
+- **v7, tutte le coppie di letture (24 novembre, `docs/V7_ESAME.md`):** 484 regole cercate sul 2008–2018, controllate sul 2019–2022, esaminate una volta sul 2023–2026. Nessuna regge. Le 4 arrivate all'esame comprano tutte il prezzo basso nell'anno; «posizione bassa → long» è positiva in tutti e tre i periodi (p 0,025 all'esame, soglia 0,017): è la candidata per la prova sui dati futuri.
 - **Uscite:** stop + 3R taglia le perdite peggiori ma rende meno del tenere.
 - **Volatilità:** HAR batte GARCH ed EWMA, ma su BTC ed ETH la volatilità implicita prevede meglio.
 - **Opzioni in prova:** nove strategie sulla carta dal 7 novembre 2026 sui prezzi veri (`docs/OPZIONI_IN_PROVA.md`). Nessun giudizio prima del 6 novembre 2027.

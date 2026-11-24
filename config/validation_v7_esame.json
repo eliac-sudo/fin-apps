@@ -1,0 +1,142 @@
+{
+ "config_sha256": "08b7f9a0db5588d033926f8c9db40a9f319e2b91dfb54b035eeaab1e3c13ec03",
+ "run": "2026-11-24T21:23:00+00:00",
+ "period": [
+  "2023-01-01",
+  "2026-11-20"
+ ],
+ "results": {
+  "C1": {
+   "clusters": 124,
+   "mean": 0.010035514293160422,
+   "sd": 0.05627513870175533,
+   "d": 0.17832944573173296,
+   "t": 1.9857926655767462,
+   "p": 0.024640213724867414,
+   "boot_p": 0.0184,
+   "ci90": [
+    0.0021810161124163397,
+    0.01855372898665388
+   ],
+   "power": 0.8565673888155163,
+   "passes_t3": false,
+   "events": 892,
+   "mean_net": 0.010731277369503469,
+   "share_positive": 0.5145739910313901,
+   "per_class": {
+    "cripto": {
+     "events": 388,
+     "mean_excess": 0.010469537974739897,
+     "mean_net": 0.01336530524062028
+    },
+    "futures": {
+     "events": 504,
+     "mean_excess": 0.006364542665801941,
+     "mean_net": 0.005508802345320226
+    }
+   },
+   "label": "posizione basso → long",
+   "holm_threshold": 0.016666666666666666,
+   "outcome": "non supportata"
+  },
+  "C2": {
+   "clusters": 152,
+   "mean": 0.00314229227017991,
+   "sd": 0.06918590804698505,
+   "d": 0.04541809681887731,
+   "t": 0.559951904036976,
+   "p": 0.28817098996829793,
+   "boot_p": 0.2856,
+   "ci90": [
+    -0.005750880978763536,
+    0.012506053243835951
+   ],
+   "power": 0.9231185623993665,
+   "passes_t3": false,
+   "events": 554,
+   "mean_net": 0.008613728142231658,
+   "share_positive": 0.51985559566787,
+   "per_class": {
+    "cripto": {
+     "events": 209,
+     "mean_excess": -0.0023188977243892702,
+     "mean_net": 0.012695549620671837
+    },
+    "futures": {
+     "events": 345,
+     "mean_excess": 0.001835379847038808,
+     "mean_net": 0.003838906970478127
+    }
+   },
+   "label": "momentum basso + posizione basso → long",
+   "holm_threshold": 0.05,
+   "outcome": "non supportata"
+  },
+  "C3": {
+   "clusters": 134,
+   "mean": 0.008072410866363167,
+   "sd": 0.04439601077277223,
+   "d": 0.18182739227809006,
+   "t": 2.104804237470829,
+   "p": 0.0185948085258085,
+   "boot_p": 0.0172,
+   "ci90": [
+    0.0018482337822321583,
+    0.01424555733523377
+   ],
+   "power": 0.8846260470063376,
+   "passes_t3": false,
+   "events": 558,
+   "mean_net": 0.008628855483728113,
+   "share_positive": 0.5232974910394266,
+   "per_class": {
+    "cripto": {
+     "events": 219,
+     "mean_excess": 0.008100454781473922,
+     "mean_net": 0.007144968103578397
+    },
+    "futures": {
+     "events": 339,
+     "mean_excess": 0.005910800796695305,
+     "mean_net": 0.004446509092238077
+    }
+   },
+   "label": "estensione basso + posizione basso → long",
+   "holm_threshold": 0.0125,
+   "outcome": "non supportata"
+  },
+  "C4": {
+   "clusters": 142,
+   "mean": 0.004751911294918263,
+   "sd": 0.05052388299052725,
+   "d": 0.09405277293926916,
+   "t": 1.1207681392037927,
+   "p": 0.13214591978009593,
+   "boot_p": 0.1318,
+   "ci90": [
+    -0.002275276643650649,
+    0.011677780720092852
+   ],
+   "power": 0.9034645234423141,
+   "passes_t3": false,
+   "events": 455,
+   "mean_net": 0.007459276271403796,
+   "share_positive": 0.5230769230769231,
+   "per_class": {
+    "cripto": {
+     "events": 148,
+     "mean_excess": 0.0005925138242673104,
+     "mean_net": 0.010919251964231158
+    },
+    "futures": {
+     "events": 307,
+     "mean_excess": 0.00247332596194604,
+     "mean_net": 0.0034312230912126687
+    }
+   },
+   "label": "slancio basso + posizione basso → long",
+   "holm_threshold": 0.025,
+   "outcome": "non supportata"
+  }
+ }
+}
