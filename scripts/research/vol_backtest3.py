@@ -4,6 +4,8 @@ F1 premium   sell only if ATM implied vol (chosen expiry) > realized vol of the 
 F2 contango  sell only if ATM vol of the nearest expiry with >= 3 days < ATM vol of the chosen expiry
 F3 calm      sell only if ATM vol of the chosen expiry < its median over the previous 52 entries
 For each: mean P&L of the weeks it sells vs the weeks it skips, and the gap's t (entries overlap about 4 deep).
+
+    .venv/bin/python scripts/research/vol_backtest3.py DIR BTC ETH
 """
 import json, math, sys
 from datetime import timedelta

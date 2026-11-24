@@ -4,6 +4,8 @@ DH1    sell the ATM straddle, delta-hedge with the perpetual once a day at 08:00
 DH2    the same with the 25-delta strangle.
 DH1m, DH2m  the same two with maker option fills.
 Delta from Black-76 at the entry vol of each leg. Funding on the perp hedge is paid or received hour by hour (Deribit history; zero before May 2019). P&L in USD per 1 BTC of notional.
+
+    .venv/bin/python scripts/research/vol_backtest2.py DIR BTC ETH
 """
 import json, math, sys
 from datetime import timedelta

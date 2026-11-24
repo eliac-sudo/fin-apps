@@ -1,3 +1,7 @@
+"""The perpetual's price at 08:00 UTC each day, when Deribit settles options, into DIR/<coin>/px0800.json.
+
+    .venv/bin/python scripts/research/vol_fetch_px.py DIR BTC ETH
+"""
 import json, sys, time, urllib.request
 from datetime import datetime, timezone
 from pathlib import Path

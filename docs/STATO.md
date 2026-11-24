@@ -8,7 +8,7 @@ BZD raccoglie dati gratuiti su cripto, azioni, bond, materie prime e forex. Li m
 
 ## Cosa gira
 
-Tutto nel Codespace: se si spegne si ferma tutto. Alla riaccensione `scripts/start-services.sh` non sempre parte (5 e 6 novembre). **Dopo ogni riaccensione:** `su codespace -c 'bash scripts/ensure-services.sh'`. Lo lancia Claude, senza chiedere. **Buco nei dati dal 7 al 23 novembre 2026:** i servizi si sono fermati il 7 verso le 14 e nessuno li ha riaccesi per 16 giorni. Quello che si scarica di nuovo (prezzi giornalieri, COT) si recupera; le fotografie dal vivo (opzioni in prova, posizioni Hyperliquid, Telegram) no. Il 23 novembre i servizi erano di nuovo fermi da circa 4 ore, riaccesi alle 16 UTC circa.
+Tutto nel Codespace: se si spegne si ferma tutto. Alla riaccensione `scripts/start-services.sh` non sempre parte (5 e 6 novembre). **Dopo ogni riaccensione:** `su codespace -c 'bash scripts/ensure-services.sh'`. Lo lancia Claude, senza chiedere. Riaccende anche il bot Deribit se ha le chiavi ed è fermo, perché uno strangle venduto ha bisogno della sua copertura. **Buco nei dati dal 7 al 23 novembre 2026:** i servizi si sono fermati il 7 verso le 14 e nessuno li ha riaccesi per 16 giorni. Quello che si scarica di nuovo (prezzi giornalieri, COT) si recupera; le fotografie dal vivo (opzioni in prova, posizioni Hyperliquid, Telegram) no. Il 23 novembre i servizi erano di nuovo fermi da circa 4 ore, riaccesi alle 16 UTC circa.
 
 | Servizio | Comando | Note |
 |---|---|---|

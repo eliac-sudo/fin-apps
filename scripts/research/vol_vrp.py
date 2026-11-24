@@ -1,5 +1,15 @@
-import pandas as pd, numpy as np
-H='/workspaces/fin-apps/data/hist/'
+"""Implied vol at 30 days against the vol realized over the next 30 days: BTC and ETH from Deribit DVOL, the S&P from VIX.
+
+    .venv/bin/python scripts/research/vol_vrp.py
+
+Exploration, not a test (docs/BOT_DERIBIT_STORICO.md). Reads the saved history in data/hist.
+"""
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+H = str(Path(__file__).resolve().parents[2] / "data" / "hist") + "/"
 def stats(name, iv, px, n, ann):
     r=np.log(px).diff()
     rv=(r.rolling(n).std().shift(-n))*np.sqrt(ann)*100   # realized over next n obs

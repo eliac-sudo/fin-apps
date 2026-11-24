@@ -647,11 +647,11 @@ def main(argv):
     if cmd == "stato":
         print(bot.status())
     elif cmd == "chiudi":
-        _l = lock()
+        bot.lock_file = lock()  # held until the process ends
         bot.close_all()
         print(bot.status())
     elif cmd in ("once", "run"):
-        _l = lock()
+        bot.lock_file = lock()  # held until the process ends
         bot.say(f"Acceso sul {'testnet' if bot.net == 'test' else 'CONTO VERO'}: strangle BTC coperto.")
         while True:
             try:

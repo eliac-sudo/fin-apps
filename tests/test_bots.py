@@ -1,5 +1,4 @@
-import fcntl, io, json, os, tempfile, unittest
-from datetime import datetime, timedelta, timezone
+import fcntl, io, json, tempfile, unittest
 from unittest import mock
 
 from bzd import app as App

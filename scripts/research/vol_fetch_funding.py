@@ -1,3 +1,7 @@
+"""Hourly funding of the BTC and ETH perpetuals on Deribit, 2019-2026, into DIR/<coin>/funding_1h.json.
+
+    .venv/bin/python scripts/research/vol_fetch_funding.py DIR
+"""
 import json, sys, time, urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,7 +16,7 @@ for cur in ("BTC", "ETH"):
         for w in (1, 5, 20):
             try:
                 r = json.load(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "bzd-research"}), timeout=30))["result"]; break
-            except Exception as ex:
+            except Exception:
                 time.sleep(w)
         for x in r:
             out[str(x["timestamp"])] = x["interest_1h"]

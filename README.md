@@ -1,6 +1,6 @@
 # BZD
 
-Research tools for short-term trading setups across crypto, equities, commodities, FX and bonds: a recorder, a read-only desktop app and Telegram alerts. It holds no trading keys and places no orders. Not financial advice.
+Research tools for short-term trading setups across crypto, equities, commodities, FX and bonds: a recorder, a desktop app and Telegram alerts. Only one part trades: the Deribit bot (`bzd/vol_bot.py`), on the testnet unless two switches in `.env` say otherwise. Not financial advice.
 
 Where it stands: `docs/STATO.md`. Plan: `ROADMAP.md`. How each part works, with links into the code: `docs/wiki/` (the Motore tab in the app). The first design is in `docs/archivio/`.
 
@@ -30,7 +30,7 @@ Claude runs as root, without GitHub credentials. Run `gl` in a normal VS Code te
 
 ## App
 
-`python -m bzd.app` serves the app on port 8787. In a Codespace, open it from the Ports tab and keep the port private. It reads saved data, holds no keys and places no orders. Its only write is `data/sentiment/days.json`, which keeps daily word counts after the raw social files are deleted.
+`python -m bzd.app` serves the app on port 8787. In a Codespace, open it from the Ports tab and keep the port private. It reads saved data, holds no keys and places no orders. It writes `data/sentiment/days.json`, which keeps daily word counts after the raw social files are deleted, and the bot's control file `data/vol_bot/control.json` from the BOTS tab (pause, resume, smaller size, emergency close).
 
 - **Oggi:** strength per market and class, from 0 to 100 against its own past (oversold, below normal, normal, above normal, overbought; `bzd/thermo.py`). Momentum per asset, «scende forte» or «sale forte», on 4h, daily, weekly, monthly and 12-month views, from 70% indicators and 30% sentiment (`bzd/zones.py`, `docs/ZONE_MOMENTUM.md`); after it, the price tended to keep going the same way for 10 sessions, about 0.6% more than a random day, on 50 markets the program never used (test v4). BYZ, capitulation (`bzd/capitulation.py`): a rare, untested signal for a strong market that fell a lot, then went quiet and sideways for weeks.
 - **Ticker page:** clicking any asset opens a page that sums up what each tab says about it.

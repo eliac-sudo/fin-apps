@@ -3,8 +3,10 @@
 Prices: the mark price of each instrument's last trade in the Monday 10:00-16:00 UTC window (real smile and basis).
 Costs: half-spread max(0.0001, 4% of price) per leg in and out of the position, Deribit fee 0.0003 coin per leg capped at
 12.5% of the price, delivery fee 0.00015 coin capped at 12.5% on legs that finish in the money.
-Settlement: Deribit delivery price on the expiry day.
-Variants fixed before the run (A..H). No parameter is tuned on the result.
+Settlement: the perpetual at 08:00 UTC on the expiry day (vol_fetch_px.py), when Deribit settles.
+Variants fixed before the run (A..H). No parameter is tuned on the result. NOCOST=1 drops every cost.
+
+    .venv/bin/python scripts/research/vol_backtest.py DIR BTC ETH
 """
 import gzip, json, math, sys
 from datetime import datetime, timezone

@@ -1,10 +1,20 @@
-import sys, pandas as pd, numpy as np
+"""Cboe strategy indices (PUT, WPUT, CNDR, BFLY, BXM) against SPY with dividends, over three windows.
+
+    curl -sLo DIR/PUT.csv https://cdn.cboe.com/api/global/us_indices/daily_prices/PUT_History.csv   # and the other four
+    .venv/bin/python scripts/research/vol_cboe.py DIR
+"""
+import sys
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
 D = sys.argv[1]
 s = {}
 for n in ("PUT", "WPUT", "CNDR", "BFLY", "BXM"):
     x = pd.read_csv(f"{D}/{n}.csv"); x.columns = ["date", "v"]
     x["date"] = pd.to_datetime(x.date, format="%m/%d/%Y", errors="coerce"); s[n] = x.dropna().set_index("date").v
-spy = pd.read_csv("/workspaces/fin-apps/data/hist/tradfi/SPY.csv.gz", index_col="date", parse_dates=True).adjclose
+spy = pd.read_csv(Path(__file__).resolve().parents[2] / "data/hist/tradfi/SPY.csv.gz", index_col="date", parse_dates=True).adjclose
 s["SPY (S&P)"] = spy
 df = pd.DataFrame(s).dropna()
 def st(v):

@@ -1,4 +1,7 @@
-"""Weekly snapshots of Deribit option trades (Monday 10:00-16:00 UTC) and daily delivery prices, BTC and ETH, 2019-2026."""
+"""Weekly snapshots of Deribit option trades (Monday 10:00-16:00 UTC), BTC and ETH, 2019-2026, into DIR/<coin>/<date>.json.gz.
+
+    .venv/bin/python scripts/research/vol_fetch_trades.py DIR    # about 15 minutes; then vol_fetch_px.py and vol_fetch_funding.py
+"""
 import json, sys, time, urllib.request, gzip
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -14,13 +17,6 @@ def get(url):
     raise RuntimeError(url)
 for cur in ("BTC", "ETH"):
     d = OUT / cur; d.mkdir(parents=True, exist_ok=True)
-    # delivery prices
-    rows, off = [], 0
-    while True:
-        r = get(f"https://www.deribit.com/api/v2/public/get_delivery_prices?index_name={cur.lower()}_usd&offset={off}&count=1000")
-        rows += r["data"]; off += 1000
-        if off >= r["records_total"]: break
-    (d / "delivery.json").write_text(json.dumps(rows))
     t = datetime(2019, 1, 7, 10, tzinfo=timezone.utc)
     while t < datetime(2026, 11, 20, tzinfo=timezone.utc):
         f = d / f"{t:%Y-%m-%d}.json.gz"
