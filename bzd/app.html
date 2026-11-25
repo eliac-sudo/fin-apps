@@ -349,7 +349,7 @@ function copySection(){
       el("td",{class:"num"},String(x.trades)),el("td",{class:"num"},pc(-x.fees-x.funding)),
       el("td",{class:"small"},x.top.map((t,i)=>el("span",{style:`color:${t[1]>0?"var(--good)":"var(--crit)"}`},(i?" · ":"")+t[0].replace(/^xyz:/,"")+(t[1]>0?" ▲":" ▼")))))};
   return el("section",{class:"card"},el("h2",null,"Copiarli rende? La prova sulla carta (v9)"),
-    el("p",{class:"sub",style:"margin:2px 0 6px"},"Due portafogli finti da $10.000, aggiornati ogni 5 minuti con commissioni, slittamento e funding: ",el("b",null,"C")," copia i 20 trader con più profitti del mese, ",el("b",null,"R")," 20 trader a caso. Nessuna chiave, nessun ordine vero. Si giudica una volta sola il "+(C?C.judge_on:"25 maggio 2027")+". ",tb("COPY")),
+    el("p",{class:"sub",style:"margin:2px 0 6px"},"Due portafogli finti da $10.000, aggiornati ogni 5 minuti con commissioni, slittamento e funding: ",el("b",null,"C")," copia i 20 trader con più profitti del mese, ",el("b",null,"R")," 20 trader a caso. Nessuna chiave, nessun ordine vero. Si guarda a 60 e 120 giorni con soglie severe e si giudica comunque entro il "+(C?C.judge_on:"25 maggio 2027")+". ",tb("COPY")),
     D.verdicts&&D.verdicts.COPY?el("p",{class:"small",style:"margin:2px 0 6px"},D.verdicts.COPY.line):null,
     !C?el("p",{class:"muted"},"La copia parte il 26 novembre 2026."):el("div",{class:"tablewrap"},el("table",null,
       el("thead",null,el("tr",null,...["Portafoglio","Dal "+C.start.slice(8)+"/"+C.start.slice(5,7),"Leva","Scambi","Costi","Posizioni principali"].map(h=>el("th",null,h)))),

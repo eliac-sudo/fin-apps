@@ -199,6 +199,9 @@ def main(argv):
         print(r["primary"]["outcome"])
         return 0
     if cmd == "test":
+        if "## Chiusa" in DOC.read_text():
+            print("la prova v2 sui dati futuri è stata chiusa il 25 novembre 2026 senza guardare: niente test")
+            return 1
         if RESULTS.exists():
             print("il test v2 è già stato fatto: non si rifà")
             return 1

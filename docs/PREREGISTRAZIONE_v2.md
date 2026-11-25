@@ -71,3 +71,7 @@ Su richiesta dell'utente, per non aspettare 3-4 anni, la stessa regola si testa 
 - **Regime:** 3-4 anni coprono pochi cicli di mercato.
 - **Pochi dati di controllo:** il confronto con le azioni non può smentire nulla.
 - **Effetto noto:** se il trend sui cambi funzionasse ancora in modo semplice, sarebbe già sfruttato. Un esito negativo è il più probabile, ed è un esito utile.
+
+## Chiusa il 25 novembre 2026, senza guardare
+
+La prova sui dati futuri è chiusa su richiesta dell'utente prima di calcolare qualunque rendimento dopo il 9 novembre 2026: nessun esito, né «supportata» né «non supportata». Il motivo è il tempo: sullo storico dal 2008 l'incrocio della SMA 200 non dava vantaggio (+0,08%, t = 0,26, `docs/V2_STORICO.md`) e per arrivare ai cluster richiesti servivano anni. `python -m bzd.v2 test` ora rifiuta di partire.
