@@ -658,7 +658,7 @@ function liqCard(){const L=D.liquidity;if(!L||!L.macro)return null;const M=L.mac
   const usdM=v=>v==null?"–":v>=1e6?num(v/1e6,1)+" mln $":num(v/1e3,0)+" mila $";
   const tone=t=>t?el("span",{class:"chipv",style:`background:${t==="più"?"var(--h3)":"var(--h1)"};color:${t==="più"?"var(--i3)":"var(--i1)"}`},t+" liquidità"):null;
   const weeks=d=>d>=80?Math.round(d/7)+" settimane":d+" giorni";
-  const LQB={net:"LIQ_NET",stable:"LIQ_STABLE",usd:"LIQ_USD",m2:"LIQ_OTHER",nfci:"LIQ_OTHER",hy:"LIQ_OTHER",credit:"LIQ_NEW",btp:"LIQ_NEW",bund:"LIQ_NEW"};
+  const LQB={net:"LIQ_NET",stable:"LIQ_STABLE",usd:"LIQ_USD",m2:"LIQ_OTHER",nfci:"LIQ_OTHER",hy:"LIQ_OTHER",credit:"LIQ_NEW",btp:"LIQ_NEW",bund:"LIQ_NEW",baa:"LIQ_NEW"};
   const tile=r=>el("div",{class:"card",style:"padding:10px 12px",title:r.meaning},el("div",{class:"tiny muted",style:"display:flex;justify-content:space-between;gap:6px;align-items:baseline"},el("span",null,r.label),tb(LQB[r.key])),
     el("div",{style:"display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"},el("div",{class:"mid"},num(r.value,r.unit===" mld $"?0:2)+r.unit),tone(r.tone)),
     el("div",{class:"tiny"},r.change==null?"":(r.change>0?"+":"")+num(r.change,2)+r.change_unit+" in "+weeks(r.days)+(r.pct_3y!=null?" · "+Math.round(r.pct_3y)+"° percentile in 3 anni":"")),

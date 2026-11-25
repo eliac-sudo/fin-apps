@@ -22,7 +22,9 @@ from .setups import VOL_INDEX, load_crypto, load_vol_index
 LABELS = {"ES=F": "S&amp;P 500", "NQ=F": "Nasdaq", "RTY=F": "Russell", "ZT=F": "2 anni", "ZF=F": "5 anni", "ZN=F": "10 anni", "ZB=F": "30 anni", "CL=F": "Petrolio", "NG=F": "Gas",
           "GC=F": "Oro", "SI=F": "Argento", "HG=F": "Rame", "ZC=F": "Mais", "ZW=F": "Grano", "ZS=F": "Soia", "EURUSD=X": "EUR/USD", "USDJPY=X": "USD/JPY", "GBPUSD=X": "GBP/USD",
           "AUDUSD=X": "AUD/USD", "USDCHF=X": "USD/CHF", "USDCAD=X": "USD/CAD",
-          "HYG": "High yield USA (HYG)", "LQD": "Investment grade USA (LQD)", "^STOXX50E": "Euro Stoxx 50", "^GDAXI": "DAX", "FTSEMIB.MI": "FTSE MIB",
+          "HYG": "High yield USA (HYG)", "LQD": "Investment grade USA (LQD)", "BKLN": "Prestiti alle aziende (BKLN)",
+          "ANGL": "Angeli caduti (ANGL)", "CWB": "Convertibili USA (CWB)", "PFF": "Azioni privilegiate (PFF)", "EMB": "Bond emergenti in dollari (EMB)",
+          "MUB": "Bond municipali USA (MUB)", "IHYG.L": "High yield europeo (IHYG)", "IEAC.L": "Corporate europee (IEAC)", "^STOXX50E": "Euro Stoxx 50", "^GDAXI": "DAX", "FTSEMIB.MI": "FTSE MIB",
           "^N225": "Nikkei 225", "EEM": "Emergenti (EEM)", "FXI": "Cina (FXI)", "EXX6.DE": "Bund lunghi (EXX6)"}
 BANDS = ((80, "🔺 ipercomprato"), (60, "↗ sopra la norma"), (40, "⚖ nella norma"), (20, "↘ sotto la norma"), (0, "🔻 ipervenduto"))
 HIGH_BANDS, LOW_BANDS = {BANDS[0][1], BANDS[1][1]}, {BANDS[3][1], BANDS[4][1]}

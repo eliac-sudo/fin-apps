@@ -32,7 +32,8 @@ ETF_CHECK = {"ES=F": "SPY", "NQ=F": "QQQ", "RTY=F": "IWM", "ZN=F": "IEF", "ZB=F"
 VOL_YAHOO = ["^MOVE"]
 # Followed in the app only (prices, tension, technicals, position, liquidity), added 25 Nov 2026. Not in the setups, the
 # alerts, the thermometer on Telegram or any frozen test: a reading on these is judged only on data from now on
-WATCH = {"HYG": "credit", "LQD": "credit", "^STOXX50E": "world", "^GDAXI": "world", "FTSEMIB.MI": "world", "^N225": "world",
+WATCH = {"HYG": "credit", "LQD": "credit", "BKLN": "credit", "ANGL": "credit", "CWB": "credit", "PFF": "credit", "EMB": "credit",
+         "MUB": "credit", "IHYG.L": "credit", "IEAC.L": "credit", "^STOXX50E": "world", "^GDAXI": "world", "FTSEMIB.MI": "world", "^N225": "world",
          "EEM": "world", "FXI": "world", "EXX6.DE": "bonds_eu"}
 WATCH_CLASS_IT = {"credit": "Credito", "world": "Azioni nel mondo", "bonds_eu": "Bond europei"}
 # 10-year yields: the Bund daily from the Bundesbank; Italy and Germany monthly from the ECB, the same measure for both, for the spread

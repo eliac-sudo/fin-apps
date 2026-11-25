@@ -2,6 +2,7 @@
 
 Le modifiche al motore, dalla più recente. Il dettaglio è nella storia di git; com'è il programma adesso sta in `docs/STATO.md`.
 
+- **2026-11-25** · La classe Credito passa a 10 ETF (prestiti, angeli caduti, convertibili, privilegiate, emergenti, municipali, Europa) e la liquidità ha lo spread Baa di Moody's dal 1986 ([[yahoo-cboe]], [[liquidita]]).
 - **2026-11-25** · Nuovi mercati osservati nell'app: credito USA, azioni europee e asiatiche, emergenti, Cina e Bund; spread BTP–Bund e credito HYG/IEF nella liquidità ([[yahoo-cboe]], [[liquidita]]).
 - **2026-11-25** · Test v9: la classifica Hyperliquid ha memoria su 19 giorni; parte la copia sulla carta dei 20 migliori contro 20 a caso ([[v9]]).
 - **2026-11-24** · I risultati di v6, v7 e v8 sono nell'app: etichette su liquidità, posizione nell'anno, Fear & Greed e proiezioni della Fed, e il riquadro «Cosa abbiamo scoperto» con le prove sui dati futuri nella scheda Test ([[app]]).
