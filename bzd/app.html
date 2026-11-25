@@ -323,16 +323,15 @@ html[data-theme=kangtao] nav button[aria-selected=true]{box-shadow:0 0 16px -4px
 @keyframes bscan{to{top:100%}}
 .btip{position:absolute;display:none;max-width:270px;padding:8px 10px;background:rgba(10,0,4,.92);border:1px solid #ff2a4a;box-shadow:0 0 14px rgba(255,20,50,.45);font-size:12.5px;color:#ffe;pointer-events:none;z-index:2}.btip b{display:block;color:#ff4d66;font:700 12px "Orbitron",var(--head);letter-spacing:.1em;margin-bottom:3px}.btip .tiny{color:rgba(255,200,205,.7);margin-top:4px}
 @media (prefers-reduced-motion:reduce){.bscan{animation:none}}
-/* the lab group: same tabs, less weight */
+/* "Altro": the lab tabs (Test, AIsetups, Piano, Bots, Motore) in a small menu */
 nav{flex-wrap:wrap;align-items:center;row-gap:4px}
-nav .navsep{font:500 10px var(--head);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);opacity:.75;padding:0 4px 0 12px;margin-left:6px;border-left:1px solid var(--border);line-height:18px}
-html[data-theme] nav button.minor,html:not([data-theme]) nav button.minor{font-size:11.5px;font-weight:500;color:var(--muted);padding-left:8px;padding-right:8px;letter-spacing:.05em}
-html[data-theme] nav button.minor[aria-selected=true],html:not([data-theme]) nav button.minor[aria-selected=true]{color:var(--on-y)}
-html[data-theme=arasaka] nav button.minor[aria-selected=true]{color:#fff}
-html[data-theme=militech] nav button.minor{flex:.55}
-html[data-theme=militech] nav .navsep{display:none}
-html[data-theme=kangtao] nav .navsep{border-left:0;border-top:1px solid var(--border);margin:10px 0 2px;padding:6px 14px 0}
-@media (max-width:600px){nav .navsep{flex-basis:100%;border-left:0;margin:2px 0 0;padding:2px 4px}}
+nav .more{position:relative;display:inline-flex}
+nav .morepop{position:absolute;top:calc(100% + 6px);right:0;z-index:30;display:flex;flex-direction:column;gap:2px;min-width:160px;padding:6px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 10px 28px -8px rgba(0,0,0,.55)}
+nav .morepop button{flex:none!important;text-align:left!important;border-right:0!important}
+nav .morehead{padding:2px 8px 4px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-size:10px}
+html[data-theme=militech] nav .more{flex:1}html[data-theme=militech] nav .morebtn{flex:1;text-align:center}
+html[data-theme=kangtao] nav .morepop{position:static;box-shadow:none;margin-top:4px}
+@media (max-width:600px){nav .morepop{right:auto;left:0}}
 </style>
 </head>
 <body>
@@ -557,6 +556,7 @@ function drawLabels(){const box=$("#lbBox");if(!box||!LB)return;if(LB.error){box
 /* everyday tabs first; the lab (tests, model proposals, plan, bots, engine) after a divider, smaller */
 const TABS=[["oggi","Oggi"],["tecnica","Analisi tecnica"],["opzioni","Opzioni"],["sentiment","Sentiment"],["chi","Chi compra"],["previsioni","Previsioni"],["alert","Alert"],
   ["test","Test"],["aisetups","AIsetups"],["piano","Piano"],["bots","Bots"],["motore","Motore"]];
+let NAVMORE=false;addEventListener("click",()=>{if(NAVMORE){NAVMORE=false;render()}});
 const LAB_TABS=new Set(["test","aisetups","piano","bots","motore"]);
 const PARTS={slancio:"Slancio",rsi:"RSI",estensione:"Distanza dalla media",funding:"Funding",oi:"Leva (OI)",posizionamento:"Speculatori",calma:"Calma (volatilità bassa)"};
 const BANDS=[
@@ -1333,8 +1333,11 @@ function classDetail(k,c){const d=$("#dlg");hideTip();const n=bin(c.heat),rows=D
     el("h3",null,"Cosa pesa nel gruppo"),el("p",{class:"sub",style:"margin:2px 0 4px"},"Media di ogni fattore su tutti i mercati del gruppo."),...factorRows(c.parts),
     el("h3",{style:"margin-top:12px"},"I mercati del gruppo"),el("div",{class:"tiles",style:"margin-top:6px"},rows.map(m=>{const b=bin(m.heat);return el("button",{class:"tile",style:`background:var(--h${b});color:var(--i${b})`,onclick:()=>detail(m)},el("span",null,m.label),el("div",{style:"white-space:nowrap"},el("strong",null,fmt(m.heat)),el("em",null,BANDS[b].short)))})),
     el("p",{class:"tiny",style:"margin-top:10px"},"Clicca un mercato per la sua scheda. Descrive uno stato e non prevede il futuro."));d.showModal()}
-function render(){if(!VIEWS[tab])tab="oggi";const navBtn=([k,n])=>el("button",{role:"tab",class:LAB_TABS.has(k)?"minor":null,"aria-selected":String(k===tab),onclick:()=>{tab=k;location.hash=k;render();scrollTo(0,0)}},n);
-  $("#nav").replaceChildren(...TABS.filter(([k])=>!LAB_TABS.has(k)).map(navBtn),el("span",{class:"navsep","aria-hidden":"true"},"Laboratorio"),...TABS.filter(([k])=>LAB_TABS.has(k)).map(navBtn));
+function render(){if(!VIEWS[tab])tab="oggi";const navBtn=([k,n])=>el("button",{role:"tab","aria-selected":String(k===tab),onclick:()=>{tab=k;NAVMORE=false;location.hash=k;render();scrollTo(0,0)}},n);
+  const inLab=LAB_TABS.has(tab),labName=inLab?Object.fromEntries(TABS)[tab]:"Altro";
+  $("#nav").replaceChildren(...TABS.filter(([k])=>!LAB_TABS.has(k)).map(navBtn),
+    el("span",{class:"more"},el("button",{class:"morebtn","aria-haspopup":"true","aria-expanded":String(NAVMORE),"aria-selected":String(inLab),onclick:e=>{e.stopPropagation();NAVMORE=!NAVMORE;render()}},labName+" ▾"),
+      NAVMORE?el("div",{class:"morepop",role:"menu"},el("div",{class:"tiny morehead"},"Laboratorio"),...TABS.filter(([k])=>LAB_TABS.has(k)).map(navBtn)):null));
   const m=$("#main");const parts=[];if(Object.keys(D.errors||{}).length)parts.push(el("div",{class:"notice bad"},"▲ Parti non disponibili: "+Object.keys(D.errors).join(", ")));if(Q)parts.push(el("div",{class:"small",style:"margin-top:6px"},"Filtro attivo: «"+$("#q").value+"» ",el("button",{class:"ghost",onclick:()=>{$("#q").value="";Q="";closeSugg();render()}},"Togli")));parts.push(...[VIEWS[tab]()].flat());parts.push(el("p",{class:"foot"},"Descrive e non prevede. Non è consulenza finanziaria. L'app legge dati salvati e pubblici e non esegue ordini."));m.replaceChildren(...parts)}
 /* Forecasts: Fed, professional forecasters, OECD and prediction markets, read-only */
 const FC={data:null};
