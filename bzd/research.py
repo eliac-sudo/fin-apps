@@ -28,6 +28,7 @@ from .recorder import BASE, load_env
 DOCS = BASE / "docs" / "letteratura"
 REPORT = DOCS / "REPORT_GEMINI.md"
 MAX_TOKENS = 16000
+MAX_TOKENS_FOR = {"aisetups": 32000}  # 15 candidates do not fit in 16000
 EFFORT = {"read": "medium", "ideas": "high", "aisetups": "medium"}
 # A rough guess for `stima`, overstated on purpose: thinking counts as output and its length isn't known in advance
 GUESS_OUT = {"read": 4000, "ideas": 16000}
@@ -298,7 +299,7 @@ def call_json(client, system, schema, content, purpose):
     """One structured call through the same path as the alert reviews: fallback on refusal, cost logged. Returns (dict or None, error or None)."""
     import anthropic
     model = model_for(purpose)
-    params = dict(model=model, max_tokens=MAX_TOKENS, system=system, messages=[{"role": "user", "content": content}],
+    params = dict(model=model, max_tokens=MAX_TOKENS_FOR.get(purpose, MAX_TOKENS), system=system, messages=[{"role": "user", "content": content}],
                   output_config={"effort": EFFORT[purpose], "format": {"type": "json_schema", "schema": schema}})
     try:
         r = client.messages.create(**params) if model == "claude-haiku-5-5" else client.beta.messages.create(**params, betas=["server-side-fallback-2026-07-01"], fallbacks="default")

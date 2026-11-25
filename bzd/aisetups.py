@@ -42,7 +42,7 @@ Regole:
 - «convinzione» da 1 a 5: quanto le letture dei dati vanno nella stessa direzione. Usa tutta la scala; 5 solo se quasi tutto concorda.
 - «test»: il codice della lettura testata su cui l'idea si appoggia, preso da <test>, solo se il suo esito è «supportata»; altrimenti «nessuno». Quasi tutte le letture dell'app non hanno retto ai test: dillo nei rischi quando l'idea si basa su quelle.
 - «titolo»: l'idea in poche parole, al massimo 60 caratteri, senza numeri (es. «rimbalzo da ipervenduto verso la resistenza»).
-- Tesi breve e concreta, in italiano semplice. Niente consigli finanziari personali, niente dimensione della posizione.
+- Sii breve, sono 15: tesi di al massimo due frasi, al massimo 3 fatti, rischi in una frase, motivo dei giudizi in una frase. Italiano semplice. Niente consigli finanziari personali, niente dimensione della posizione.
 - Se il quadro è confuso, scrivi comunque i candidati ma dillo in «quadro»."""
 
 SCHEMA = {
