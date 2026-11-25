@@ -1,4 +1,5 @@
-"""AIsetups: twice a day a cheap model (Haiku) reads what the app says and proposes 5 trades worth a look: 2 short-term, 2 medium-term, 1 long-term.
+"""AIsetups: twice a day a cheap model (Haiku) reads what the app says and writes 15 candidate trades; the code keeps the 5 best
+(2 short-term, 2 medium-term, 1 long-term) and changes the ones already on the board only when that makes sense.
 
     python -m bzd.aisetups run --paga     one round (the server's timer runs it at 06:30 and 13:30 UTC)
     python -m bzd.aisetups stima          what a round costs, free
@@ -7,6 +8,11 @@
 They are ideas, not signals: almost nothing the app shows has held up in a test, and a model choosing among those readings adds no proven edge.
 So every proposal says which test backs it (usually none), the code checks that each one cites only numbers the app shows and that its
 invalidation and target sit on the right side of the price, and every proposal is followed afterwards: the AIsetups tab shows how they went.
+
+How the 5 are chosen (`pick`): a candidate that fails a check is dropped, not the whole round. Score = the model's conviction (1–5)
++ reward/risk capped at 3 (a target closer than the invalidation is dropped) + 2 when a test that held backs it. One market at a time.
+A setup on the board stays until it reaches its target, its invalidation or the end of its horizon, unless the model says the picture
+has changed («superata») and there is a candidate to put in its place, or a new candidate scores at least REPLACE_MARGIN more.
 That record is the only way to learn whether these ideas are worth anything. Nothing here trades.
 """
 import json, os, re, sys
@@ -20,28 +26,34 @@ from .recorder import BASE, load_env
 
 HORIZONS = {"breve": ("1–10 giorni", 10), "medio": ("2–8 settimane", 56), "lungo": ("3–12 mesi", 365)}
 WANT = {"breve": 2, "medio": 2, "lungo": 1}
+CANDIDATES = {"breve": 6, "medio": 6, "lungo": 3}
+REPLACE_MARGIN = 2.0
+CLOSED = ("invalidata", "obiettivo", "scaduta", "sostituita")
 PURPOSE = "aisetups"
 
-SYSTEM = """Sei l'assistente di ricerca di un'app sui mercati. Ricevi in <dati> tutto ciò che l'app mostra adesso, già calcolato dal codice: prezzi, forza rispetto alla storia, momentum, trend, RSI, livelli, posizionamento di retail e grossi, opzioni, sentiment, alert recenti, e l'esito dei test fatti sulle letture dell'app.
+SYSTEM = """Sei l'assistente di ricerca di un'app sui mercati. Ricevi in <dati> tutto ciò che l'app mostra adesso, già calcolato dal codice: prezzi, forza rispetto alla storia, momentum, trend, RSI, livelli, posizionamento di retail e grossi, opzioni, sentiment, alert recenti, e l'esito dei test fatti sulle letture dell'app. In <attivi> ci sono le idee già in bacheca, proposte nei giri precedenti.
 
-Proponi esattamente 5 operazioni potenzialmente interessanti da approfondire: 2 di breve periodo (1–10 giorni), 2 di medio (2–8 settimane), 1 di lungo (3–12 mesi). Mercati diversi se possibile.
+Scrivi 15 candidati da approfondire: 6 di breve periodo (1–10 giorni), 6 di medio (2–8 settimane), 3 di lungo (3–12 mesi), su mercati diversi il più possibile. Il codice ne terrà 5. Poi giudica ogni idea in <attivi>: «valida» se la sua tesi regge ancora con i dati di oggi, «superata» se i dati la contraddicono; il motivo in una frase.
 
 Regole:
 - Usa solo i mercati e i numeri presenti in <dati>. Non inventare notizie, livelli o dati. Ogni numero che scrivi deve comparire in <dati>.
 - «invalidazione» è il prezzo che, se toccato, dice che l'idea era sbagliata: sotto il prezzo attuale per un long, sopra per uno short. Preferisci un livello di supporto o resistenza presente in <dati>.
-- «obiettivo» sta dalla parte opposta: sopra il prezzo per un long, sotto per uno short.
+- «obiettivo» sta dalla parte opposta, e più lontano dal prezzo dell'invalidazione: un obiettivo più vicino dell'invalidazione viene scartato.
+- «convinzione» da 1 a 5: quanto le letture dei dati vanno nella stessa direzione. Usa tutta la scala; 5 solo se quasi tutto concorda.
 - «test»: il codice della lettura testata su cui l'idea si appoggia, preso da <test>, solo se il suo esito è «supportata»; altrimenti «nessuno». Quasi tutte le letture dell'app non hanno retto ai test: dillo nei rischi quando l'idea si basa su quelle.
 - «titolo»: l'idea in poche parole, al massimo 60 caratteri, senza numeri (es. «rimbalzo da ipervenduto verso la resistenza»).
 - Tesi breve e concreta, in italiano semplice. Niente consigli finanziari personali, niente dimensione della posizione.
-- Se il quadro è confuso, proponi comunque le 5 idee ma dillo in «quadro»."""
+- Se il quadro è confuso, scrivi comunque i candidati ma dillo in «quadro»."""
 
 SCHEMA = {
-    "type": "object", "additionalProperties": False, "required": ["quadro", "proposte"],
+    "type": "object", "additionalProperties": False, "required": ["quadro", "candidati", "attivi"],
     "properties": {
         "quadro": {"type": "string"},
-        "proposte": {"type": "array", "items": {
+        "attivi": {"type": "array", "items": {"type": "object", "additionalProperties": False, "required": ["id", "giudizio", "motivo"],
+                                              "properties": {"id": {"type": "string"}, "giudizio": {"type": "string", "enum": ["valida", "superata"]}, "motivo": {"type": "string"}}}},
+        "candidati": {"type": "array", "items": {
             "type": "object", "additionalProperties": False,
-            "required": ["orizzonte", "mercato", "direzione", "titolo", "tesi", "fatti", "test", "invalidazione", "obiettivo", "rischi"],
+            "required": ["orizzonte", "mercato", "direzione", "titolo", "tesi", "fatti", "test", "convinzione", "invalidazione", "obiettivo", "rischi"],
             "properties": {
                 "orizzonte": {"type": "string", "enum": list(HORIZONS)},
                 "titolo": {"type": "string"},
@@ -50,6 +62,7 @@ SCHEMA = {
                 "tesi": {"type": "string"},
                 "fatti": {"type": "array", "items": {"type": "string"}},
                 "test": {"type": "string"},
+                "convinzione": {"type": "integer", "enum": [1, 2, 3, 4, 5]},
                 "invalidazione": {"type": "number"},
                 "obiettivo": {"type": "number"},
                 "rischi": {"type": "string"}}}}}}
@@ -98,8 +111,11 @@ def context(snap):
     return data, tests
 
 
-def prompt(data, tests, retry_note=None):
-    body = f"<dati>\n{json.dumps(data, ensure_ascii=False)}\n</dati>\n<test>\n{json.dumps(tests, ensure_ascii=False)}\n</test>"
+def prompt(data, tests, retry_note=None, board=()):
+    act = [{"id": e["key"], "mercato": e["mercato"], "direzione": e["direzione"], "orizzonte": e["orizzonte"], "titolo": e.get("titolo", ""), "tesi": e["tesi"],
+            "proposta_il": e["ts"][:10], "prezzo_allora": e["prezzo"], "invalidazione": e["invalidazione"], "obiettivo": e["obiettivo"]} for e in board]
+    body = (f"<dati>\n{json.dumps(data, ensure_ascii=False)}\n</dati>\n<test>\n{json.dumps(tests, ensure_ascii=False)}\n</test>\n"
+            f"<attivi>\n{json.dumps(act, ensure_ascii=False)}\n</attivi>")
     return body + (f"\n\nLa risposta precedente non ha passato i controlli del codice: {retry_note} Correggi e rispondi di nuovo." if retry_note else "")
 
 
@@ -136,47 +152,127 @@ def allowed_numbers(data, tests):
     return sorted({v for t in NUM.findall(json.dumps(data, ensure_ascii=False) + json.dumps(tests, ensure_ascii=False)) for v in readings(t)})
 
 
+def problems_of(p, data, tests, allowed):
+    """Code checks on one candidate. An empty list means it passes."""
+    m = {x["mercato"].lower(): x for x in data["mercati"]}.get(p["mercato"].lower())
+    if not m:
+        return [f"il mercato «{p['mercato']}» non è tra quelli dell'app"]
+    out = []
+    price, sign = m["prezzo"], 1 if p["direzione"] == "long" else -1
+    if not price or sign * (price - p["invalidazione"]) <= 0:
+        out.append(f"l'invalidazione {p['invalidazione']} sta dalla parte sbagliata del prezzo {price}")
+    if not price or sign * (p["obiettivo"] - price) <= 0:
+        out.append(f"l'obiettivo {p['obiettivo']} sta dalla parte sbagliata del prezzo {price}")
+    elif not out and reward_risk(p, price) < 1:
+        out.append("l'obiettivo è più vicino dell'invalidazione")
+    if p["test"] != "nessuno" and (tests.get(p["test"]) or {}).get("esito") != "supportata":
+        out.append(f"il test «{p['test']}» non esiste o non ha retto; scrivi «nessuno»")
+    if len(p.get("titolo", "")) > 80:
+        out.append("il titolo supera 60 caratteri")
+    bad = numbers_ok(" ".join([p.get("titolo", ""), p["tesi"], p["rischi"], *p["fatti"]]), allowed + [p["invalidazione"], p["obiettivo"]])
+    if bad:
+        out.append(f"numeri che non compaiono nei dati: {', '.join(str(b) for b in bad[:4])}")
+    return out
+
+
+def reward_risk(p, price):
+    return abs(p["obiettivo"] - price) / max(abs(price - p["invalidazione"]), 1e-12)
+
+
+def score(p, price, tests):
+    """Conviction 1–5, plus reward/risk capped at 3, plus 2 if a test that held backs it."""
+    backed = p.get("test", "nessuno") != "nessuno" and (tests.get(p["test"]) or {}).get("esito") == "supportata"
+    return round(p.get("convinzione", 3) + min(reward_risk(p, price), 3) + (2 if backed else 0), 2)
+
+
+def screen(out, data, tests):
+    """Every candidate with its problems and score. The round fails only when too few pass for 2 short, 2 medium, 1 long."""
+    allowed, prices = allowed_numbers(data, tests), {m["mercato"].lower(): m["prezzo"] for m in data["mercati"]}
+    cands = []
+    for p in out.get("candidati") or []:
+        pr = problems_of(p, data, tests, allowed)
+        cands.append({**p, "problemi": pr, "punteggio": None if pr else score(p, prices[p["mercato"].lower()], tests)})
+    ok = {h: sum(1 for c in cands if c["orizzonte"] == h and not c["problemi"]) for h in HORIZONS}
+    short = [f"{h}: {ok[h]} validi su {WANT[h]} necessari" for h in HORIZONS if ok[h] < WANT[h]]
+    if short:
+        why = "; ".join(f"{c['mercato']} {c['direzione']} ({c['orizzonte']}): {', '.join(c['problemi'])}" for c in cands if c["problemi"])[:1500]
+        return cands, [f"troppo pochi candidati validi ({', '.join(short)}). Scartati: {why or 'nessuno'}"]
+    return cands, []
+
+
 def check(out, data, tests):
-    """Code checks on the model's answer. Returns a list of problems, empty when it passes."""
-    problems = []
-    props = out.get("proposte") or []
-    counts = {h: sum(p["orizzonte"] == h for p in props) for h in HORIZONS}
-    if counts != WANT:
-        problems.append(f"servono 2 breve, 2 medio e 1 lungo, invece {counts}")
-    by_label = {m["mercato"].lower(): m for m in data["mercati"]}
-    allowed = allowed_numbers(data, tests)
-    for i, p in enumerate(props, 1):
-        m = by_label.get(p["mercato"].lower())
-        if not m:
-            problems.append(f"proposta {i}: il mercato «{p['mercato']}» non è tra quelli dell'app")
-            continue
-        price, sign = m["prezzo"], 1 if p["direzione"] == "long" else -1
-        if not price or sign * (price - p["invalidazione"]) <= 0:
-            problems.append(f"proposta {i} ({p['mercato']}): l'invalidazione {p['invalidazione']} sta dalla parte sbagliata del prezzo {price}")
-        if not price or sign * (p["obiettivo"] - price) <= 0:
-            problems.append(f"proposta {i} ({p['mercato']}): l'obiettivo {p['obiettivo']} sta dalla parte sbagliata del prezzo {price}")
-        if p["test"] != "nessuno" and (tests.get(p["test"]) or {}).get("esito") != "supportata":
-            problems.append(f"proposta {i}: il test «{p['test']}» non esiste o non ha retto; scrivi «nessuno»")
-        if len(p.get("titolo", "")) > 80:
-            problems.append(f"proposta {i}: il titolo supera 60 caratteri")
-        bad = numbers_ok(" ".join([p.get("titolo", ""), p["tesi"], p["rischi"], *p["fatti"]]), allowed + [p["invalidazione"], p["obiettivo"]])
-        if bad:
-            problems.append(f"proposta {i}: numeri che non compaiono nei dati: {', '.join(str(b) for b in bad[:4])}")
-    return problems
+    """Problems that make a round fail (too few valid candidates). Single bad candidates are only dropped."""
+    return screen(out, data, tests)[1]
 
 
-def ask(client, data, tests):
-    """At most two calls: the second only if the code checks failed, with the problems listed."""
+def ask(client, data, tests, board=()):
+    """At most two calls: the second only if too few candidates passed the code checks, with the problems listed."""
     note = None
     for _ in range(2):
-        out, err = R.call_json(client, SYSTEM, SCHEMA, prompt(data, tests, note), PURPOSE)
+        out, err = R.call_json(client, SYSTEM, SCHEMA, prompt(data, tests, note, board), PURPOSE)
         if err:
             return None, err, []
         problems = check(out, data, tests)
         if not problems:
             return out, None, []
         note = "; ".join(problems)
-    return None, "le proposte non hanno passato i controlli", problems
+    return None, "troppo pochi candidati hanno passato i controlli", problems
+
+
+def load_board():
+    """The setups on the board. The first time, the latest successful round of the old kind (5 proposals) becomes the board."""
+    p = store() / "attivi.json"
+    if p.exists():
+        return json.loads(p.read_text())
+    last = next((x for x in reversed(runs()) if x["status"] == "ok"), None)
+    return [{**q, "key": f"{last['ts']}#{i}", "ts": last["ts"], "punteggio": q.get("punteggio") or 5.0} for i, q in enumerate(last.get("proposte") or [])] if last else []
+
+
+def pick(board, cands, verdicts, prices, now):
+    """Which setups stay, leave and come in. Returns (new board, entering, leaving with outcome, changes in words, candidate fates)."""
+    fate = {id(c): ("scartato: " + ", ".join(c["problemi"])) if c["problemi"] else "non scelto" for c in cands}
+    valid = sorted([c for c in cands if not c["problemi"]], key=lambda c: -c["punteggio"])
+    keep, leaving, changes = [], [], []
+    for e in board:
+        st = follow(e, e["ts"], prices.get(e["mercato"].lower()), now)
+        if st["stato"] in CLOSED:
+            leaving.append((e, st))
+            changes.append(f"Chiusa {e['mercato']} {e['direzione']} ({e['orizzonte']}): {st['stato']}, {st['rend_pct']:+.1f}%".replace(".", ","))
+        else:
+            keep.append({**e, "_now": st})
+    used = {e["mercato"].lower() for e in keep}
+    for c in valid:  # same market and side as a setup that stays: it confirms it, it doesn't duplicate it
+        if any(e["mercato"].lower() == c["mercato"].lower() and e["direzione"] == c["direzione"] for e in keep):
+            fate[id(c)] = "conferma un'idea già in bacheca"
+    free = lambda h: [c for c in valid if c["orizzonte"] == h and c["mercato"].lower() not in used and fate[id(c)] == "non scelto"]
+    entering = []
+
+    def take(c):
+        entering.append(c)
+        used.add(c["mercato"].lower())
+        fate[id(c)] = "scelto"
+
+    for h in HORIZONS:
+        mine = sorted([e for e in keep if e["orizzonte"] == h], key=lambda e: e.get("punteggio") or 0)
+        for e in mine:  # weakest first: replace when the model says it's overtaken, or a candidate is clearly better
+            v = verdicts.get(e["key"], {})
+            best = next(iter(free(h)), None)
+            if best is None:
+                continue
+            if v.get("giudizio") == "superata" or best["punteggio"] >= (e.get("punteggio") or 0) + REPLACE_MARGIN:
+                why = f"superata: {v.get('motivo', '')}" if v.get("giudizio") == "superata" else f"{best['mercato']} ha {best['punteggio']:.1f} punti contro {(e.get('punteggio') or 0):.1f}"
+                keep.remove(e)
+                used.discard(e["mercato"].lower())
+                leaving.append((e, {"stato": "sostituita", "rend_pct": e["_now"]["rend_pct"]}))
+                take(best)
+                changes.append(f"Sostituita {e['mercato']} {e['direzione']} ({h}) con {best['mercato']} {best['direzione']}: {why}")
+        while sum(e["orizzonte"] == h for e in keep) + sum(c["orizzonte"] == h for c in entering) < WANT[h]:
+            best = next(iter(free(h)), None)
+            if best is None:
+                break
+            take(best)
+            changes.append(f"Nuova {best['mercato']} {best['direzione']} ({h}), {best['punteggio']:.1f} punti".replace(".", ","))
+    return [{k: v for k, v in e.items() if k != "_now"} for e in keep], entering, leaving, changes, fate
 
 
 def runs():
@@ -186,18 +282,36 @@ def runs():
 
 def run(client=None, get=C.fetch, now=None):
     now = now or datetime.now(timezone.utc)
+    ts = now.isoformat(timespec="seconds")
     snap = get("/api/snapshot")
     data, tests = context(snap)
+    board = load_board()
     if client is None:
         import anthropic
         client = anthropic.Anthropic()
-    out, err, problems = ask(client, data, tests)
-    rec = {"ts": now.isoformat(timespec="seconds"), "model": R.model_for(PURPOSE), "status": "ok" if out else "error", "detail": err, "problems": problems}
+    out, err, problems = ask(client, data, tests, board)
+    rec = {"ts": ts, "model": R.model_for(PURPOSE), "status": "ok" if out else "error", "detail": err, "problems": problems}
     if out:
         prices = {m["mercato"].lower(): m["prezzo"] for m in data["mercati"]}
         keys = {m["label"].lower(): m.get("plan_key") for m in snap.get("markets", [])}
+        cands, _ = screen(out, data, tests)
+        verdicts = {v["id"]: v for v in out.get("attivi") or []}
+        kept, entering, leaving, changes, fate = pick(board, cands, verdicts, prices, now)
+        clean = lambda c: {k: v for k, v in c.items() if k != "problemi"}
+        new = [{**clean(c), "prezzo": prices[c["mercato"].lower()], "plan_key": keys.get(c["mercato"].lower())} for c in entering]
         rec["quadro"] = out["quadro"]
-        rec["proposte"] = [{**p, "prezzo": prices[p["mercato"].lower()], "plan_key": keys.get(p["mercato"].lower())} for p in out["proposte"]]
+        rec["proposte"] = new  # only what enters the board: each setup is followed once, from the round it entered
+        rec["attivi"] = kept + [{**c, "key": f"{ts}#{i}", "ts": ts} for i, c in enumerate(new)]
+        rec["cambi"] = changes
+        rec["giudizi"] = list(verdicts.values())
+        rec["candidati"] = [{"orizzonte": c["orizzonte"], "mercato": c["mercato"], "direzione": c["direzione"], "titolo": c.get("titolo", ""),
+                             "convinzione": c.get("convinzione"), "punteggio": c["punteggio"], "esito": fate[id(c)]} for c in cands]
+        p = store() / "outcomes.json"
+        frozen = json.loads(p.read_text()) if p.exists() else {}
+        for e, st in leaving:
+            frozen.setdefault(e["key"], st)
+        p.write_text(json.dumps(frozen))
+        (store() / "attivi.json").write_text(json.dumps(rec["attivi"], ensure_ascii=False))
     with open(store() / "runs.jsonl", "a") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
     return rec
@@ -209,21 +323,25 @@ def first_sentence(text, limit=70):
 
 
 def format_telegram(rec):
-    """The round on Telegram, at a glance: one line per idea with entry, target and invalidation, its idea in a few words."""
+    """The board on Telegram, at a glance: one line per idea with entry, target and invalidation, its idea in a few words; 🆕 marks what came in this round."""
     from . import tg
     when = rec["ts"][11:16]
     out = [f"🤖 <b>AI SETUPS</b> · {rec['ts'][8:10]}/{rec['ts'][5:7]} {when} UTC", f"<i>{tg.esc(first_sentence(rec.get('quadro', ''), 110))}</i>"]
     heads = {"breve": "⏱ <b>Breve</b> · 1–10 giorni", "medio": "📅 <b>Medio</b> · 2–8 settimane", "lungo": "🗓 <b>Lungo</b> · 3–12 mesi"}
     for h in HORIZONS:
-        props = [p for p in rec.get("proposte") or [] if p["orizzonte"] == h]
+        props = [p for p in rec.get("attivi") or rec.get("proposte") or [] if p["orizzonte"] == h]
         if not props:
             continue
         out += ["", heads[h]]
         for p in props:
             long = p["direzione"] == "long"
             tgt, inv = 100 * (p["obiettivo"] / p["prezzo"] - 1), 100 * (p["invalidazione"] / p["prezzo"] - 1)
-            out.append(f"{'🟢' if long else '🔴'} <b>{tg.esc(p['mercato'])} {'long' if long else 'short'}</b> {tg.num(p['prezzo'])} → 🎯 {tg.num(p['obiettivo'])} <i>{tg.pct(tgt, None)}</i> · ✖ {tg.num(p['invalidazione'])} <i>{tg.pct(inv, None)}</i>")
+            new = "🆕 " if p.get("ts", rec["ts"]) == rec["ts"] and "attivi" in rec else ""
+            out.append(f"{new}{'🟢' if long else '🔴'} <b>{tg.esc(p['mercato'])} {'long' if long else 'short'}</b> {tg.num(p['prezzo'])} → 🎯 {tg.num(p['obiettivo'])} <i>{tg.pct(tgt, None)}</i> · ✖ {tg.num(p['invalidazione'])} <i>{tg.pct(inv, None)}</i>")
             out.append(f"   {tg.esc(p.get('titolo') or first_sentence(p['tesi']))}" + (" · ✅ testato" if p.get("test", "nessuno") != "nessuno" else ""))
+    gone = [c for c in rec.get("cambi") or [] if c.startswith(("Sostituita", "Chiusa"))]
+    if gone:
+        out += ["", *(f"↩ {tg.esc(c if len(c) <= 110 else c[:109] + '…')}" for c in gone[:4])]
     out += ["", "<i>Idee del modello, non testate: ognuna è seguita nell'app.</i>", tg.app_link("aisetups")]
     return "\n".join(out)
 
@@ -231,8 +349,8 @@ def format_telegram(rec):
 def send(rec):
     """Send the round when the bot is on. A failure never loses the round: it's already saved."""
     from .alerts import send_text, sending_enabled, split_message
-    if rec.get("status") != "ok" or not sending_enabled():
-        return False
+    if rec.get("status") != "ok" or not rec.get("proposte") or not sending_enabled():
+        return False  # nothing new on the board: no message
     for part in split_message(format_telegram(rec)):
         send_text(part)
     return True
@@ -271,19 +389,23 @@ def view(get=C.fetch, now=None):
         for i, prop in enumerate(rec.get("proposte") or []):
             key = f"{rec['ts']}#{i}"
             res = frozen.get(key) or follow(prop, rec["ts"], prices.get(prop["mercato"].lower()), now)
-            if res["stato"] in ("invalidata", "obiettivo", "scaduta"):
+            if res["stato"] in CLOSED:
                 frozen[key] = res
             hist.append({**prop, "ts": rec["ts"], **res})
     try:
         p.write_text(json.dumps(frozen))
     except OSError:
         pass
-    closed = [h for h in hist if h["stato"] in ("invalidata", "obiettivo", "scaduta") and h["rend_pct"] is not None]
+    closed = [h for h in hist if h["stato"] in CLOSED and h["rend_pct"] is not None]
     summary = {"chiuse": len(closed), "aperte": sum(h["stato"] == "aperta" for h in hist),
                "vinte": sum(h["rend_pct"] > 0 for h in closed), "media_pct": round(sum(h["rend_pct"] for h in closed) / len(closed), 2) if closed else None}
     latest = next((x for x in reversed(rows) if x["status"] == "ok"), None)
     last_try = rows[-1] if rows else None
-    return {"latest": latest, "last_try": last_try, "history": list(reversed(hist))[:200], "summary": summary,
+    board = []
+    for e in load_board() if latest else []:
+        st = frozen.get(e["key"]) or follow(e, e["ts"], prices.get(e["mercato"].lower()), now)
+        board.append({**e, **st, "nuova": bool(latest) and e["ts"] == latest["ts"]})
+    return {"latest": latest, "board": board, "last_try": last_try, "history": list(reversed(hist))[:200], "summary": summary,
             "cost_month": round(sum(u["cost_usd"] for u in G.usage_rows() if u.get("purpose") == PURPOSE and u["ts"][:7] == now.strftime("%Y-%m")), 4)}
 
 
@@ -291,7 +413,7 @@ def estimate(get=C.fetch):
     data, tests = context(get("/api/snapshot"))
     tokens_in = (len(SYSTEM) + len(prompt(data, tests))) / R.CHARS_PER_TOKEN
     i_price, o_price = G.PRICES.get(R.model_for(PURPOSE), G.HIGHEST)
-    one = (tokens_in * i_price + 6000 * o_price) / 1e6
+    one = (tokens_in * i_price + 14000 * o_price) / 1e6  # 15 candidates
     return tokens_in, one
 
 
@@ -321,7 +443,8 @@ def main(argv):
             send(rec)
         except Exception as e:
             print(f"invio Telegram fallito: {type(e).__name__}: {e}")
-        print(rec["status"], rec.get("detail") or "", *(f"\n  {p['orizzonte']:6} {p['direzione']:5} {p['mercato']}: {p['tesi'][:90]}" for p in rec.get("proposte") or []))
+        print(rec["status"], rec.get("detail") or "", *(f"\n  {c}" for c in rec.get("cambi") or []) or "nessun cambio",
+              *(f"\n  {p['orizzonte']:6} {p['direzione']:5} {p['mercato']}: {p['tesi'][:90]}" for p in rec.get("attivi") or []))
         return 0 if rec["status"] == "ok" else 1
     print(__doc__)
     return 2
