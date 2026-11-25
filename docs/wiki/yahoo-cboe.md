@@ -16,7 +16,7 @@ Per tutto ciò che non è cripto i prezzi giornalieri vengono da Yahoo Finance (
 - Opzioni Cboe, ritardate di circa 15 minuti, in `data/raw/opt_cboe_*`, lette da [[opzioni]].
 
 ## Mercati osservati
-Dal 25 novembre 2026 l'app segue anche nove mercati solo per guardarli (`bzd/history.py#WATCH`): credito USA (HYG, LQD), azioni nel mondo (Euro Stoxx 50, DAX, FTSE MIB, Nikkei 225, emergenti EEM, Cina FXI) e i Bund lunghi tedeschi (ETF EXX6). Hanno prezzi, tensione, tecnica, posizione nell'anno e liquidità come gli altri, ma restano fuori dai setup, dagli alert, dal termometro su Telegram e dai test congelati: una lettura su questi mercati si giudica solo sui dati che arrivano da ora. Il COT non c'è, perché la CFTC non copre questi mercati. Indici ed ETF non hanno il problema del cambio di contratto.
+Dal 25 novembre 2026 l'app segue anche 17 mercati solo per guardarli (`bzd/history.py#WATCH`): il credito con 10 ETF (high yield e investment grade USA, prestiti alle aziende, angeli caduti, convertibili, azioni privilegiate, bond emergenti in dollari, municipali USA, high yield e corporate europee), azioni nel mondo (Euro Stoxx 50, DAX, FTSE MIB, Nikkei 225, emergenti EEM, Cina FXI) e i Bund lunghi tedeschi (ETF EXX6). Hanno prezzi, tensione, tecnica, posizione nell'anno e liquidità come gli altri, ma restano fuori dai setup, dagli alert, dal termometro su Telegram e dai test congelati: una lettura su questi mercati si giudica solo sui dati che arrivano da ora. Il COT non c'è, perché la CFTC non copre questi mercati. Indici ed ETF non hanno il problema del cambio di contratto.
 
 ## Quanto fidarsi
 Yahoo non è una fonte ufficiale e a volte ha buchi o salti al cambio di contratto: `bzd/events.py#roll_artefact` scarta quei salti.

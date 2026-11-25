@@ -6,3 +6,4 @@ __pycache__/
 .venv/
 .vscode/
 .sul-server
+.claude/settings.local.json

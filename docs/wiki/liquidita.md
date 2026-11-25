@@ -8,7 +8,7 @@ data: data/hist/macro, data/hist/liquidity, data/raw/hl_l2_btc
 feeds: app
 ---
 ## In breve
-Dal 25 novembre 2026 tre letture in più, non testate: il credito come HYG diviso IEF con le cedole (dal 2007, mentre lo spread high yield di FRED è gratis solo per 3 anni), lo spread BTP–Bund a 10 anni (media del mese, BCE) e il Bund a 10 anni ogni giorno (Bundesbank).
+Dal 25 novembre 2026 tre letture in più, non testate: il credito come HYG diviso IEF con le cedole (dal 2007, mentre lo spread high yield di FRED è gratis solo per 3 anni), lo spread BTP–Bund a 10 anni (media del mese, BCE) e il Bund a 10 anni ogni giorno (Bundesbank). Poi lo spread Baa di Moody's sul Treasury a 10 anni, da FRED, ogni giorno dal 1986: è la misura del credito con lo storico più lungo, e a differenza dello spread high yield non è limitata a 3 anni.
 
 Nella scheda Oggi c'è il riquadro **Liquidità**; sulla pagina di ogni ticker una riga 💧.
 
