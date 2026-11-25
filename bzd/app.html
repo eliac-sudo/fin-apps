@@ -323,6 +323,16 @@ html[data-theme=kangtao] nav button[aria-selected=true]{box-shadow:0 0 16px -4px
 @keyframes bscan{to{top:100%}}
 .btip{position:absolute;display:none;max-width:270px;padding:8px 10px;background:rgba(10,0,4,.92);border:1px solid #ff2a4a;box-shadow:0 0 14px rgba(255,20,50,.45);font-size:12.5px;color:#ffe;pointer-events:none;z-index:2}.btip b{display:block;color:#ff4d66;font:700 12px "Orbitron",var(--head);letter-spacing:.1em;margin-bottom:3px}.btip .tiny{color:rgba(255,200,205,.7);margin-top:4px}
 @media (prefers-reduced-motion:reduce){.bscan{animation:none}}
+/* the lab group: same tabs, less weight */
+nav{flex-wrap:wrap;align-items:center;row-gap:4px}
+nav .navsep{font:500 10px var(--head);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);opacity:.75;padding:0 4px 0 12px;margin-left:6px;border-left:1px solid var(--border);line-height:18px}
+html[data-theme] nav button.minor,html:not([data-theme]) nav button.minor{font-size:11.5px;font-weight:500;color:var(--muted);padding-left:8px;padding-right:8px;letter-spacing:.05em}
+html[data-theme] nav button.minor[aria-selected=true],html:not([data-theme]) nav button.minor[aria-selected=true]{color:var(--on-y)}
+html[data-theme=arasaka] nav button.minor[aria-selected=true]{color:#fff}
+html[data-theme=militech] nav button.minor{flex:.55}
+html[data-theme=militech] nav .navsep{display:none}
+html[data-theme=kangtao] nav .navsep{border-left:0;border-top:1px solid var(--border);margin:10px 0 2px;padding:6px 14px 0}
+@media (max-width:600px){nav .navsep{flex-basis:100%;border-left:0;margin:2px 0 0;padding:2px 4px}}
 </style>
 </head>
 <body>
@@ -544,7 +554,10 @@ function drawLabels(){const box=$("#lbBox");if(!box||!LB)return;if(LB.error){box
   box.replaceChildren(...head,el("p",{class:"sub",style:"margin:0 0 6px"},"Che umore esprime questo testo sul mercato di cui parla? Giudica il tono, non se la notizia è buona per i prezzi. «Non pertinente» se non parla di mercati. Servono per misurare se il sentiment dell'app legge i testi come te."),
     el("div",{class:"text",style:"font-size:1.05em;padding:10px 12px;border:1px solid var(--line);border-radius:8px"},t.text),el("div",{class:"tiny muted",style:"margin:4px 0 8px"},t.source.replace(/^(news|soc)_/,"")+" · "+when(t.time)+(/^https?:\/\//.test(t.url||"")?" · ":""),/^https?:\/\//.test(t.url||"")?el("a",{href:t.url,target:"_blank",rel:"noopener noreferrer"},"fonte"):null),
     el("div",{class:"chips"},LB.labels.map(l=>el("button",{class:"chip",onclick:()=>sendLabel(t.id,l)},names[l]||l))),LB.failed?el("p",{class:"notice bad"},"Non salvata, riprova."):"")}
-const TABS=[["oggi","Oggi"],["opzioni","Opzioni"],["tecnica","Analisi tecnica"],["sentiment","Sentiment"],["chi","Chi compra"],["alert","Alert"],["piano","Piano"],["bots","Bots"],["aisetups","AIsetups"],["previsioni","Previsioni"],["test","Test"],["motore","Motore"]];
+/* everyday tabs first; the lab (tests, model proposals, plan, bots, engine) after a divider, smaller */
+const TABS=[["oggi","Oggi"],["tecnica","Analisi tecnica"],["opzioni","Opzioni"],["sentiment","Sentiment"],["chi","Chi compra"],["previsioni","Previsioni"],["alert","Alert"],
+  ["test","Test"],["aisetups","AIsetups"],["piano","Piano"],["bots","Bots"],["motore","Motore"]];
+const LAB_TABS=new Set(["test","aisetups","piano","bots","motore"]);
 const PARTS={slancio:"Slancio",rsi:"RSI",estensione:"Distanza dalla media",funding:"Funding",oi:"Leva (OI)",posizionamento:"Speculatori",calma:"Calma (volatilità bassa)"};
 const BANDS=[
   {word:"ipervenduto",short:"ipervenduto",range:"0–19",brief:"Venduto forte e in fretta: quasi tutto è ai minimi della sua storia.",long:"Quasi tutti i fattori sono ai minimi rispetto alla storia di questo mercato: è stato venduto forte e in fretta, e chi usava la leva è già in buona parte uscito. Lo spazio per nuove vendite forzate si riduce, ma un mercato così può continuare a scendere: non è un segnale d'acquisto."},
@@ -882,7 +895,7 @@ alert(){
         i.s.price_now?el("div",{class:"small"},"Ultima chiusura "+price(i.s.price_now)+" ("+sgn(i.s.since_pct,1)+"% dal trigger)"):null,
         i.s.broken?el("div",{class:"notice bad"},"▲ Già sotto lo stop: il piano non è più valido."):i.s.target_hit?el("div",{class:"notice"},"▲ Già oltre l'obiettivo: troppo tardi per questo piano."):null,
         i.s.met.length?el("div",{class:"small"},"Conferme: "+i.s.met.join(", ")):null,el("div",{class:"small",style:"margin-top:3px"},i.s.verdict)):null),
-    el("div",{style:"text-align:right"},el("div",{class:"tiny",style:"white-space:nowrap"},when(i.time)),i.plan?el("button",{class:"btn",style:"margin-top:4px",onclick:()=>openPlan(i.plan)},"🧮 Apri nel Piano"):null))):el("p",{class:"muted",style:"padding:12px 0"},"Nessun alert corrisponde a questa scelta."))]},
+    el("div",{style:"text-align:right"},el("div",{class:"tiny",style:"white-space:nowrap"},when(i.time)),i.plan?el("button",{class:"ghost",style:"margin-top:4px",onclick:()=>openPlan(i.plan)},"🧮 Apri nel Piano"):null))):el("p",{class:"muted",style:"padding:12px 0"},"Nessun alert corrisponde a questa scelta."))]},
 piano(){
   const out=el("div",null),opts=[["BTC","Bitcoin"],["ETH","Ethereum"],["SOL","Solana"],["BNB","BNB"],["XRP","XRP"],["DOGE","Dogecoin"],["ADA","Cardano"],["AVAX","Avalanche"],["LINK","Chainlink"],["sp500","S&P 500"],["nasdaq","Nasdaq 100"],["oro","Oro"],["argento","Argento"],["rame","Rame"],["petrolio","Petrolio"],["eur","EUR/USD"],["jpy","USD/JPY"],["gbp","GBP/USD"],["tlt","TLT"]];
   const riskInput=el("input",{type:"hidden",name:"risk",value:"1"}),riskBtns=[.5,1,2].map(r=>el("button",{type:"button",class:"chip","aria-pressed":String(r===1),onclick:e=>{riskInput.value=r;riskBtns.forEach(b=>b.setAttribute("aria-pressed","false"));e.currentTarget.setAttribute("aria-pressed","true");go()}},fmt(r,r%1?1:0)+"%"));
@@ -1249,7 +1262,7 @@ function taCards(f){const lv=(n,ls)=>el("div",null,el("div",{class:"small"},n),l
 let TA={market:null,tf:"1d",data:null,matrix:"1d"};
 async function openTA(m){TA.market=m;TA.data=null;drawTA();const r=await fetch("/api/technical?market="+encodeURIComponent(m));if(TA.market!==m)return;TA.data=r.ok?await r.json():{error:true};if(TA.data.frames&&!TA.data.frames[TA.tf])TA.tf="1d";drawTA()}
 function drawTA(){const box=$("#ta");if(!box)return;document.querySelectorAll(".rows").forEach(r=>r.classList.toggle("on",r.dataset.m===TA.market));const d=TA.data;if(!d){box.replaceChildren(el("p",{class:"muted"},"Carico il grafico…"));return}if(d.error||!d.frames[TA.tf]){box.replaceChildren(el("p",{class:"notice bad"},"Dati non disponibili per questo mercato."));return}
-  const f=d.frames[TA.tf];box.replaceChildren(el("div",{style:"display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"},el("div",{style:"display:flex;gap:10px;align-items:center"},el("div",{class:"mid"},d.label+" · "+price(f.price)),d.plan_key?el("button",{class:"btn",onclick:()=>openPlan({key:d.plan_key,why:d.label+", analisi tecnica"})},"🧮 Apri nel Piano"):null),el("div",{class:"seg"},Object.keys(TF).map(k=>el("button",{"aria-pressed":String(k===TA.tf),style:d.frames[k]?null:"opacity:.35;cursor:default",title:d.frames[k]?null:"Nessuno storico a 4 ore per questo mercato",onclick:()=>{if(d.frames[k]){TA.tf=k;drawTA()}}},TF[k])))),
+  const f=d.frames[TA.tf];box.replaceChildren(el("div",{style:"display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"},el("div",{style:"display:flex;gap:10px;align-items:center"},el("div",{class:"mid"},d.label+" · "+price(f.price)),d.plan_key?el("button",{class:"ghost",onclick:()=>openPlan({key:d.plan_key,why:d.label+", analisi tecnica"})},"🧮 Apri nel Piano"):null),el("div",{class:"seg"},Object.keys(TF).map(k=>el("button",{"aria-pressed":String(k===TA.tf),style:d.frames[k]?null:"opacity:.35;cursor:default",title:d.frames[k]?null:"Nessuno storico a 4 ore per questo mercato",onclick:()=>{if(d.frames[k]){TA.tf=k;drawTA()}}},TF[k])))),
     d.searched?searchedInfo(d):"",el("p",{class:"small",style:"margin:3px 0 6px"},taSentence(f)),candles(f.chart,f),el("h3",{style:"margin-top:8px"},"RSI 14"),lineChart([{name:"RSI",values:f.chart.rsi,dates:f.chart.t.map(x=>x.slice(0,10)),color:"var(--s1)"}],{height:150,digits:0,W:900,domain:[0,100],refs:[30,50,70]}),taCards(f))}
 function planView(p){const long=p.side==="long",lo=long?p.stop:p.target,hi=long?p.target:p.stop,pos=v=>(v-lo)/(hi-lo)*100,e=pos(p.entry),lossW=long?e:100-e;
   const rail=long?[el("i",{style:`width:${lossW}%;background:var(--crit);border-radius:5px 0 0 5px`}),el("i",{style:`width:${100-lossW}%;background:var(--good);border-radius:0 5px 5px 0`})]:[el("i",{style:`width:${100-lossW}%;background:var(--good);border-radius:5px 0 0 5px`}),el("i",{style:`width:${lossW}%;background:var(--crit);border-radius:0 5px 5px 0`})];
@@ -1320,7 +1333,8 @@ function classDetail(k,c){const d=$("#dlg");hideTip();const n=bin(c.heat),rows=D
     el("h3",null,"Cosa pesa nel gruppo"),el("p",{class:"sub",style:"margin:2px 0 4px"},"Media di ogni fattore su tutti i mercati del gruppo."),...factorRows(c.parts),
     el("h3",{style:"margin-top:12px"},"I mercati del gruppo"),el("div",{class:"tiles",style:"margin-top:6px"},rows.map(m=>{const b=bin(m.heat);return el("button",{class:"tile",style:`background:var(--h${b});color:var(--i${b})`,onclick:()=>detail(m)},el("span",null,m.label),el("div",{style:"white-space:nowrap"},el("strong",null,fmt(m.heat)),el("em",null,BANDS[b].short)))})),
     el("p",{class:"tiny",style:"margin-top:10px"},"Clicca un mercato per la sua scheda. Descrive uno stato e non prevede il futuro."));d.showModal()}
-function render(){if(!VIEWS[tab])tab="oggi";$("#nav").replaceChildren(...TABS.map(([k,n])=>el("button",{role:"tab","aria-selected":String(k===tab),onclick:()=>{tab=k;location.hash=k;render();scrollTo(0,0)}},n)));
+function render(){if(!VIEWS[tab])tab="oggi";const navBtn=([k,n])=>el("button",{role:"tab",class:LAB_TABS.has(k)?"minor":null,"aria-selected":String(k===tab),onclick:()=>{tab=k;location.hash=k;render();scrollTo(0,0)}},n);
+  $("#nav").replaceChildren(...TABS.filter(([k])=>!LAB_TABS.has(k)).map(navBtn),el("span",{class:"navsep","aria-hidden":"true"},"Laboratorio"),...TABS.filter(([k])=>LAB_TABS.has(k)).map(navBtn));
   const m=$("#main");const parts=[];if(Object.keys(D.errors||{}).length)parts.push(el("div",{class:"notice bad"},"▲ Parti non disponibili: "+Object.keys(D.errors).join(", ")));if(Q)parts.push(el("div",{class:"small",style:"margin-top:6px"},"Filtro attivo: «"+$("#q").value+"» ",el("button",{class:"ghost",onclick:()=>{$("#q").value="";Q="";closeSugg();render()}},"Togli")));parts.push(...[VIEWS[tab]()].flat());parts.push(el("p",{class:"foot"},"Descrive e non prevede. Non è consulenza finanziaria. L'app legge dati salvati e pubblici e non esegue ordini."));m.replaceChildren(...parts)}
 /* Forecasts: Fed, professional forecasters, OECD and prediction markets, read-only */
 const FC={data:null};

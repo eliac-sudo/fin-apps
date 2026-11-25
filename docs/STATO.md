@@ -26,6 +26,8 @@ BZD raccoglie dati gratuiti su cripto, azioni, bond, materie prime e forex. Li m
 
 ## L'app, scheda per scheda
 
+Dal 25 novembre 2026 la barra delle schede ha due gruppi: davanti quelle di ogni giorno (Oggi, Analisi tecnica, Opzioni, Sentiment, Chi compra, Previsioni, Alert), poi, più piccole dopo la scritta «Laboratorio», Test, AIsetups, Piano, Bots e Motore. Anche i pulsanti che aprono il Piano da Alert e Analisi tecnica sono discreti.
+
 Il codice sta in `bzd/app.py` (server), `bzd/app.html` (pagina) e `bzd/snapshot.py` (i dati). Il tasto Layout ha 4 stili. I dati si ricostruiscono in circa 30 secondi all'avvio, poi restano in cache.
 
 - **Oggi:** la frase del giorno, la **forza** per gruppo (0–100 rispetto alla propria storia: ipervenduto, sotto la norma, nella norma, sopra la norma, ipercomprato; `bzd/thermo.py`) e la tabella del momentum («▼ scende forte» e «▲ sale forte» sotto −50 e sopra +50; `bzd/zones.py`). Poi la **liquidità** (`bzd/liquidity.py`, `docs/wiki/liquidita.md`): Fed netta, M2, stablecoin, condizioni finanziarie, spread high yield e dollaro rispetto a 13 settimane prima, e per ogni mercato volumi, impatto e book di Hyperliquid; non testata. Poi il riquadro **BZD, la capitolazione** (prima BYZ) (`bzd/capitulation.py`): scatta solo con un asset forte, un calo profondo, la volatilità spenta e il prezzo di lato da 40 sedute. È una regola nuova e non testata, e oggi non scatta su nessun mercato.
