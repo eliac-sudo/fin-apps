@@ -33,6 +33,7 @@ Su 46 ipotesi pre-registrate (B3, v2–v6) più 484 combinazioni (v7) reggono so
 | Trend lungo (v2) | in corso dal 9 novembre 2026 | Probabilmente niente: storico poco promettente |
 | AIsetups | ogni proposta seguita fino alla chiusura | Dopo 100 proposte chiuse, se valgono più del caso |
 | v8: posizione bassa, dollaro forte, impatto alto, paura ed euforia cripto | 60 cluster ciascuna, o il 24 novembre 2028 | Se una regge, diventa un setup |
+| v9: copia sulla carta dei 20 migliori trader Hyperliquid contro 20 a caso | 25 maggio 2027 | Se copiare guadagna dopo i costi: solo allora si parla di un bot vero, con una tua decisione sulla cifra |
 
 ## 4. Prossimi test da pre-registrare
 

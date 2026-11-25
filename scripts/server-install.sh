@@ -17,5 +17,5 @@ python3 -m venv /opt/bzd/.venv
 chown -R bzd:bzd /opt/bzd
 cp /opt/bzd/deploy/*.service /opt/bzd/deploy/*.timer /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable bzd-recorder bzd-backfill bzd-wallets bzd-alerts bzd-vol-bot bzd-app bzd-backup.timer bzd-research.timer bzd-aisetups.timer
-echo "Installed. Copy data/ and .env, then: sudo systemctl start bzd-recorder bzd-backfill bzd-wallets bzd-alerts bzd-vol-bot bzd-app bzd-backup.timer bzd-research.timer bzd-aisetups.timer"
+systemctl enable bzd-recorder bzd-backfill bzd-wallets bzd-copia bzd-alerts bzd-vol-bot bzd-app bzd-backup.timer bzd-research.timer bzd-aisetups.timer
+echo "Installed. Copy data/ and .env, then: sudo systemctl start bzd-recorder bzd-backfill bzd-wallets bzd-copia bzd-alerts bzd-vol-bot bzd-app bzd-backup.timer bzd-research.timer bzd-aisetups.timer"

@@ -123,6 +123,12 @@ def _fwd_text(k):
     return f"In prova sui dati futuri dal 25 novembre 2026: {st['clusters']} episodi su 60."
 
 
+def pct_art(x):
+    """«il 27%», «l'86%», «l'11%»: the article Italian wants before a percentage."""
+    n = f"{x:.0f}"
+    return ("l'" if n[0] == "8" or n in ("1", "11") else "il ") + n + "%"
+
+
 def findings():
     """Labels for the readings tested on 24 November 2026 (v6, v7, v8), from the frozen result files."""
     it = lambda x: f"{100 * x:+.2f}".replace(".", ",") + "%"
@@ -145,6 +151,18 @@ def findings():
         put("POS", "test: vicino, in prova", f"Test v7: comprare con il prezzo nel quinto più basso del suo ultimo anno ha reso più del caso in tutti e tre i periodi; all'esame 2023–2026 {it(v7['C1']['mean'])} in 10 sedute, p {pv(v7['C1']['p'])} contro una soglia di {pv(v7['C1']['holm_threshold'])}: vicino, non ancora dimostrato. " + _fwd_text("P1"))
     if "G1" in v8 and "G2" in v8:
         put("FG", "test: nessun vantaggio", f"Test v8: dopo la paura estrema (≤ 20) le cripto si sono mosse meno del solito in 3 giorni ({it(v8['G1']['mean'])} di ampiezza), non di più. Dopo l'euforia estrema (≥ 80) vendere ha perso ({it(v8['G2']['mean'])} in 20 giorni), su {v8['G2']['clusters']} episodi. Il panico cripto del B3 resta l'unico segnale che regge. " + _fwd_text("G1"))
+    v9 = _res("validation_v9_storico.json")
+    if "P2" in v9:
+        p2 = v9["P2"]
+        days = None
+        try:
+            from .copia import root as copy_dir
+            days = json.loads((copy_dir() / "stato.json").read_text()).get("days")
+        except (OSError, ValueError):
+            pass
+        fwd = f"La copia sulla carta è in prova: {days or 0} giorni su 120, giudizio il 25 maggio 2027."
+        put("COPY", "classifica: ha memoria; copia: in prova", f"Test v9: dei 50 trader con più profitti del mese al 6 novembre, {pct_art(100 * p2['share_up'])} era ancora in utile il 25 novembre, contro il {100 * p2['share_up_rest']:.0f}% degli altri "
+            f"(mediana {it(p2['median'])} contro {it(p2['median_rest'])}). Regge, ma sono 19 giorni e un solo momento di mercato, e non dice ancora che copiarli renda dopo i costi. " + fwd)
     put("LIQ_OTHER", "non testato", "M2, condizioni finanziarie e spread high yield non sono testati: il primo cambia poco, gli altri due non hanno uno storico usabile (ricalcolato all'indietro, o solo 3 anni gratis).")
     return out
 

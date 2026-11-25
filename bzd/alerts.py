@@ -484,6 +484,8 @@ def cycle(st, log=print, refresh=True):
                 H.refresh_daily(with_cot)
                 from . import v8
                 v8.daily()
+                from . import v9
+                v9.daily()
                 st["last_daily"], changed = now_ts, True
                 if with_cot:
                     st["last_cot"] = now_ts

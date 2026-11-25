@@ -1,0 +1,44 @@
+{
+ "name": "v9: copiare i trader di Hyperliquid. Chi vinceva il 6 novembre ha continuato a vincere? E copiarli sulla carta rende?",
+ "why": "Domanda dell'utente del 25 novembre 2026: un bot che segue i portafogli Hyperliquid e li copia. La letteratura (eToro, Wikifolio, piattaforme cripto) dice che chi copia raramente guadagna. Lo si prova prima sui nostri dati, senza soldi.",
+ "historical": {
+  "from_board": "2026-11-06",
+  "to_board": "2026-11-25",
+  "pool": {"min_capital": 100000, "turnover_month": [0.5, 100]},
+  "missing": "un conto del 6 novembre assente dalla classifica finale (sotto i $10.000 o sparito) non ha un profitto affidabile: l'API portfolio non coincide con la classifica. Il test si fa due volte, escludendolo e mettendolo all'ultimo posto (il rendimento peggiore del gruppo). Supportata solo se lo è in entrambi i modi",
+  "return": "(pnl allTime alla fine - pnl allTime il 6 novembre) / capitale il 6 novembre. Il pnl di Hyperliquid non conta depositi e prelievi",
+  "hypotheses": {
+   "P1": {"reading": "chi rendeva di più nel mese rende di più dopo", "test": "Spearman tra rendimento del mese al 6 novembre (pnl del mese / capitale) e rendimento dopo, a una coda > 0"},
+   "P2": {"reading": "i 50 con più profitti del mese battono gli altri", "group": "primi 50 per pnl del mese in dollari, con pnl > 0 (la regola di bzd/wallets.py)", "test": "Mann-Whitney a una coda, rendimento dopo del gruppo > resto del gruppo di partenza"},
+   "P3": {"reading": "i 150 con più profitti di sempre battono gli altri", "group": "primi 150 per pnl di sempre in dollari, con pnl > 0", "test": "come P2"}
+  }
+ },
+ "forward": {
+  "start": "2026-11-26",
+  "judge_on": "2027-05-25",
+  "min_days": 120,
+  "capital": 10000,
+  "every_seconds": 300,
+  "reselect": "ogni lunedì alle 00 UTC, dalla classifica di quel giorno (o dell'ultima scaricata)",
+  "portfolios": {
+   "C": {"reading": "copia dei 20 migliori del mese", "rule": "i 20 del gruppo di partenza con più pnl del mese in dollari, pnl del mese e di sempre > 0"},
+   "R": {"reading": "copia di 20 trader a caso", "rule": "20 conti a caso dal gruppo di partenza, estratti ogni lunedì con seme fisso più il numero della settimana"}
+  },
+  "copy": {
+   "weights": "per ogni conto, valore con segno di ogni posizione diviso il capitale del conto; se la leva lorda del conto supera max_leverage le sue posizioni si riducono in proporzione; il portafoglio è la media dei 20 conti",
+   "max_leverage": 3,
+   "deadband_of_equity": 0.01,
+   "price": "prezzo medio (allMids) letto subito dopo le posizioni",
+   "fee_per_side": 0.00045,
+   "slippage_per_side": 0.0005,
+   "funding": "ogni ora, tasso di funding corrente (metaAndAssetCtxs) per il valore della posizione; il long paga se il tasso è positivo",
+   "dexes": ["", "xyz"]
+  },
+  "hypotheses": {
+   "H1": {"reading": "copiare i migliori rende più che copiare a caso", "test": "rendimento netto giornaliero di C meno quello di R, media > 0"},
+   "H2": {"reading": "copiare i migliori fa guadagnare", "test": "rendimento netto giornaliero di C, media > 0"}
+  },
+  "also_report": ["BTC tenuto fermo", "Sharpe", "massimo ribasso", "commissioni e funding pagati", "quante volte ha scambiato"]
+ },
+ "test": {"family_alpha": 0.05, "method": "holm", "bootstrap_reps": 5000, "block_days": 5, "seed": 20261125}
+}

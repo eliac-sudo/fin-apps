@@ -380,6 +380,11 @@ def study_row(rid, h, r):
             "outcome": r.get("outcome"), "holm": r.get("holm_threshold")}
 
 
+def copy_view():
+    from .copia import view
+    return view()
+
+
 def studies_part():
     """Every study with its hypotheses and results, read from the frozen files so the page can't drift from them."""
     out = []
@@ -412,6 +417,28 @@ def studies_part():
         out.append({"id": "v8", "title": "Paura ed euforia cripto, e prova sui dati futuri", "date": "24 novembre 2026",
                     "question": "Dopo la paura estrema le cripto si muovono di più? Dopo l'euforia estrema rendono meno? E le letture andate vicino in v6 e v7 reggono sui dati che arrivano da ora?",
                     "prereg": "docs/PREREGISTRAZIONE_v8.md", "report": "docs/V8_STORICO.md", "rows": rows})
+    v9 = BASE / "config" / "validation_v9_storico.json"
+    if v9.exists():
+        from .copia import root as copy_dir
+        res = json.loads(v9.read_text())["results"]
+        cfg9 = json.loads((BASE / "config" / "setups_v9.json").read_text())
+        st = copy_dir() / "stato.json"
+        fwd = json.loads(st.read_text()) if st.exists() else {}
+        rows = []
+        for k, x in res.items():
+            h = cfg9["historical"]["hypotheses"][k]
+            gap = x["median"] - x["median_rest"] if "median" in x else None
+            rows.append({**study_row(k, {"reading": h["reading"], "rule": h.get("group", h["test"]), "trade": "copia", "horizon": "19 giorni"},
+                                     {**x, "mean": gap, "clusters": x["n"]}), "id": f"{k} (v9)", "where": "Chi compra"})
+        F = cfg9["forward"]
+        for k, h in F["hypotheses"].items():
+            s9 = (fwd.get("hypotheses") or {}).get(k, {})
+            r = s9.get("result") or {"outcome": f"in raccolta: {fwd.get('days', 0)} giorni su {F['min_days']}, giudizio il {F['judge_on']}"}
+            rows.append({**study_row(k, {"reading": h["reading"], "rule": h["test"], "trade": "copia sulla carta", "horizon": "giornaliero"}, r),
+                         "id": f"{k} (v9, futuro)", "where": "Chi compra"})
+        out.append({"id": "v9", "title": "Copiare i trader di Hyperliquid", "date": "25 novembre 2026",
+                    "question": "Chi vinceva sulla classifica del 6 novembre ha continuato a vincere fino al 25? E copiare i 20 migliori sulla carta, ogni 5 minuti e con i costi, rende più che copiarne 20 a caso?",
+                    "prereg": "docs/PREREGISTRAZIONE_v9.md", "report": "docs/V9_STORICO.md", "rows": rows})
     v7 = BASE / "config" / "validation_v7_esame.json"
     if v7.exists():
         res = json.loads(v7.read_text())["results"]
@@ -493,6 +520,6 @@ def build(now=None):
     alerts = part(lambda: alerts_part({m["market"]: m["price"] for m in markets}), errors, "alerts", {"setups": [], "moves": [], "resets": []})
     return clean({"at": now.isoformat(timespec="seconds"), "markets": markets, "classes": summaries, "overview": overview, "briefing": part(lambda: briefing(markets, summaries, lab, tech, alerts), errors, "briefing", []),
                   "options": part(options_part, errors, "options", []), "lab": lab, "sentiment": sentiment, "zone_info": {"past": ZN.PAST}, "verdicts": part(VD.all_lines, errors, "verdicts", {}),
-                  "alerts": alerts, "tests": part(tests_part, errors, "tests", None), "studies": part(studies_part, errors, "studies", []), "technical": tech, "flows": part(flows_part, errors, "flows", []), "wallets": part(WL.view, errors, "wallets", None),
+                  "alerts": alerts, "tests": part(tests_part, errors, "tests", None), "studies": part(studies_part, errors, "studies", []), "technical": tech, "flows": part(flows_part, errors, "flows", []), "wallets": part(WL.view, errors, "wallets", None), "copy": part(copy_view, errors, "copy", None),
                   "liquidity": part(LQ.view, errors, "liquidity", None),
                   "freshness": part(lambda: freshness(now), errors, "freshness", {"recorder_minutes": None, "ok": False}), "errors": errors})
