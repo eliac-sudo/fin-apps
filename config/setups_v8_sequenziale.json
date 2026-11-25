@@ -1,0 +1,21 @@
+{
+ "name": "v8, emendamento del 25 novembre 2026: tre letture chiuse, due con tre sguardi",
+ "why": "Richiesta dell'utente del 25 novembre 2026: le date della prova sono troppo lontane. Scritto il primo giorno della prova, con 0 eventi e 0 cluster per tutte e cinque le letture, quindi senza aver visto niente. config/setups_v8.json e la parte storica non cambiano.",
+ "closed": {
+  "D1": "circa 6 cluster l'anno sullo storico 2006–2026: a novembre 2028 ne avrebbe una dozzina",
+  "G1": "circa 8 cluster l'anno, e sullo storico andava nel verso opposto (p 0,985)",
+  "G2": "circa 2,5 cluster l'anno: in due anni 5 casi"
+ },
+ "open": ["P1", "A1"],
+ "alpha": "il 5% liberato dalle tre chiuse va alle due rimaste: 2,5% ciascuna (Bonferroni) invece dell'1%; se una è supportata, l'altra passa al 5% (Maurer e Bretz 2013)",
+ "method": "O'Brien-Fleming con la spesa dell'alfa di Lan e DeMets, frazioni 1/3, 2/3, 1. Ogni ipotesi ha i suoi sguardi, quando arriva a 20, 40 e 60 cluster; l'ultimo sguardo è comunque il 24 novembre 2028, anche con meno di 60 cluster, e lì si spende l'alfa che resta. Niente arresto per inutilità: «non supportata» si dice solo all'ultimo sguardo. Stesso test della pre-registrazione (t a una coda sugli eccessi per cluster, media > 0).",
+ "looks": [
+  {"look": 1, "clusters": 20},
+  {"look": 2, "clusters": 40},
+  {"look": 3, "clusters": 60, "or_on": "2028-11-24"}
+ ],
+ "p_below": {
+  "0.025": [0.0001, 0.00601, 0.02313],
+  "0.05": [0.00069, 0.01614, 0.04506]
+ }
+}

@@ -2,6 +2,7 @@
 
 Le modifiche al motore, dalla più recente. Il dettaglio è nella storia di git; com'è il programma adesso sta in `docs/STATO.md`.
 
+- **2026-11-25** · Prova v8 sui dati futuri: restano posizione bassa e impatto alto, con sguardi a 20, 40 e 60 cluster; dollaro forte, paura ed euforia chiuse senza guardare ([[v8]]).
 - **2026-11-25** · La copia sulla carta v9 ha due sguardi prima del giudizio, a 60 e 120 giorni, con soglie decise prima del primo dato ([[v9]]). La prova v2 sul trend lungo è chiusa senza guardare.
 - **2026-11-25** · La classe Credito passa a 10 ETF (prestiti, angeli caduti, convertibili, privilegiate, emergenti, municipali, Europa) e la liquidità ha lo spread Baa di Moody's dal 1986 ([[yahoo-cboe]], [[liquidita]]).
 - **2026-11-25** · Nuovi mercati osservati nell'app: credito USA, azioni europee e asiatiche, emergenti, Cina e Bund; spread BTP–Bund e credito HYG/IEF nella liquidità ([[yahoo-cboe]], [[liquidita]]).

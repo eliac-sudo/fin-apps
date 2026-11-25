@@ -2,12 +2,12 @@
 
     python -m bzd.v8 conta               free: events and clusters of the historical part. No returns
     python -m bzd.v8 storico --confirm   the historical test of G1 and G2, once
-    python -m bzd.v8 futuro              the forward test: counts only, until a hypothesis has enough clusters or its date comes;
-                                         then that hypothesis is judged once and frozen. Safe to run every day
+    python -m bzd.v8 futuro              the forward test: counts only, and a look at 20, 40 and 60 clusters (or 24 Nov 2028)
+                                         with O'Brien-Fleming thresholds (config/setups_v8_sequenziale.json). Safe to run every day
 
 G1 measures size, not direction: the absolute return over 3 days against random entries.
-The forward part uses only bars after the start date; each hypothesis is judged once, at alpha / 5 (Bonferroni),
-because they reach their clusters at different times and Holm needs all of them at once.
+The forward part uses only bars after the start date. Since the amendment of 25 November 2026, written before any event,
+only P1 and A1 are tested, at 2.5% each (5% for the other once one is supported); D1, G1 and G2 are closed unseen.
 """
 import hashlib, json, sys
 from datetime import datetime, timezone
@@ -26,6 +26,7 @@ from .recorder import BASE
 
 CONFIG = BASE / "config" / "setups_v8.json"
 DOC = BASE / "docs" / "PREREGISTRAZIONE_v8.md"
+SEQ = BASE / "config" / "setups_v8_sequenziale.json"
 RESULTS = BASE / "config" / "validation_v8_storico.json"
 REPORT = BASE / "docs" / "V8_STORICO.md"
 # Forward results live in data/, which deploys never touch: a frozen verdict must survive every update of the code
@@ -107,37 +108,86 @@ def historical(cfg, count_only=False):
     return collect(cfg, H["hypotheses"], lambda k: H["markets"], first, last, count_only)
 
 
+def load_looks():
+    return json.loads(SEQ.read_text())
+
+
+def seq_hash():
+    return hashlib.sha256(SEQ.read_bytes()).hexdigest()
+
+
+def look_reached(L, clusters, now):
+    """Index of the last look a hypothesis has reached: 20, 40, 60 clusters, or the final date whatever the count."""
+    i = None
+    for j, x in enumerate(L["looks"]):
+        if clusters >= x["clusters"] or ("or_on" in x and now >= pd.Timestamp(x["or_on"], tz="UTC")):
+            i = j
+    return i
+
+
 def forward_state(cfg, now=None):
-    """Counts for every forward hypothesis, and the results of those already judged (frozen, never recomputed)."""
-    F = cfg["forward"]
+    """Counts for the hypotheses still open, and the results already judged (frozen, never recomputed). The three closed
+    by the amendment of 25 November 2026 (config/setups_v8_sequenziale.json) are neither counted nor tested."""
+    F, L = cfg["forward"], load_looks()
     now = now or pd.Timestamp.now(tz="UTC")
     first = pd.Timestamp(F["start"], tz="UTC")
-    fp = forward_dir() / "giudicate.json"
+    fp, lp = forward_dir() / "giudicate.json", forward_dir() / "sguardi.json"
     done = json.loads(fp.read_text()) if fp.exists() else {}
-    counts = collect(cfg, F["hypotheses"], lambda k: F["markets"][F["hypotheses"][k]["markets"]], first, now, count_only=True)
+    seen = json.loads(lp.read_text()) if lp.exists() else {}
+    open_ = {k: F["hypotheses"][k] for k in L["open"]}
+    counts = collect(cfg, open_, lambda k: F["markets"][F["hypotheses"][k]["markets"]], first, now, count_only=True)
     state = {}
     for k, h in F["hypotheses"].items():
+        if k in L["closed"]:
+            state[k] = {"reading": h["reading"], "events": None, "clusters": None, "due": False, "judged": True,
+                        "result": {"outcome": "chiusa senza guardare", "judged_on": "2026-11-25", "why": L["closed"][k], "seq_sha256": seq_hash()}}
+            continue
         c = clusters(counts[k], cfg)
-        due = c >= F["judge_when"]["min_clusters"] or now >= pd.Timestamp(F["judge_when"]["or_on"], tz="UTC")
-        state[k] = {"reading": h["reading"], "events": len(counts[k]), "clusters": c, "due": due, "judged": k in done, "result": done.get(k)}
-    return state, done
+        i = look_reached(L, c, now)
+        taken = seen.get(k, [])
+        nxt = next((x["clusters"] for x in L["looks"] if x["look"] > len(taken) and x["clusters"] > c), None)
+        state[k] = {"reading": h["reading"], "events": len(counts[k]), "clusters": c, "due": i is not None and i + 1 not in taken and k not in done,
+                    "look": i, "looks_done": len(taken), "next_look_clusters": nxt, "judged": k in done, "result": done.get(k)}
+    return state, done, seen
 
 
 def judge_forward(cfg, now=None):
-    F = cfg["forward"]
+    """At each look a hypothesis reaches, its p is compared with the O'Brien-Fleming threshold for its alpha: 2.5%, or 5%
+    once the other open one is supported. Supported is final; not supported only at the last look."""
+    F, L = cfg["forward"], load_looks()
     now = now or pd.Timestamp.now(tz="UTC")
-    state, done = forward_state(cfg, now)
-    m = len(F["hypotheses"])
+    state, done, seen = forward_state(cfg, now)
+    last = len(L["looks"]) - 1
+    res = {}
     for k, s in state.items():
-        if s["due"] and not s["judged"]:
+        if s["due"]:
             h = F["hypotheses"][k]
             rows = collect(cfg, {k: h}, lambda _: F["markets"][h["markets"]], pd.Timestamp(F["start"], tz="UTC"), now)[k]
-            r = V3.summarise(rows, h["alternative"], cfg, m)
-            alpha = cfg["test"]["family_alpha"] / m
-            r["outcome"] = "supportata" if r.get("p") is not None and r["p"] < alpha and r.get("mean", 0) > 0 else r.get("outcome", "non supportata")
-            done[k] = {**r, "alpha": alpha, "judged_on": now.isoformat(timespec="seconds"), "config_sha256": config_hash()}
-            state[k].update(judged=True, result=done[k])
+            res[k] = V3.summarise(rows, h["alternative"], cfg, len(L["open"]))
+    changed = True
+    while changed:
+        changed = False
+        for k, r in res.items():
+            if k in done:
+                continue
+            other_won = any(done.get(o, {}).get("outcome") == "supportata" for o in L["open"] if o != k)
+            a = "0.05" if other_won else "0.025"
+            i = state[k]["look"]
+            thr = L["p_below"][a][i]
+            if r.get("p") is not None and r["p"] < thr and r.get("mean", 0) > 0:
+                done[k] = {**r, "outcome": "supportata", "threshold": thr, "look": i + 1, "judged_on": now.isoformat(timespec="seconds"),
+                           "config_sha256": config_hash(), "seq_sha256": seq_hash()}
+                changed = True
+    for k, r in res.items():
+        i = state[k]["look"]
+        if k not in done and i == last:
+            other_won = any(done.get(o, {}).get("outcome") == "supportata" for o in L["open"] if o != k)
+            done[k] = {**r, "outcome": "non supportata" if r.get("p") is not None else "non informativa", "threshold": L["p_below"]["0.05" if other_won else "0.025"][i],
+                       "look": i + 1, "judged_on": now.isoformat(timespec="seconds"), "config_sha256": config_hash(), "seq_sha256": seq_hash()}
+        seen.setdefault(k, []).append(i + 1)
+        state[k].update(judged=k in done, result=done.get(k), looks_done=len(seen[k]), due=False)
     (forward_dir() / "giudicate.json").write_text(json.dumps(done, indent=1, ensure_ascii=False))
+    (forward_dir() / "sguardi.json").write_text(json.dumps(seen, indent=1, ensure_ascii=False))
     (forward_dir() / "stato.json").write_text(json.dumps({"at": now.isoformat(timespec="seconds"), "start": F["start"], "state": state}, indent=1, ensure_ascii=False, default=str))
     return state
 
@@ -161,14 +211,15 @@ def report(r, cfg):
 def forward_page(state, cfg):
     F = cfg["forward"]
     pct = lambda x: "–" if x is None else f"{100 * x:+.2f}%"
-    lines = ["# v8, prova sui dati futuri", "", f"Dal {F['start']}. Ogni ipotesi si giudica una volta sola, quando arriva a {F['judge_when']['min_clusters']} cluster o il {F['judge_when']['or_on']}, "
-             f"a una soglia di {cfg['test']['family_alpha'] / len(F['hypotheses']):.3f} (5% diviso per {len(F['hypotheses'])}). Prima di allora si contano solo gli eventi.",
+    lines = ["# v8, prova sui dati futuri", "", f"Dal {F['start']}. Con l'emendamento del 25 novembre 2026 (scritto con 0 eventi) restano aperte P1 e A1, al 2,5% ciascuna: "
+             "si guardano a 20, 40 e 60 cluster, o comunque il 24 novembre 2028, con soglie di O'Brien-Fleming (0,0001, 0,006, 0,023). "
+             "D1, G1 e G2 sono chiuse senza guardare. Tra uno sguardo e l'altro si contano solo gli eventi.",
              f"Aggiornato il {datetime.now(timezone.utc):%Y-%m-%d}.", "",
              "| ID | Lettura | Eventi | Cluster | Stato | Eccesso medio | p |", "|---|---|---:|---:|---|---:|---:|"]
     for k, s in state.items():
         r = s["result"] or {}
-        st = f"**{r['outcome']}** il {r['judged_on'][:10]}" if s["judged"] else "in raccolta"
-        lines.append(f"| {k} | {s['reading']} | {s['events']} | {s['clusters']} | {st} | {pct(r.get('mean'))} | " + (f"{r['p']:.4f}" if r.get("p") is not None else "–") + " |")
+        st = f"**{r['outcome']}** il {r['judged_on'][:10]}" if s["judged"] else f"in raccolta, sguardi fatti {s['looks_done']}"
+        lines.append(f"| {k} | {s['reading']} | {s['events'] if s['events'] is not None else '–'} | {s['clusters'] if s['clusters'] is not None else '–'} | {st} | {pct(r.get('mean'))} | " + (f"{r['p']:.4f}" if r.get("p") is not None else "–") + " |")
     return "\n".join(lines) + "\n"
 
 
@@ -176,7 +227,8 @@ def daily():
     """Called by the alerts service once a day: counts, and judges a hypothesis once it is due. Never raises."""
     try:
         cfg = load_config()
-        if config_hash() in DOC.read_text():
+        doc = DOC.read_text()
+        if config_hash() in doc and seq_hash() in doc:
             state = judge_forward(cfg)
             (forward_dir() / "V8_FUTURO.md").write_text(forward_page(state, cfg))
     except Exception as e:  # noqa: BLE001 - a forward count must never stop the alerts
@@ -214,7 +266,7 @@ def main(argv):
         state = judge_forward(cfg)
         (forward_dir() / "V8_FUTURO.md").write_text(forward_page(state, cfg))
         for k, s in state.items():
-            print(f"{k}: {s['clusters']} cluster, " + (s["result"]["outcome"] if s["judged"] else "in raccolta"))
+            print(f"{k}: " + (f"{s['clusters']} cluster, " if s["clusters"] is not None else "") + (s["result"]["outcome"] if s["judged"] else "in raccolta"))
         return 0
     print(__doc__)
     return 1
