@@ -100,6 +100,58 @@ class V9(unittest.TestCase):
             finally:
                 os.environ.pop("BZD_DATA")
 
+    def write_days(self, d, n, up):
+        lines = ["date,C,R,BTC"]
+        c = r = 10000.0
+        rng = np.random.default_rng(3)
+        for i in range(n + 1):
+            lines.append(f"d{i:04d},{c:.4f},{r:.4f},100")
+            c *= 1 + (0.02 if up else 0) + rng.normal(0, 0.005)
+            r *= 1 + rng.normal(0, 0.005)
+        (d / "giorni.csv").write_text("\n".join(lines) + "\n")
+
+    def test_strong_copy_passes_at_the_first_look(self):
+        with tempfile.TemporaryDirectory() as t:
+            os.environ["BZD_DATA"] = t
+            try:
+                d = CP.root()
+                self.write_days(d, 59, True)
+                s = v9.forward_state(CFG, now=datetime(2027, 1, 20, tzinfo=timezone.utc))
+                self.assertEqual(s["looks_done"], 0)
+                self.write_days(d, 60, True)
+                s = v9.forward_state(CFG, now=datetime(2027, 1, 25, tzinfo=timezone.utc))
+                self.assertEqual(s["looks_done"], 1)
+                self.assertEqual(s["hypotheses"]["H2"]["result"]["outcome"], "supportata")
+                self.assertEqual(s["hypotheses"]["H2"]["result"]["look"], 1)
+                s = v9.forward_state(CFG, now=datetime(2027, 1, 26, tzinfo=timezone.utc))
+                self.assertEqual(s["looks_done"], 1)  # the same look is never taken twice
+            finally:
+                os.environ.pop("BZD_DATA")
+
+    def test_flat_copy_stays_open_until_the_last_look(self):
+        with tempfile.TemporaryDirectory() as t:
+            os.environ["BZD_DATA"] = t
+            try:
+                d = CP.root()
+                self.write_days(d, 60, False)
+                s = v9.forward_state(CFG, now=datetime(2027, 1, 25, tzinfo=timezone.utc))
+                self.assertEqual(s["looks_done"], 1)
+                self.assertFalse(s["hypotheses"]["H1"]["judged"])
+                self.assertFalse(s["hypotheses"]["H2"]["judged"])
+                self.assertEqual(s["next_look"]["days"], 120)
+                self.write_days(d, 150, False)
+                s = v9.forward_state(CFG, now=datetime(2027, 5, 26, tzinfo=timezone.utc))
+                self.assertEqual(s["hypotheses"]["H2"]["result"]["outcome"], "non supportata")
+                self.assertEqual(s["hypotheses"]["H2"]["result"]["look"], 3)
+            finally:
+                os.environ.pop("BZD_DATA")
+
+    def test_thresholds_follow_holm(self):
+        L = v9.load_looks()
+        self.assertEqual(v9.sequential({"H1": 0.00005, "H2": 0.0005}, 0, L), {"H1": 0.0001, "H2": 0.00069})
+        self.assertEqual(v9.sequential({"H1": 0.0005, "H2": 0.5}, 0, L), {})
+        self.assertIn(v9.seq_hash(), v9.DOC.read_text())
+
 
 if __name__ == "__main__":
     unittest.main()

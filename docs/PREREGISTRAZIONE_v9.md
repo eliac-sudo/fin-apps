@@ -32,7 +32,21 @@ Tutti e due si riscelgono ogni lunedì. Ogni 5 minuti si leggono le posizioni de
 | H1 | Copiare i migliori rende più che copiare a caso? | rendimento netto giornaliero di C meno quello di R, media > 0 |
 | H2 | Copiare i migliori fa guadagnare? | rendimento netto giornaliero di C, media > 0 |
 
-Si giudica una volta sola il 25 maggio 2027, con un bootstrap a blocchi di 5 giorni a una coda e Holm al 5% sulle due. Servono almeno 120 giorni registrati, altrimenti l'esito è «non informativa». Si riportano anche BTC tenuto fermo, Sharpe, massimo ribasso, commissioni, funding e numero di scambi. **Se H2 non regge, del bot vero non si parla.** Se regge, il passo dopo è una tua decisione con la cifra.
+Si giudica il 25 maggio 2027, con un bootstrap a blocchi di 5 giorni a una coda e Holm al 5% sulle due. Servono almeno 120 giorni registrati, altrimenti l'esito è «non informativa». Con l'emendamento qui sotto ci sono anche due sguardi prima. Si riportano anche BTC tenuto fermo, Sharpe, massimo ribasso, commissioni, funding e numero di scambi. **Se H2 non regge, del bot vero non si parla.** Se regge, il passo dopo è una tua decisione con la cifra.
+
+## Emendamento del 25 novembre 2026: tre sguardi invece di uno
+
+Scritto il 25 novembre alle 13 UTC, prima del primo dato della copia sulla carta, che parte il 26: non si è visto niente. Lo chiede l'utente perché sei mesi sono tanti. Configurazione `config/setups_v9_sequenziale.json`, SHA-256 `237704971fa4d9ceab76366eab52b70c30b5156bfedce5e92ae86975da7a7b00`. La configurazione sopra, la parte storica e le regole della copia non cambiano.
+
+| Sguardo | Quando | Soglia del p, con H1 e H2 entrambe aperte | Soglia se ne resta una |
+|---|---|---|---|
+| 1 | 60 giorni registrati (circa fine gennaio 2027) | 0,0001 | 0,00069 |
+| 2 | 120 giorni registrati (circa fine marzo 2027) | 0,006 | 0,016 |
+| 3 | 25 maggio 2027, con almeno 120 giorni | 0,023 | 0,045 |
+
+Le soglie sono quelle di O'Brien-Fleming (spesa dell'alfa di Lan e DeMets, frazioni 1/3, 2/3, 1): molto severe all'inizio, quasi il 5% alla fine, e l'errore complessivo resta al 5%. Holm tra le due ipotesi: finché sono aperte entrambe ognuna ha metà dell'alfa; quando una passa, l'altra si riguarda con l'alfa intero (Maurer e Bretz 2013). Un'ipotesi che passa a uno sguardo è giudicata «supportata» quel giorno e non si riguarda più. Una che non passa resta aperta: «non supportata» si dice solo all'ultimo sguardo. Il bootstrap usa 50.000 ripetizioni invece di 5.000, perché con 5.000 il p più piccolo possibile (0,0002) non scenderebbe mai sotto la prima soglia. La copia continua fino al 25 maggio in ogni caso, e i numeri finali si riportano lo stesso. Gli sguardi fatti restano in `data/v9/sguardi.json`.
+
+In pratica: al primo sguardo passa solo una copia che va fortissimo, al secondo una che va chiaramente bene; una via di mezzo aspetta maggio.
 
 ## Limiti, detti prima
 

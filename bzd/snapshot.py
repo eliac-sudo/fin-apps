@@ -440,7 +440,9 @@ def studies_part():
         F = cfg9["forward"]
         for k, h in F["hypotheses"].items():
             s9 = (fwd.get("hypotheses") or {}).get(k, {})
-            r = s9.get("result") or {"outcome": f"in raccolta: {fwd.get('days', 0)} giorni su {F['min_days']}, giudizio il {F['judge_on']}"}
+            nx = fwd.get("next_look") or {}
+            when = f"prossimo sguardo a {nx['days']} giorni" if "days" in nx else f"giudizio il {F['judge_on']}"
+            r = s9.get("result") or {"outcome": f"in raccolta: {fwd.get('days', 0)} giorni, {when}"}
             rows.append({**study_row(k, {"reading": h["reading"], "rule": h["test"], "trade": "copia sulla carta", "horizon": "giornaliero"}, r),
                          "id": f"{k} (v9, futuro)", "where": "Chi compra"})
         out.append({"id": "v9", "title": "Copiare i trader di Hyperliquid", "date": "25 novembre 2026",

@@ -2,7 +2,7 @@
 
     python -m bzd.v9 conta               free: the pool of 6 November and how many accounts the final board still has. No returns
     python -m bzd.v9 storico --confirm   did 6 November's winners keep winning until 25 November? Once
-    python -m bzd.v9 futuro              the paper copy (bzd/copia.py): days counted until the judging date, then judged once and frozen
+    python -m bzd.v9 futuro              the paper copy (bzd/copia.py): days counted until the judging date, judged at up to three looks fixed beforehand (60 days, 120 days, 25 May 2027)
 
 The historical part needs no prices: Hyperliquid's own all-time pnl, which leaves out deposits and withdrawals, read on the
 two leaderboards; an account missing from the second is left out once and put last once. The forward part is the paper copy run by the bzd-copia service.
@@ -22,6 +22,7 @@ CONFIG = CP.CONFIG
 DOC = BASE / "docs" / "PREREGISTRAZIONE_v9.md"
 RESULTS = BASE / "config" / "validation_v9_storico.json"
 REPORT = BASE / "docs" / "V9_STORICO.md"
+SEQ = BASE / "config" / "setups_v9_sequenziale.json"
 
 
 def load_config():
@@ -148,30 +149,82 @@ def daily_returns():
     return d[list(CP.PORTFOLIOS) + ["BTC"]].pct_change().dropna()
 
 
+def load_looks():
+    return json.loads(SEQ.read_text())
+
+
+def seq_hash():
+    return hashlib.sha256(SEQ.read_bytes()).hexdigest()
+
+
+def look_due(L, days, now):
+    """Index of the look the data has reached (the last one reached wins), or None."""
+    due = None
+    for i, x in enumerate(L["looks"]):
+        if "days" in x and days >= x["days"]:
+            due = i
+        if "on" in x and now >= datetime.fromisoformat(x["on"]).replace(tzinfo=timezone.utc):
+            due = i
+    return due
+
+
+def sequential(p, look, L, alpha=0.05):
+    """Holm between the hypotheses still open, with O'Brien-Fleming thresholds: each at alpha/m; when one passes, the
+    others are rechecked at the larger alpha (Maurer and Bretz 2013). p: {k: p or None}. Returns {k: threshold} passed."""
+    won = {}
+    while len(won) < len(p):
+        a = alpha / (len(p) - len(won))
+        thr = L["p_below"][f"{a:g}"][look]
+        hit = [k for k, v in p.items() if k not in won and v is not None and v < thr]
+        if not hit:
+            break
+        won[min(hit, key=p.get)] = thr
+    return won
+
+
 def forward_state(cfg, now=None):
-    F, T = cfg["forward"], cfg["test"]
+    """Up to three looks fixed beforehand (config/setups_v9_sequenziale.json): a hypothesis is judged supported at the first
+    look where its p is under the O'Brien-Fleming threshold; whatever is still open is judged at the last look."""
+    F, L = cfg["forward"], load_looks()
+    T = L["test"]
     now = now or datetime.now(timezone.utc)
-    fp = CP.root() / "giudicate.json"
+    fp, lp = CP.root() / "giudicate.json", CP.root() / "sguardi.json"
     done = json.loads(fp.read_text()) if fp.exists() else {}
+    seen = json.loads(lp.read_text()) if lp.exists() else []
     r = daily_returns()
     days = 0 if r is None else len(r)
-    if not done and now >= datetime.fromisoformat(F["judge_on"]).replace(tzinfo=timezone.utc):
+    i = look_due(L, days, now)
+    last = len(L["looks"]) - 1
+    if i is not None and i not in [x["look"] - 1 for x in seen] and len(done) < len(F["hypotheses"]):
         series = {"H1": r.C - r.R, "H2": r.C} if days else {}
+        final = i == last
+        enough = days >= L["looks"][last]["min_days"] if final else True
         res = {}
         for k in F["hypotheses"]:
-            if days < F["min_days"]:
-                res[k] = {"days": days, "p": None, "outcome": "non informativa"}
+            if k in done:
+                continue
+            if not days or not enough:
+                res[k] = {"days": days, "p": None}
                 continue
             x = series[k]
             res[k] = {"days": days, "mean": float(x.mean()), "p": block_p(x, T["bootstrap_reps"], T["block_days"], T["seed"]),
                       "t_p": float(stats.ttest_1samp(x, 0, alternative="greater").pvalue)}
-        res = holm(res, T["family_alpha"])
-        for x in res.values():
-            x.update(judged_on=now.isoformat(timespec="seconds"), config_sha256=config_hash())
-        done = res
+        won = sequential({k: v["p"] for k, v in res.items()}, i, L) if res else {}
+        stamp = {"judged_on": now.isoformat(timespec="seconds"), "look": i + 1, "config_sha256": config_hash(), "seq_sha256": seq_hash()}
+        for k, v in res.items():
+            v["threshold"] = won.get(k)
+            if k in won:
+                done[k] = {**v, **stamp, "outcome": "supportata"}
+            elif final:
+                done[k] = {**v, **stamp, "outcome": "non supportata" if v["p"] is not None else "non informativa"}
+        seen.append({"look": i + 1, "on": now.isoformat(timespec="seconds"), "days": days,
+                     "p": {k: v["p"] for k, v in res.items()}, "supported": sorted(won)})
+        lp.write_text(json.dumps(seen, indent=1, ensure_ascii=False))
         fp.write_text(json.dumps(done, indent=1, ensure_ascii=False))
     total = {} if r is None else {k: float((1 + r[k]).prod() - 1) for k in (*CP.PORTFOLIOS, "BTC")}
+    nxt = next((x for x in L["looks"] if x["look"] > len(seen)), None)
     state = {"at": now.isoformat(timespec="seconds"), "start": F["start"], "judge_on": F["judge_on"], "days": days, "total": total,
+             "looks_done": len(seen), "next_look": nxt,
              "hypotheses": {k: {"reading": h["reading"], "judged": k in done, "result": done.get(k)} for k, h in F["hypotheses"].items()}}
     (CP.root() / "stato.json").write_text(json.dumps(state, indent=1, ensure_ascii=False))
     return state
@@ -181,7 +234,8 @@ def daily():
     """Called by the alerts service once a day. Never raises."""
     try:
         cfg = load_config()
-        if config_hash() in DOC.read_text():
+        doc = DOC.read_text()
+        if config_hash() in doc and seq_hash() in doc:
             forward_state(cfg)
     except Exception as e:  # noqa: BLE001 - a forward count must never stop the alerts
         print(f"v9 futuro non aggiornato: {type(e).__name__}: {e}", flush=True)
