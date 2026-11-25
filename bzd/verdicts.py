@@ -120,7 +120,8 @@ def _fwd_text(k):
         return "In prova sui dati futuri dal 25 novembre 2026."
     if st.get("judged"):
         return f"Prova sui dati futuri: {st['result']['outcome']} il {st['result']['judged_on'][:10]}."
-    return f"In prova sui dati futuri dal 25 novembre 2026: {st['clusters']} episodi su 60."
+    nx = st.get("next_look_clusters")
+    return f"In prova sui dati futuri dal 25 novembre 2026: {st['clusters']} episodi" + (f", primo controllo a {nx}." if nx and not st.get("looks_done") else f", prossimo controllo a {nx}." if nx else ".")
 
 
 def pct_art(x):
@@ -142,7 +143,7 @@ def findings():
     if "L2" in v6:
         put("LIQ_STABLE", "test: pochi casi", f"Test v6: dopo un forte aumento delle stablecoin le cripto hanno fatto {it(v6['L2']['mean'])} in 20 sedute rispetto al caso, ma su {v6['L2']['clusters']} episodi soli: non informativo.")
     if "L3" in v6:
-        put("LIQ_USD", "test: vicino, in prova", f"Test v6: dopo un forte rialzo del dollaro, azioni, oro, rame e cripto hanno fatto {it(-v6['L3']['mean'])} in 20 sedute rispetto al caso, p {pv(v6['L3']['p'])}: vicino alla soglia ma non regge. " + _fwd_text("D1"))
+        put("LIQ_USD", "test: vicino, non regge", f"Test v6: dopo un forte rialzo del dollaro, azioni, oro, rame e cripto hanno fatto {it(-v6['L3']['mean'])} in 20 sedute rispetto al caso, p {pv(v6['L3']['p'])}: vicino alla soglia ma non regge. " + _fwd_text("D1"))
     if "L4" in v6:
         put("LIQ_IMPACT", "test: vicino, in prova", f"Test v6: con l'impatto al 90° percentile, comprare ha reso {it(v6['L4']['mean'])} in 10 sedute rispetto al caso, p {pv(v6['L4']['p'])}: vicino alla soglia ma non regge. Volumi da soli e book non sono testati. " + _fwd_text("A1"))
     if "F1" in v6:

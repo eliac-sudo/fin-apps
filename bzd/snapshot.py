@@ -419,7 +419,8 @@ def studies_part():
         rows = [{**study_row(k, cfg8["historical"]["hypotheses"][k], x), "id": f"{k} (v8)", "where": "Oggi"} for k, x in res.items()]
         for k, h in cfg8["forward"]["hypotheses"].items():
             s8 = fwd.get(k, {})
-            r = s8.get("result") or {"outcome": f"in raccolta: {s8.get('clusters', 0)} cluster su {cfg8['forward']['judge_when']['min_clusters']}"}
+            nx = s8.get("next_look_clusters")
+            r = s8.get("result") or {"outcome": f"in raccolta: {s8.get('clusters') or 0} cluster" + (f", prossimo sguardo a {nx}" if nx else "")}
             rows.append({**study_row(k, h, r), "id": f"{k} (v8, futuro)", "where": "Oggi"})
         out.append({"id": "v8", "title": "Paura ed euforia cripto, e prova sui dati futuri", "date": "24 novembre 2026",
                     "question": "Dopo la paura estrema le cripto si muovono di più? Dopo l'euforia estrema rendono meno? E le letture andate vicino in v6 e v7 reggono sui dati che arrivano da ora?",

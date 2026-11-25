@@ -978,7 +978,7 @@ test(){
     ...SD.flatMap(x=>x.rows.map(r=>({...r,test:x.id,code:r.id,study:x}))),
     ...OPEN.map(([n,w,why])=>({test:"–",code:"",reading:n,rule:why,where:w,outcome:"non testato"}))];
   const fwd=r=>/^in raccolta/.test(r.outcome||"");
-  const ST={supportata:["✅","ha retto",0],"non supportata":["❌","non ha retto",3],"non testato":["⚪","non testato",4]},st=r=>fwd(r)?["⏳","in prova sui dati futuri",1]:ST[r.outcome]||["❔","pochi casi",2];
+  const ST={supportata:["✅","ha retto",0],"non supportata":["❌","non ha retto",3],"non testato":["⚪","non testato",4],"chiusa senza guardare":["⏹","chiusa senza guardare",3]},st=r=>fwd(r)?["⏳","in prova sui dati futuri",1]:ST[r.outcome]||["❔","pochi casi",2];
   const n=all.filter(r=>r.outcome!=="non testato"&&!fwd(r)).length,passed=all.filter(r=>r.outcome==="supportata"),running=all.filter(fwd);
   const F=TESTF,shown=all.filter(r=>F==="tutti"||(F==="retto"?r.outcome==="supportata":F==="no"?r.outcome!=="supportata"&&r.outcome!=="non testato"&&!fwd(r):F==="open"?r.outcome==="non testato":F==="futuro"?fwd(r):r.test===F));
   const cols=[{k:"test",label:"Test",val:r=>r.test+(r.code?" "+r.code:""),cell:r=>el("b",null,r.test+(r.code?" "+r.code:""))},
