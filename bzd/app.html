@@ -341,6 +341,20 @@ const WAL={kind:"tutti",all:false};
 const usdM=v=>v==null?"–":(v<0?"−":"")+"$"+(Math.abs(v)>=1e9?(Math.abs(v)/1e9).toFixed(2)+" mld":Math.abs(v)>=1e6?(Math.abs(v)/1e6).toFixed(1)+" mln":Math.abs(v)>=1e3?Math.round(Math.abs(v)/1e3)+"k":Math.round(Math.abs(v)));
 const sideSpan=(v,label)=>!v?el("span",{class:"muted"},"–"):el("span",{style:`color:${v>0?"var(--good)":"var(--crit)"};font-weight:650`},(label||(v>0?"long ":"short "))+usdM(Math.abs(v)));
 const walName=a=>a.name||a.address.slice(0,6)+"…"+a.address.slice(-4);
+function copySection(){
+  const C=D.copy;
+  const pc=x=>x==null?"–":sgn(100*x,2)+"%";
+  const line=(k,label)=>{const x=C&&C[k];if(!x)return null;
+    return el("tr",null,el("td",null,el("b",{style:"font-weight:600"},label)),el("td",{class:"num "+(x.return>0?"pos":x.return<0?"neg":"")},pc(x.return)),el("td",{class:"num"},fmt(x.leverage,2)+"x"),
+      el("td",{class:"num"},String(x.trades)),el("td",{class:"num"},pc(-x.fees-x.funding)),
+      el("td",{class:"small"},x.top.map((t,i)=>el("span",{style:`color:${t[1]>0?"var(--good)":"var(--crit)"}`},(i?" · ":"")+t[0].replace(/^xyz:/,"")+(t[1]>0?" ▲":" ▼")))))};
+  return el("section",{class:"card"},el("h2",null,"Copiarli rende? La prova sulla carta (v9)"),
+    el("p",{class:"sub",style:"margin:2px 0 6px"},"Due portafogli finti da $10.000, aggiornati ogni 5 minuti con commissioni, slittamento e funding: ",el("b",null,"C")," copia i 20 trader con più profitti del mese, ",el("b",null,"R")," 20 trader a caso. Nessuna chiave, nessun ordine vero. Si giudica una volta sola il "+(C?C.judge_on:"25 maggio 2027")+". ",tb("COPY")),
+    D.verdicts&&D.verdicts.COPY?el("p",{class:"small",style:"margin:2px 0 6px"},D.verdicts.COPY.line):null,
+    !C?el("p",{class:"muted"},"La copia parte il 26 novembre 2026."):el("div",{class:"tablewrap"},el("table",null,
+      el("thead",null,el("tr",null,...["Portafoglio","Dal "+C.start.slice(8)+"/"+C.start.slice(5,7),"Leva","Scambi","Costi","Posizioni principali"].map(h=>el("th",null,h)))),
+      el("tbody",null,line("C","C, i migliori"),line("R","R, a caso"),C.btc==null?null:el("tr",null,el("td",null,"BTC tenuto fermo"),el("td",{class:"num "+(C.btc>0?"pos":"neg")},pc(C.btc)),el("td",{colspan:"4",class:"muted small"},(C.days||0)+" giorni registrati su 120 minimi"))))));
+}
 function walletSection(){
   const W=D.wallets;if(!W||!W.accounts)return el("section",{class:"card"},el("h2",null,"Portafogli profittevoli su Hyperliquid"),el("p",{class:"muted"},"Il primo giro di posizioni non è ancora stato registrato."));
   const acc=W.accounts.filter(a=>(WAL.kind==="tutti"||a.kind===WAL.kind)&&(!Q||(walName(a)+" "+a.address+" "+a.top.map(t=>t[0]).join(" ")).toLowerCase().includes(Q.toLowerCase())));
@@ -836,7 +850,7 @@ chi(){
       el("li",null,el("b",null,"Il retail cripto va contro il prezzo. "),"Quando il prezzo scende la quota di conti long sale, quasi per riflesso: correlazione −0,54 su BTC a 3 giorni. I top trader no (0,01). Fuori dalle cripto il riflesso non si vede. Misura descrittiva."),
       el("li",null,el("b",null,"Seguire chi compra sul dip non ha aiutato. "),"I dettagli nella scheda ",testLink("Test"),"."),
       el("li",null,el("b",null,"I livelli di questa pagina non sono testati. "),"Che un gruppo affollato long preceda un calo è un'idea diffusa, ma qui non è stata verificata: per ora descrive soltanto."))),
-    walletSection()]},
+    copySection(),walletSection()]},
 motore(){
   if(!WK.data){loadWiki();return el("p",{class:"muted"},"Leggo il wiki…")}
   if(WK.data.error)return el("p",{class:"notice bad"},"Il wiki non si legge.");
@@ -980,9 +994,9 @@ test(){
   const studies=[{id:"B3",title:"I setup degli alert",date:"5 novembre 2026",question:"i setup che mandano gli alert (panico, eccesso, squeeze) fanno meglio di ingressi casuali, sullo stesso mercato e negli stessi anni? Il panico cripto supera la soglia della propria famiglia di test ma non quella più severa su tutti i 15: circa il 22% di probabilità di almeno un falso positivo.",report:"docs/B3_RISULTATI.md"},...SD];
   const past=(D.zone_info||{}).past||{};
   const VD=D.verdicts||{},fl=k=>VD[k]?el("li",null,VD[k].line):null;
-  const news=el("section",{class:"card"},el("h2",null,"Cosa abbiamo scoperto il 24 novembre"),
-    el("p",{class:"small",style:"margin:4px 0 6px"},"Tre test nuovi (v6, v7, v8) su liquidità, previsioni, combinazioni di letture e psicologia dei mercati: 495 regole in tutto, nessuna regge sulla storia. Le più vicine sono ora in prova sui dati che arrivano da qui in avanti ("+running.length+" ipotesi), e si giudicano una volta sola quando avranno abbastanza episodi."),
-    el("ul",{class:"alist small"},fl("POS"),fl("LIQ_USD"),fl("LIQ_IMPACT"),fl("LIQ_NET"),fl("FG"),fl("FED_SEP"),fl("LIQ_STABLE")),
+  const news=el("section",{class:"card"},el("h2",null,"Cosa abbiamo scoperto il 24 e il 25 novembre"),
+    el("p",{class:"small",style:"margin:4px 0 6px"},"Tre test nuovi (v6, v7, v8) su liquidità, previsioni, combinazioni di letture e psicologia dei mercati: 495 regole in tutto, nessuna regge sulla storia. Il 25 novembre il v9 sui trader di Hyperliquid: la classifica ha memoria su 19 giorni, e ora si prova sulla carta se copiarla rende. Le più vicine sono ora in prova sui dati che arrivano da qui in avanti ("+running.length+" ipotesi), e si giudicano una volta sola quando avranno abbastanza episodi."),
+    el("ul",{class:"alist small"},fl("COPY"),fl("POS"),fl("LIQ_USD"),fl("LIQ_IMPACT"),fl("LIQ_NET"),fl("FG"),fl("FED_SEP"),fl("LIQ_STABLE")),
     el("p",{class:"tiny",style:"margin:4px 0 0"},"Nel v7 sono state provate tutte le 484 regole fatte di una o due letture: cercate sul 2008–2018, controllate sul 2019–2022 e giudicate una volta sul 2023–2026. Delle 30 migliori nella ricerca, 26 sono cadute già nel controllo: è quello che fa il caso quando si provano tante regole."));
   return [el("p",{class:"hero"},"I test: "+passed.length+" ipotesi su "+n+" hanno retto"),news,
     el("p",{class:"sub"},"Tutto quello che è stato messo alla prova, in un'unica tabella. Ogni test è stato scritto prima di guardare i rendimenti ed eseguito una volta sola. «Rispetto al caso» confronta con ingressi a caso sullo stesso mercato; «netto costi» è quanto avrebbe reso davvero l'operazione. Anche dove un'ipotesi ha retto il guadagno netto è piccolo o negativo."),

@@ -1,0 +1,16 @@
+[Unit]
+Description=BZD copia sulla carta (v9)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=bzd
+WorkingDirectory=/opt/bzd
+ExecStart=/opt/bzd/.venv/bin/python -u -m bzd.copia run
+Restart=always
+RestartSec=30
+StandardOutput=append:/opt/bzd/data/copia.log
+StandardError=append:/opt/bzd/data/copia.log
+
+[Install]
+WantedBy=multi-user.target

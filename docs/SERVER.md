@@ -20,8 +20,8 @@ Poi il passaggio, che deve lasciare **il bot in un posto solo**:
 
 1. Nel Codespace ferma i servizi: alert e bot per primi.
 2. `bash scripts/server-move-data.sh utente@server` di nuovo, per l'ultima parte dei dati.
-3. Sul server: `sudo systemctl start bzd-recorder bzd-backfill bzd-wallets bzd-alerts bzd-vol-bot bzd-app bzd-backup.timer`
-4. Controlla: `systemctl is-active bzd-recorder bzd-backfill bzd-wallets bzd-alerts bzd-vol-bot bzd-app`, poi `/piano` sul bot.
+3. Sul server: `sudo systemctl start bzd-recorder bzd-backfill bzd-wallets bzd-copia bzd-alerts bzd-vol-bot bzd-app bzd-backup.timer`
+4. Controlla: `systemctl is-active bzd-recorder bzd-backfill bzd-wallets bzd-copia bzd-alerts bzd-vol-bot bzd-app`, poi `/piano` sul bot.
 5. Nel Codespace scrivi l'host in `.sul-server` (es. `echo bzd-server > .sul-server`). Da quel momento `start-services.sh` ed `ensure-services.sh` non accendono più niente qui, così i due bot non si contendono i messaggi: aprono solo un tunnel che porta l'app del server sulla porta 8787 del Codespace. Per riportare i servizi nel Codespace prima si fermano sul server, poi si cancella `.sul-server`.
 
 ## Sviluppare sul server

@@ -1,0 +1,72 @@
+{
+ "config_sha256": "26777a85afa74ca6f58e079c102d63c255db9a4f0836c29e268aca6839aa994f",
+ "run": "2026-11-25T00:32:03+00:00",
+ "pool": 5353,
+ "missing": 919,
+ "median_after": -0.09095879981792446,
+ "results": {
+  "P1": {
+   "n": 4434,
+   "rho": 0.43209808659412907,
+   "p": 1.765742660784269e-201,
+   "holm_threshold": 0.016666666666666666,
+   "outcome": "supportata",
+   "excluded": {
+    "p": 1.765742660784269e-201,
+    "holm_threshold": 0.016666666666666666,
+    "outcome": "supportata"
+   },
+   "worst": {
+    "p": 1.9085543524809786e-126,
+    "holm_threshold": 0.016666666666666666,
+    "outcome": "supportata"
+   }
+  },
+  "P2": {
+   "n": 50,
+   "n_rest": 4384,
+   "p": 4.555045570880232e-17,
+   "median": 0.19501878466741773,
+   "median_rest": -0.09352912894439977,
+   "share_up": 0.86,
+   "share_up_rest": 0.26847627737226276,
+   "holm_threshold": 0.025,
+   "outcome": "supportata",
+   "excluded": {
+    "p": 4.555045570880232e-17,
+    "holm_threshold": 0.025,
+    "outcome": "supportata"
+   },
+   "worst": {
+    "p": 1.693921570469068e-16,
+    "holm_threshold": 0.025,
+    "outcome": "supportata"
+   },
+   "missing": 3,
+   "missing_rest": 916
+  },
+  "P3": {
+   "n": 150,
+   "n_rest": 4284,
+   "p": 0.0003157761429329293,
+   "median": -0.039230475466941306,
+   "median_rest": -0.09235789747274553,
+   "share_up": 0.44,
+   "share_up_rest": 0.26937441643323995,
+   "holm_threshold": 0.05,
+   "outcome": "supportata",
+   "excluded": {
+    "p": 0.0003157761429329293,
+    "holm_threshold": 0.05,
+    "outcome": "supportata"
+   },
+   "worst": {
+    "p": 4.0015660744248295e-08,
+    "holm_threshold": 0.05,
+    "outcome": "supportata"
+   },
+   "missing": 9,
+   "missing_rest": 910
+  }
+ }
+}
