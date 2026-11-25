@@ -658,7 +658,7 @@ function liqCard(){const L=D.liquidity;if(!L||!L.macro)return null;const M=L.mac
   const usdM=v=>v==null?"–":v>=1e6?num(v/1e6,1)+" mln $":num(v/1e3,0)+" mila $";
   const tone=t=>t?el("span",{class:"chipv",style:`background:${t==="più"?"var(--h3)":"var(--h1)"};color:${t==="più"?"var(--i3)":"var(--i1)"}`},t+" liquidità"):null;
   const weeks=d=>d>=80?Math.round(d/7)+" settimane":d+" giorni";
-  const LQB={net:"LIQ_NET",stable:"LIQ_STABLE",usd:"LIQ_USD",m2:"LIQ_OTHER",nfci:"LIQ_OTHER",hy:"LIQ_OTHER"};
+  const LQB={net:"LIQ_NET",stable:"LIQ_STABLE",usd:"LIQ_USD",m2:"LIQ_OTHER",nfci:"LIQ_OTHER",hy:"LIQ_OTHER",credit:"LIQ_NEW",btp:"LIQ_NEW",bund:"LIQ_NEW"};
   const tile=r=>el("div",{class:"card",style:"padding:10px 12px",title:r.meaning},el("div",{class:"tiny muted",style:"display:flex;justify-content:space-between;gap:6px;align-items:baseline"},el("span",null,r.label),tb(LQB[r.key])),
     el("div",{style:"display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"},el("div",{class:"mid"},num(r.value,r.unit===" mld $"?0:2)+r.unit),tone(r.tone)),
     el("div",{class:"tiny"},r.change==null?"":(r.change>0?"+":"")+num(r.change,2)+r.change_unit+" in "+weeks(r.days)+(r.pct_3y!=null?" · "+Math.round(r.pct_3y)+"° percentile in 3 anni":"")),
@@ -688,7 +688,7 @@ function byzCard(){const rows=D.markets.filter(m=>m.byz&&hit(m)).sort((a,b)=>(b.
     el("div",{class:"tw"},el("div",{class:"byzgrid"},el("span",{class:"tiny"},"Asset"),...["1 · Asset forte","2 · Prezzo","3 · Volatilità","4 · Tempo"].map(t=>el("span",{class:"tiny"},t)),
       ...rows.flatMap(m=>[el("button",{class:"linkish",style:"text-align:left",onclick:()=>openAsset(m.market)},m.label+(m.byz.fired?" 🟢":"")),...m.byz.conditions.map(cell)]))),
     el("p",{class:"tiny",style:"margin:6px 2px 0"},"1: il massimo da cui è sceso era il più alto dei 3 anni prima. 2: almeno −20% e tra il 10% dei cali più profondi della sua storia. 3: volatilità a 20 sedute dimezzata rispetto al picco del calo e nel terzo più basso di 2 anni. 4: nessun nuovo minimo da 40 sedute, con un'oscillazione non oltre un terzo del calo. Passa sopra una casella per i numeri."))}
-const CLASS_ICON={crypto:"🪙",equities:"📊",bonds:"🏛️",commodities:"🛢️",fx:"💱"};
+const CLASS_ICON={crypto:"🪙",equities:"📊",bonds:"🏛️",commodities:"🛢️",fx:"💱",world:"🌍",bonds_eu:"🇪🇺",credit:"💳"};
 const heatColor=h=>{const n=bin(h);return n===2?"var(--muted)":`var(--h${n})`};
 const heatTint=h=>h==null?null:h>=60?"background:var(--down)":h<40?"background:var(--cold)":null;
 function signed(v,d=0,suffix=""){return el("span",{class:v==null?"muted":v>0?"pos":v<0?"neg":"muted"},v==null?"–":sgn(v,d)+suffix)}
@@ -731,7 +731,7 @@ oggi(){
   return [
   el("div",{class:"heroCard"},el("div",null,el("p",{class:"hero",style:"margin:0"},D.overview),el("ul",{class:"brief"},(D.briefing||[]).map(x=>el("li",null,el("b",{class:"dot"},dot[x.tone]||"•"),el("span",null,x.text,tb(x.test)))))),
     el("div",null,semiGauge(fg?fg.value:null,"Fear & Greed cripto",fg?(fg.value<25?"paura estrema":fg.value<45?"paura":fg.value<55?"neutro":fg.value<75?"avidità":"avidità estrema"):""),el("div",{style:"text-align:center;margin-top:2px"},tb("FG")))),
-  el("section",{class:"grid g5"},Object.entries(D.classes).map(([k,c])=>{const col=heatColor(c.heat),n=bin(c.heat);return el("div",{class:"card cl link",role:"button",tabindex:"0",title:"Clicca per la spiegazione",style:`border-top:3px solid ${col}`,onclick:()=>classDetail(k,c),onkeydown:e=>{if(e.key==="Enter")classDetail(k,c)}},el("div",{class:"top"},el("span",{class:"small"},(CLASS_ICON[k]||"")+" "+c.name),el("span",{class:"tiny"},"forza 0–100")),
+  el("section",{class:"grid "+(Object.keys(D.classes).length>5?"g4":"g5")},Object.entries(D.classes).map(([k,c])=>{const col=heatColor(c.heat),n=bin(c.heat);return el("div",{class:"card cl link",role:"button",tabindex:"0",title:"Clicca per la spiegazione",style:`border-top:3px solid ${col}`,onclick:()=>classDetail(k,c),onkeydown:e=>{if(e.key==="Enter")classDetail(k,c)}},el("div",{class:"top"},el("span",{class:"small"},(CLASS_ICON[k]||"")+" "+c.name),el("span",{class:"tiny"},"forza 0–100")),
     el("div",{style:"display:flex;align-items:baseline;gap:8px;margin-top:2px"},el("div",{class:"big"},fmt(c.heat)),signed(c.change_7d)," ",el("span",{class:"tiny"},"in 7 giorni")),
     el("div",{class:"chipv",style:`background:var(--h${n});color:var(--i${n});margin-top:3px`},bandWord(c.band)),
     spark(c.history,col),el("div",{class:"tiny"},"▲ "+c.hottest.label+" "+fmt(c.hottest.heat)+"  ▼ "+c.coldest.label+" "+fmt(c.coldest.heat)),el("div",{class:"tiny",style:"margin-top:1px;color:var(--ink2)"},c.why))})),
@@ -1010,7 +1010,7 @@ test(){
         el("p",{class:"tiny",style:"margin:6px 2px 0"},"Dati già usati e barre sovrapposte. Sul mensile il prezzo è tornato indietro: lì il momentum non vale. "+vd("momentum")))),
     el("section",{id:"study-paper",class:"card"},el("p",{class:"muted"},"Carico le strategie in prova…"))]},
 };
-const SENT={market:"BTC",win:"2A",data:null},CLASS_RANK=["crypto","equities","bonds","commodities","fx"],SENT_WIN={"1A":365,"2A":730,"5A":1826,"Tutto":99999};
+const SENT={market:"BTC",win:"2A",data:null},CLASS_RANK=["crypto","equities","bonds","commodities","fx","world","bonds_eu","credit"],SENT_WIN={"1A":365,"2A":730,"5A":1826,"Tutto":99999};
 async function openSent(m){SENT.market=m;SENT.data=null;const b=$("#sentBox");if(b)b.replaceChildren(el("p",{class:"muted"},"Carico il grafico…"));try{const r=await fetch("/api/sentiment?market="+encodeURIComponent(m));if(SENT.market!==m)return;const j=r.ok?await r.json():null;SENT.data=j||{error:true,market:m}}catch(e){SENT.data={error:true,market:m}}drawSent()}
 const KIND={paura:{col:"var(--crit)",word:"paura estrema",mark:"▼"},euforia:{col:"var(--good)",word:"euforia estrema",mark:"▲"}};
 function moodChart(v,win){const cut=new Date(v.dates[v.dates.length-1]+"T00:00:00Z").getTime()-SENT_WIN[win]*864e5;let i0=v.dates.findIndex(d=>new Date(d+"T00:00:00Z").getTime()>=cut);if(i0<0)i0=0;

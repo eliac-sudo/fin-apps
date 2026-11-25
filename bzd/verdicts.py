@@ -163,6 +163,7 @@ def findings():
         fwd = f"La copia sulla carta è in prova: {days or 0} giorni su 120, giudizio il 25 maggio 2027."
         put("COPY", "classifica: ha memoria; copia: in prova", f"Test v9: dei 50 trader con più profitti del mese al 6 novembre, {pct_art(100 * p2['share_up'])} era ancora in utile il 25 novembre, contro il {100 * p2['share_up_rest']:.0f}% degli altri "
             f"(mediana {it(p2['median'])} contro {it(p2['median_rest'])}). Regge, ma sono 19 giorni e un solo momento di mercato, e non dice ancora che copiarli renda dopo i costi. " + fwd)
+    put("LIQ_NEW", "non testato", "Aggiunto il 25 novembre 2026 insieme ad azioni europee e asiatiche, credito e Bund. Non è mai stato confrontato con i prezzi: una regola su questa lettura si potrà giudicare solo sui dati che arrivano da ora.")
     put("LIQ_OTHER", "non testato", "M2, condizioni finanziarie e spread high yield non sono testati: il primo cambia poco, gli altri due non hanno uno storico usabile (ricalcolato all'indietro, o solo 3 anni gratis).")
     return out
 

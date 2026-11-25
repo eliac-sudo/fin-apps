@@ -20,14 +20,14 @@ from . import zones as ZN
 from . import verdicts as VD
 from .alerts import CLASS_IT, COND_IT, SETUP_IT, SETUP_MEANS, alert_dir, test_verdict
 from .events import crypto_daily, daily, read
-from .history import CRYPTO, MARKETS, safe
+from .history import CRYPTO, MARKETS, WATCH, WATCH_CLASS_IT, safe
 from .moves import NAMES as MOVE_NAMES, snapshot_files, snapshot_time
 from .recorder import BASE
 
 PLAN_KEY = {**{c: c for c in CRYPTO}, "ES=F": "sp500", "NQ=F": "nasdaq", "GC=F": "oro", "SI=F": "argento", "HG=F": "rame", "CL=F": "petrolio", "EURUSD=X": "eur", "USDJPY=X": "jpy", "GBPUSD=X": "gbp", "ZB=F": "tlt"}
 SENTIMENT_GROUPS = SM.GROUPS
 MIN_MOOD_SIGNALS = 10
-CLASS_ORDER = ("crypto", "equities", "bonds", "commodities", "fx")
+CLASS_ORDER = ("crypto", "equities", "bonds", "commodities", "fx", "world", "bonds_eu", "credit")
 
 
 def clean(x):
@@ -83,7 +83,7 @@ def markets_part():
         if g:
             s = Z.class_summary(g)
             ordered = sorted(g, key=lambda r: -r["heat"])
-            summaries[c] = {**s, "name": Z.CLASS_IT[c], "why": Z.why_text(s), "history": class_history(g), "hottest": {"label": label(ordered[0]["market"]), "heat": ordered[0]["heat"]}, "coldest": {"label": label(ordered[-1]["market"]), "heat": ordered[-1]["heat"]}}
+            summaries[c] = {**s, "name": {**Z.CLASS_IT, **WATCH_CLASS_IT}[c], "why": Z.why_text(s), "history": class_history(g), "hottest": {"label": label(ordered[0]["market"]), "heat": ordered[0]["heat"]}, "coldest": {"label": label(ordered[-1]["market"]), "heat": ordered[-1]["heat"]}}
     return out, summaries, Z.overview(summaries) if summaries else ""
 
 
@@ -96,7 +96,7 @@ def price_series(market):
 
 
 def known_market(m):
-    return m in CRYPTO or m in MARKETS
+    return m in CRYPTO or m in MARKETS or m in WATCH
 
 
 def one_month(iv):
@@ -308,7 +308,14 @@ def flows_part():
 
 
 def technical_part():
-    return [{**K.summary(m), "label": label(m), "plan_key": PLAN_KEY.get(m)} for m in K.all_markets()]
+    out = []
+    for m in K.app_markets():
+        try:
+            out.append({**K.summary(m), "label": label(m), "plan_key": PLAN_KEY.get(m)})
+        except Exception:  # noqa: BLE001 - a watched market not downloaded yet
+            if m not in WATCH:
+                raise
+    return out
 
 
 def technical_market(market):

@@ -22,7 +22,8 @@ Su 46 ipotesi pre-registrate (B3, v2–v6) più 484 combinazioni (v7) reggono so
 - **Calibrazione di Kalshi e Polymarket:** quando una domanda si chiude, salvare l'esito. Fra qualche mese si vede se il 70% diventa davvero 7 volte su 10.
 - **Chiave EIA gratuita** (previsioni sull'energia): serve che tu la registri su eia.gov.
 - **Il FMI blocca il server:** provare il nuovo portale dati (api.imf.org) o una fonte che ne ripubblica le previsioni.
-- **Bond non USA** (domanda aperta da novembre): prezzi giornalieri dei futures su Bund e BTP, per la forza e la tecnica.
+- **Bond non USA:** fatto in parte il 25 novembre 2026. Bund ogni giorno (Bundesbank e ETF EXX6) e spread BTP–Bund ogni mese (BCE). Manca un BTP giornaliero gratuito con storia lunga.
+- **Altre classi, dopo:** curva del VIX come lettura, materie prime agricole e soft con il COT (cacao, caffè, zucchero, bestiame), cambi emergenti (USD/CNH, USD/MXN).
 
 ## 3. Prove sui dati futuri, già in corso
 

@@ -3,11 +3,13 @@ title: Liquidità
 kind: calcolo
 status: descrive, non prevede; non testato
 brief: Quanta moneta gira (Fed, M2, stablecoin, credito, dollaro) e quanto facilmente si scambia ogni mercato (volumi, impatto, book).
-code: bzd/liquidity.py#macro, bzd/liquidity.py#net_liquidity, bzd/liquidity.py#markets, bzd/liquidity.py#volume_liquidity, bzd/liquidity.py#refresh_books, bzd/history.py#get_stablecoins
+code: bzd/liquidity.py#macro, bzd/liquidity.py#net_liquidity, bzd/liquidity.py#markets, bzd/liquidity.py#volume_liquidity, bzd/liquidity.py#refresh_books, bzd/history.py#get_stablecoins, bzd/liquidity.py#credit_ratio, bzd/liquidity.py#btp_bund, bzd/history.py#get_eu_rates
 data: data/hist/macro, data/hist/liquidity, data/raw/hl_l2_btc
 feeds: app
 ---
 ## In breve
+Dal 25 novembre 2026 tre letture in più, non testate: il credito come HYG diviso IEF con le cedole (dal 2007, mentre lo spread high yield di FRED è gratis solo per 3 anni), lo spread BTP–Bund a 10 anni (media del mese, BCE) e il Bund a 10 anni ogni giorno (Bundesbank).
+
 Nella scheda Oggi c'è il riquadro **Liquidità**; sulla pagina di ogni ticker una riga 💧.
 
 **Quanta moneta gira** (`bzd/liquidity.py#macro`), ogni indicatore confrontato con 13 settimane prima (le stablecoin con 30 giorni):
