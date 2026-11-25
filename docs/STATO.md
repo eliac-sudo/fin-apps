@@ -26,7 +26,7 @@ BZD raccoglie dati gratuiti su cripto, azioni, bond, materie prime e forex. Li m
 
 ## L'app, scheda per scheda
 
-Dal 25 novembre 2026 la barra delle schede ha due gruppi: davanti quelle di ogni giorno (Oggi, Analisi tecnica, Opzioni, Sentiment, Chi compra, Previsioni, Alert), poi, più piccole dopo la scritta «Laboratorio», Test, AIsetups, Piano, Bots e Motore. Anche i pulsanti che aprono il Piano da Alert e Analisi tecnica sono discreti.
+Dal 25 novembre 2026 la barra delle schede mostra solo quelle di ogni giorno (Oggi, Analisi tecnica, Opzioni, Sentiment, Chi compra, Previsioni, Alert), poi il menu «Altro ▾» con Test, AIsetups, Piano, Bots e Motore (quando se ne apre una, il menu prende il suo nome). Anche i pulsanti che aprono il Piano da Alert e Analisi tecnica sono discreti.
 
 Il codice sta in `bzd/app.py` (server), `bzd/app.html` (pagina) e `bzd/snapshot.py` (i dati). Il tasto Layout ha 4 stili. I dati si ricostruiscono in circa 30 secondi all'avvio, poi restano in cache.
 
