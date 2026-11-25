@@ -30,6 +30,14 @@ MARKETS = {
 # ETFs spot futures roll artefacts, and they are the underlyings of the recorded option chains
 ETF_CHECK = {"ES=F": "SPY", "NQ=F": "QQQ", "RTY=F": "IWM", "ZN=F": "IEF", "ZB=F": "TLT", "GC=F": "GLD", "SI=F": "SLV", "CL=F": "USO"}
 VOL_YAHOO = ["^MOVE"]
+# Followed in the app only (prices, tension, technicals, position, liquidity), added 25 Nov 2026. Not in the setups, the
+# alerts, the thermometer on Telegram or any frozen test: a reading on these is judged only on data from now on
+WATCH = {"HYG": "credit", "LQD": "credit", "^STOXX50E": "world", "^GDAXI": "world", "FTSEMIB.MI": "world", "^N225": "world",
+         "EEM": "world", "FXI": "world", "EXX6.DE": "bonds_eu"}
+WATCH_CLASS_IT = {"credit": "Credito", "world": "Azioni nel mondo", "bonds_eu": "Bond europei"}
+# 10-year yields: the Bund daily from the Bundesbank; Italy and Germany monthly from the ECB, the same measure for both, for the spread
+BUND_DAILY = "https://api.statistiken.bundesbank.de/rest/data/BBSIS/D.I.ZST.ZI.EUR.S1311.B.A604.R10XX.R.A.A._Z._Z.A?format=csv&lang=en"
+ECB_10Y = {"btp10_m": "IT", "bund10_m": "DE"}
 VOL_CBOE = {"VIX": "CLOSE", "VIX9D": "CLOSE", "VIX3M": "CLOSE", "VVIX": "VVIX", "SKEW": "SKEW", "OVX": "OVX", "GVZ": "GVZ"}
 IV_SYMBOLS = ["FXE"]  # the only market in the options message with no volatility index of its own (EVZ stopped in March 2025)
 IV_START = "2019-02"
@@ -202,7 +210,7 @@ def parse_yahoo(raw):
 
 def get_tradfi():
     """Clean tables are rebuilt from saved raw responses when those exist, so parsing fixes need no new download."""
-    for s in list(MARKETS) + list(ETF_CHECK.values()) + VOL_YAHOO:
+    for s in list(MARKETS) + list(ETF_CHECK.values()) + VOL_YAHOO + list(WATCH):
         n = safe(s)
         if done("tradfi", n):
             continue
@@ -495,6 +503,8 @@ def get_stablecoins(tag=0):
 def get_macro(force=False):
     if force or not done("macro", "stablecoins"):
         get_stablecoins()
+    if force or not done("macro", "bund10"):
+        get_eu_rates()
     key = os.environ.get("FRED_API_KEY")
     if not key:
         print("  FRED_API_KEY missing: skipping FRED", flush=True)
@@ -509,9 +519,32 @@ def get_macro(force=False):
         save("macro", "fear_greed", d.sort_values("date"), quiet=force)
 
 
+def bund_rows(raw):
+    lines = raw.decode("utf-8-sig").splitlines()
+    rows = [l.split(",")[:2] for l in lines if l[:4].isdigit() and l[4] == "-"]
+    return pd.DataFrame([(d, float(v)) for d, v in rows if v not in (".", "")], columns=["date", "value"])
+
+
+def ecb_10y_rows(raw):
+    d = pd.read_csv(io.BytesIO(raw))
+    return pd.DataFrame({"date": d.TIME_PERIOD.astype(str) + "-01", "value": d.OBS_VALUE.astype(float)}).dropna()
+
+
+def get_eu_rates(tag=0):
+    """Bund 10 years daily, and Italy and Germany 10 years monthly. Small files: fetched whole every time."""
+    save("macro", "bund10", bund_rows(get("macro", "bund10", tag, BUND_DAILY)), quiet=bool(tag))
+    for name, c in ECB_10Y.items():
+        u = f"https://data-api.ecb.europa.eu/service/data/IRS/M.{c}.L.L40.CI.0000.EUR.N.Z?format=csvdata"
+        save("macro", name, ecb_10y_rows(get("macro", name, tag, u)), quiet=bool(tag))
+
+
 def refresh_macro():
     """Last 400 days of every FRED series already downloaded, so revisions land too. Series not yet downloaded are fetched whole."""
     get_stablecoins(int(time.time()))
+    try:
+        get_eu_rates(int(time.time()))
+    except Exception as e:  # the Bundesbank or the ECB being down must not stop FRED
+        print(f"  tassi europei non aggiornati: {type(e).__name__}: {e}", flush=True)
     key = os.environ.get("FRED_API_KEY")
     if not key:
         return
@@ -579,8 +612,10 @@ def get_macro_fng_and_attention():
 def refresh_daily(with_cot=False):
     """Fetch recent daily bars and volatility indices, and the COT reports when asked."""
     tag, today = int(time.time()), datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    for s in list(MARKETS) + list(ETF_CHECK.values()) + VOL_YAHOO:
+    for s in list(MARKETS) + list(ETF_CHECK.values()) + VOL_YAHOO + list(WATCH):
         n = safe(s)
+        if not done("tradfi", n):  # a market added since the last full download
+            get_tradfi()
         d = parse_yahoo(get("live", n, tag, f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(s)}?interval=1d&range=1mo"))
         d = d[d.date < today]
         old = pd.read_csv(root() / "tradfi" / f"{n}.csv.gz")

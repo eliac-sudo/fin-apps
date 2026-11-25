@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 
 from .events import read
-from .history import CRYPTO, MARKETS, root, safe
+from .history import CRYPTO, MARKETS, WATCH, root, safe
 
 WINDOW, YEARS = 20, 3
 # Hyperliquid books recorded every 5 minutes, and the market each one stands for in the app
@@ -61,6 +61,21 @@ def stablecoins():
     return d.assign(date=pd.to_datetime(d.date)).set_index("date").usd_bn.sort_index()
 
 
+def credit_ratio():
+    """HYG over IEF on adjusted closes, so the coupons count: a credit measure with history from 2007."""
+    hy, ig = _daily("tradfi", "HYG"), _daily("tradfi", "IEF")
+    if hy is None or ig is None:
+        return None
+    px = lambda d: (d.adjclose if "adjclose" in d else d.close).where(lambda x: x > 0)
+    r = (px(hy) / px(ig).reindex(hy.index)).dropna()
+    return r.set_axis(r.index.tz_localize(None) if r.index.tz is not None else r.index)
+
+
+def btp_bund():
+    it, de = _fred("btp10_m"), _fred("bund10_m")
+    return None if it is None or de is None else (it - de.reindex(it.index)).dropna()
+
+
 def _change(s, days):
     """Change over `days` calendar days, from the last value at or before that date."""
     if s is None or len(s) < 2:
@@ -95,6 +110,9 @@ def macro():
         _indicator("stable", "Stablecoin in circolazione", sc, " mld $", "up", "Dollari digitali pronti a comprare cripto. Salgono: entra liquidità nel mercato cripto.", days=30, ratio=True, digits=0),
         _indicator("nfci", "Condizioni finanziarie (Chicago Fed)", _fred("NFCI"), "", "down", "Sotto zero sono più facili della media storica. Scende: prendere a prestito costa meno e il credito gira di più.", digits=2),
         _indicator("hy", "Spread high yield", _fred("BAMLH0A0HYM2"), " punti", "down", "Quanto in più pagano le aziende più rischiose. Si stringe: il credito è abbondante.", digits=2),
+        _indicator("credit", "Credito: high yield contro Treasury", credit_ratio(), "", "up", "HYG (obbligazioni ad alto rendimento) diviso IEF (Treasury a 7–10 anni), con le cedole. Sale: chi presta alle aziende rischiose si fida di più. Dal 2007, a differenza dello spread di FRED.", ratio=True, digits=3),
+        _indicator("btp", "Spread BTP–Bund 10 anni", btp_bund(), " punti", "down", "Quanto in più paga l'Italia della Germania a 10 anni, media del mese (BCE). Si allarga: stress sull'euro e sulle banche europee.", days=92, digits=2),
+        _indicator("bund", "Bund 10 anni", _fred("bund10"), "%", "down", "Il tasso a 10 anni della Germania, ogni giorno (Bundesbank). Scende: denaro più facile in Europa.", digits=2),
         _indicator("usd", "Dollaro (indice ampio)", _fred("DTWEXBGS"), "", "down", "Un dollaro forte stringe la liquidità nel mondo, perché molti debiti sono in dollari.", ratio=True, digits=1),
     ]
     rows = [r for r in rows if r]
@@ -218,7 +236,8 @@ def markets():
             v = volume_liquidity(d.close, d.volume_usd)
             if v:
                 out[a] = v
-    for s, (cls, _) in MARKETS.items():
+    # indices carry no dollar volume, so only the watched ETFs join
+    for s, cls in [*((s, c) for s, (c, _) in MARKETS.items()), *((s, c) for s, c in WATCH.items() if not s.startswith("^") and not s.endswith(".MI"))]:
         d = _daily("tradfi", safe(s))
         if d is None or "volume" not in d or cls == "fx":  # Yahoo gives no volume for currency pairs
             continue

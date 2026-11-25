@@ -15,13 +15,15 @@ import pandas as pd
 from . import indicators as I
 from . import verdicts as V
 from .events import align_cot, crypto_daily, daily, read
-from .history import CRYPTO, MARKETS, safe
+from .history import CRYPTO, MARKETS, WATCH, WATCH_CLASS_IT, safe
 from .recorder import load_env
 from .setups import VOL_INDEX, load_crypto, load_vol_index
 
 LABELS = {"ES=F": "S&amp;P 500", "NQ=F": "Nasdaq", "RTY=F": "Russell", "ZT=F": "2 anni", "ZF=F": "5 anni", "ZN=F": "10 anni", "ZB=F": "30 anni", "CL=F": "Petrolio", "NG=F": "Gas",
           "GC=F": "Oro", "SI=F": "Argento", "HG=F": "Rame", "ZC=F": "Mais", "ZW=F": "Grano", "ZS=F": "Soia", "EURUSD=X": "EUR/USD", "USDJPY=X": "USD/JPY", "GBPUSD=X": "GBP/USD",
-          "AUDUSD=X": "AUD/USD", "USDCHF=X": "USD/CHF", "USDCAD=X": "USD/CAD"}
+          "AUDUSD=X": "AUD/USD", "USDCHF=X": "USD/CHF", "USDCAD=X": "USD/CAD",
+          "HYG": "High yield USA (HYG)", "LQD": "Investment grade USA (LQD)", "^STOXX50E": "Euro Stoxx 50", "^GDAXI": "DAX", "FTSEMIB.MI": "FTSE MIB",
+          "^N225": "Nikkei 225", "EEM": "Emergenti (EEM)", "FXI": "Cina (FXI)", "EXX6.DE": "Bund lunghi (EXX6)"}
 BANDS = ((80, "🔺 ipercomprato"), (60, "↗ sopra la norma"), (40, "⚖ nella norma"), (20, "↘ sotto la norma"), (0, "🔻 ipervenduto"))
 HIGH_BANDS, LOW_BANDS = {BANDS[0][1], BANDS[1][1]}, {BANDS[3][1], BANDS[4][1]}
 COT_AGAINST_PAIR = {"USDJPY=X", "USDCHF=X", "USDCAD=X"}  # the futures are long the yen, franc or Canadian dollar, so long speculators are betting on the pair falling
@@ -106,6 +108,11 @@ def all_readings():
         out.append(crypto_reading(a))
     for s, (c, _) in MARKETS.items():
         out.append(daily_reading(s, c))
+    for s, c in WATCH.items():  # the app's classes only: build_digest keeps to CLASS_IT, so these never reach Telegram
+        try:
+            out.append(daily_reading(s, c))
+        except Exception:  # noqa: BLE001 - a market not downloaded yet
+            pass
     return out
 
 
@@ -185,13 +192,13 @@ def why_text(s):
 
 def overview(summaries):
     """The whole picture in one sentence, without the reader having to compare numbers."""
-    names = {b: [CLASS_IT[c] for c, s in summaries.items() if s["band"] == b] for b in {s["band"] for s in summaries.values()}}
+    names = {b: [{**CLASS_IT, **WATCH_CLASS_IT}[c] for c, s in summaries.items() if s["band"] == b] for b in {s["band"] for s in summaries.values()}}
     hot = [c for b, g in names.items() if b in HIGH_BANDS for c in g]
     cold = [c for b, g in names.items() if b in LOW_BANDS for c in g]
     moved = max(((c, s) for c, s in summaries.items() if s["change_7d"] is not None), key=lambda x: abs(x[1]["change_7d"]), default=None)
     text = (f"Sopra la norma: {', '.join(hot)}. " if hot else "Nessun gruppo sopra la norma. ") + (f"Sotto la norma: {', '.join(cold)}." if cold else "Nessun gruppo sotto la norma.")
     if moved and abs(moved[1]["change_7d"]) >= 5:
-        text += f" Il cambiamento più forte degli ultimi 7 giorni riguarda {CLASS_IT[moved[0]]} ({moved[1]['change_7d']:+.0f})."
+        text += f" Il cambiamento più forte degli ultimi 7 giorni riguarda { {**CLASS_IT, **WATCH_CLASS_IT}[moved[0]]} ({moved[1]['change_7d']:+.0f})."
     return text
 
 

@@ -14,7 +14,7 @@ import pandas as pd
 from . import indicators as I
 from . import verdicts as V
 from .events import daily, read
-from .history import CRYPTO, MARKETS, safe
+from .history import CRYPTO, MARKETS, WATCH, safe
 
 FRAMES = {"4h": {"bars": 360, "swing": 5}, "1d": {"bars": 400, "swing": 5}, "1w": {"bars": 200, "swing": 3}, "1M": {"bars": 120, "swing": 2}}
 LEVEL_WIDTH_ATR = .25  # swings closer than this are one level
@@ -225,7 +225,13 @@ def find_reset(market, tf, close, fired):
 
 
 def all_markets():
+    """The markets whose resets go to the bot."""
     return [*CRYPTO, *MARKETS]
+
+
+def app_markets():
+    """Every market the app shows, the watched ones included: they never reach the bot."""
+    return [*all_markets(), *WATCH]
 
 
 def check_resets(st, now):
