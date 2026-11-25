@@ -28,7 +28,7 @@ from .recorder import BASE, load_env
 DOCS = BASE / "docs" / "letteratura"
 REPORT = DOCS / "REPORT_GEMINI.md"
 MAX_TOKENS = 16000
-MAX_TOKENS_FOR = {"aisetups": 32000}  # 15 candidates do not fit in 16000
+MAX_TOKENS_FOR = {"aisetups": 21000}  # 15 candidates do not fit in 16000; above ~21300 the SDK requires streaming
 EFFORT = {"read": "medium", "ideas": "high", "aisetups": "medium"}
 # A rough guess for `stima`, overstated on purpose: thinking counts as output and its length isn't known in advance
 GUESS_OUT = {"read": 4000, "ideas": 16000}
